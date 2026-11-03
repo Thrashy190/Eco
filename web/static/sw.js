@@ -1,7 +1,7 @@
 // Keeps the app shell so it opens instantly and even offline. It never touches /rest or /api:
 // audio and data always come from the server (audio needs Range requests, which a service worker
 // does not handle well). Songs saved for offline live in IndexedDB, not here.
-const CACHE = "eco-shell-v4";
+const CACHE = "eco-shell-v5";
 const SHELL = [
   "/", "/style.css", "/manifest.webmanifest", "/icon.svg", "/icon-192.png",
   "/boot.js", "/js/app.js", "/js/settings.js", "/js/settings-view.js", "/js/media-view.js", "/js/api.js", "/js/components.js", "/js/downloads.js", "/js/md5.js",

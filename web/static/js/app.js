@@ -9,20 +9,6 @@ import { settingsView } from "./settings-view.js";
 import { mount as mountPlayer } from "./nowplaying.js";
 
 const root = document.getElementById("root");
-const bootedAt = performance.now();
-
-/** Fade the splash screen away, but never so fast that it just flashes. */
-let splashGone = false;
-setTimeout(() => hideSplash(), 6000); // failsafe: a startup problem must never leave the splash covering the app
-function hideSplash() {
-  const splash = document.getElementById("splash");
-  if (splashGone || !splash) return;
-  splashGone = true;
-  setTimeout(() => {
-    splash.classList.add("leaving");
-    setTimeout(() => splash.remove(), 500);
-  }, Math.max(0, 1000 - (performance.now() - bootedAt)));
-}
 
 const ROUTES = {
   home: views.home,
@@ -71,7 +57,6 @@ function showLogin() {
   h("input", { name: "password", type: "password", placeholder: "Password", autocomplete: "current-password", required: true }),
   submit, error);
   root.replaceChildren(h("div", { class: "login-wrap" }, form));
-  hideSplash();
 }
 
 // ---------------- Shell ----------------
@@ -109,8 +94,7 @@ async function navigate() {
   } catch (e) {
     if (mine === navigation) view.replaceChildren(h("p", { class: "empty" }, e.message));
   } finally {
-    hideSplash();
-  }
+    }
 }
 
 window.addEventListener("hashchange", navigate);
