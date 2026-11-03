@@ -1,0 +1,124 @@
+# eco — everything you need to run your own music app.
+#
+#   docker compose up -d                                  Navidrome + eco (the core)
+#   docker compose --profile tunnel up -d                 + a Cloudflare tunnel to reach it from anywhere
+#   docker compose --profile uploads up -d                + a web page to upload your own music files
+#   docker compose --profile downloads up -d              + Lidarr / Prowlarr / qBittorrent (album downloads)
+#
+# Set COMPOSE_PROFILES=tunnel,uploads in .env to make profiles the default. See README.md.
+name: eco
+
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: navidrome
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    ports:
+      # Only needed to create the first user and for the admin UI. eco reaches Navidrome internally.
+      - "${ND_BIND:-127.0.0.1}:4533:4533"
+    environment:
+      ND_SCANSCHEDULE: 1m
+      ND_SESSIONTIMEOUT: 720h
+    volumes:
+      - ./navidrome:/data
+      - ${DATA_DIR:-./data}/music:/music:ro # read-only: Navidrome never changes your files
+
+  eco:
+    build: .
+    image: eco:local
+    container_name: eco
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    depends_on:
+      - navidrome
+    ports:
+      - "${ECO_BIND:-127.0.0.1}:${ECO_PORT:-8000}:8000"
+    environment:
+      ECO_NAVIDROME_URL: http://navidrome:4533
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
+      # A browser is not available inside the container: give yt-dlp a cookies.txt (see README, "YouTube cookies")
+      YT_COOKIES_FILE: ${YT_COOKIES_FILE:-/secrets/cookies.txt}
+      # Only for `docker compose run eco likes favorites` (a Navidrome account whose favourites to fill)
+      ND_USER: ${ND_USER:-}
+      ND_PASS: ${ND_PASS:-}
+    volumes:
+      - ${DATA_DIR:-./data}:/data # eco writes downloads to music/YouTube
+      - ./secrets:/secrets:ro
+
+  # ---- profile: tunnel ----
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      - eco
+
+  # ---- profile: uploads ----
+  filebrowser:
+    profiles: [uploads]
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: unless-stopped
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # No published ports: reach it through the tunnel, protected by Cloudflare Access.
+    # It only sees music/Uploads, never the rest of your library.
+    volumes:
+      - ${DATA_DIR:-./data}/music/Uploads:/srv
+      - ./filebrowser/database:/database
+      - ./filebrowser/config:/config
+
+  # ---- profile: downloads (album-level downloads through the *arr stack) ----
+  lidarr:
+    profiles: [downloads]
+    image: lscr.io/linuxserver/lidarr:latest
+    container_name: lidarr
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      ND_URL: http://navidrome:4533
+      ND_USER: ${ND_USER:-}
+      ND_PASS: ${ND_PASS:-}
+    volumes:
+      - ./lidarr:/config
+      - ${DATA_DIR:-./data}:/data # same mount as qBittorrent: lets Lidarr hardlink instead of copying
+      - ./scripts:/scripts:ro
+    ports:
+      - "127.0.0.1:8686:8686"
+
+  prowlarr:
+    profiles: [downloads]
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./prowlarr:/config
+    ports:
+      - "127.0.0.1:9696:9696"
+
+  qbittorrent:
+    profiles: [downloads]
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    restart: unless-stopped
+    environment:
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      WEBUI_PORT: 8080
+    volumes:
+      - ./qbittorrent:/config
+      - ${DATA_DIR:-./data}:/data
+    ports:
+      - "127.0.0.1:8080:8080"

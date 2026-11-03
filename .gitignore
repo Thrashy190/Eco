@@ -1,0 +1,16 @@
+# Secrets and personal state
+.env
+.spotify_token.json
+secrets/
+data/
+
+# Service configuration generated at runtime
+navidrome/
+lidarr/
+prowlarr/
+qbittorrent/
+filebrowser/
+
+# Build output and tooling
+bin/
+node_modules/

@@ -1,0 +1,15 @@
+.git
+.github
+.env
+.spotify_token.json
+data/
+bin/
+navidrome/
+lidarr/
+prowlarr/
+qbittorrent/
+filebrowser/
+secrets/
+.venv/
+node_modules/
+*.md

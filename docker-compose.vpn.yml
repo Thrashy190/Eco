@@ -1,0 +1,28 @@
+# Optional: put qBittorrent behind a VPN with a kill switch (if the VPN drops, qBittorrent has no network).
+# Needs Docker Compose >= 2.24 (for `!reset`). With the VPN, Lidarr must reach the download client at host `gluetun`.
+#
+#   docker compose --profile downloads -f docker-compose.yml -f docker-compose.vpn.yml up -d
+#
+# Fill VPN_PROVIDER, WG_PRIVATE_KEY, WG_ADDRESSES and VPN_COUNTRY in .env
+# (see https://github.com/qdm12/gluetun-wiki for your provider).
+services:
+  gluetun:
+    profiles: [downloads]
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    environment:
+      VPN_SERVICE_PROVIDER: ${VPN_PROVIDER}
+      VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: ${WG_PRIVATE_KEY}
+      WIREGUARD_ADDRESSES: ${WG_ADDRESSES}
+      SERVER_COUNTRIES: ${VPN_COUNTRY}
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  qbittorrent:
+    network_mode: "service:gluetun"
+    depends_on: [gluetun]
+    ports: !reset []
