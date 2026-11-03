@@ -2,19 +2,21 @@ package server
 
 import (
 	"context"
+	"errors"
+	"log"
 	"net/http"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/Thrashy190/eco/internal/catalog"
 	"github.com/Thrashy190/eco/internal/engine"
 	"github.com/Thrashy190/eco/internal/jobs"
 	"github.com/Thrashy190/eco/internal/match"
-	"github.com/Thrashy190/eco/internal/spotify"
 	"github.com/Thrashy190/eco/internal/subsonic"
+	"github.com/Thrashy190/eco/internal/ytdlp"
 )
 
 // ---- JSON shapes (what the web app receives) ----
@@ -50,12 +52,12 @@ type albumOut struct {
 
 // externalOut is a song that is not in the library yet and can be downloaded.
 type externalOut struct {
-	SpotifyID string `json:"spotify_id"`
-	Title     string `json:"title"`
-	Artist    string `json:"artist"`
-	Album     string `json:"album"`
-	Duration  int    `json:"duration"`
-	CoverURL  string `json:"cover_url,omitempty"`
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Artist   string `json:"artist"`
+	Album    string `json:"album"`
+	Duration int    `json:"duration"`
+	CoverURL string `json:"cover_url,omitempty"`
 }
 
 func songsOut(in []subsonic.Song) []songOut {
@@ -74,139 +76,154 @@ func albumsOut(in []subsonic.Album) []albumOut {
 	return out
 }
 
-// ---- Spotify results that are not in the library ----
+// ---- Catalogue results that are not in the library ----
 
-// external turns Spotify tracks into download candidates, dropping what the library already has,
-// duplicates, and anything in skip (keys already listed).
-func external(tracks []spotify.Track, lib *snapshot, seen map[string]bool) []externalOut {
+// external turns catalogue tracks into download candidates, dropping what the library already has and duplicates.
+func external(tracks []catalog.Track, lib *snapshot, seen map[string]bool) []externalOut {
 	var out []externalOut
 	for _, t := range tracks {
-		m := t.Meta()
-		key := match.Norm(m.Title) + "|" + match.FirstArtist(m.Artist)
-		if seen[key] || (lib != nil && lib.has(m.Title, m.Artist)) {
+		key := match.Norm(t.Title) + "|" + match.FirstArtist(t.Artist)
+		if seen[key] || (lib != nil && lib.has(t.Title, t.Artist)) {
 			continue
 		}
 		seen[key] = true
-		out = append(out, externalOut{t.ID, m.Title, m.Artist, m.Album, m.DurationMs / 1000, m.CoverURL})
+		out = append(out, externalOut{t.ID, t.Title, t.Artist, t.Album, t.DurationMs / 1000, t.CoverURL})
 	}
 	return out
-}
-
-// artistTracks lists Spotify tracks credited to the artist called name (up to three pages).
-func (s *Server) artistTracks(ctx context.Context, name string) []spotify.Track {
-	var out []spotify.Track
-	want := match.Norm(name)
-	for offset := 0; offset < 3*spotify.PageSize; offset += spotify.PageSize {
-		page, err := s.eng.Spotify.SearchTracks(ctx, `artist:"`+name+`"`, offset)
-		if err != nil || len(page) == 0 {
-			break
-		}
-		for _, t := range page {
-			for _, a := range t.Artists {
-				if match.Norm(a.Name) == want {
-					out = append(out, t)
-					break
-				}
-			}
-		}
-	}
-	return out
-}
-
-// artistMatch returns the Spotify artist a query is clearly asking for, if any.
-func artistMatch(query string, artists []spotify.Artist) (string, bool) {
-	q := match.Norm(query)
-	if len(q) < 3 {
-		return "", false
-	}
-	for _, a := range artists {
-		if n := match.Norm(a.Name); n == q || strings.HasPrefix(n, q+" ") {
-			return a.Name, true
-		}
-	}
-	return "", false
 }
 
 // ---- Handlers ----
 
+// catalogTimeout is how long anything waits for the catalogue. The library is what matters; a catalogue only adds to
+// it. It has to cover MusicBrainz's one request per second, and a slow answer can take seconds.
+const catalogTimeout = 15 * time.Second
+
+func catalogContext(r *http.Request) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(r.Context(), catalogTimeout)
+}
+
+// catalogWarning says in plain words why the results stop at the library.
+func (s *Server) catalogWarning(err error) string {
+	switch {
+	case catalog.IsBusy(err):
+		return err.Error() + ". Your library still works."
+	case errors.Is(err, context.DeadlineExceeded):
+		return "The catalogue is taking too long to answer. Your library still works."
+	default:
+		return "Could not search beyond your library: " + err.Error()
+	}
+}
+
+// search looks in the library only. It never waits for the catalogue (see searchExternal), so it answers right away.
 func (s *Server) search(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	resp := map[string]any{"songs": []songOut{}, "artists": []artistOut{}, "external": []externalOut{}}
 	if len([]rune(q)) < 2 {
-		respond(w, http.StatusOK, resp)
+		respond(w, http.StatusOK, map[string]any{"songs": []songOut{}, "artists": []artistOut{}, "albums": []albumOut{}})
 		return
 	}
-	var (
-		wg        sync.WaitGroup
-		local     subsonic.SearchResult
-		lib       *snapshot
-		tracks    []spotify.Track
-		artists   []spotify.Artist
-		errLocal  error
-		errLib    error
-		errSpot   error
-		spotifyOK = s.cfg.SpotifyID != ""
-	)
-	wg.Add(3)
-	go func() { defer wg.Done(); local, errLocal = s.nd.Search(r.Context(), cred, q, 30, 0, 8) }()
-	go func() { defer wg.Done(); lib, errLib = s.library(r.Context(), cred) }()
-	go func() {
-		defer wg.Done()
-		if !spotifyOK {
-			return
-		}
-		tracks, errSpot = s.eng.Spotify.SearchTracks(r.Context(), q, 0)
-		if errSpot == nil {
-			artists, _ = s.eng.Spotify.SearchArtists(r.Context(), q)
-		}
-	}()
-	wg.Wait()
-	if errLocal != nil {
-		fail(w, http.StatusBadGateway, "Navidrome: "+errLocal.Error())
+	local, err := s.nd.Search(r.Context(), cred, q, 30, 0, 8, 8)
+	if err != nil {
+		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
 		return
 	}
-	if errLib != nil {
-		lib = nil // still useful without the "already owned" filter
-	}
-
-	resp["songs"] = songsOut(local.Songs)
 	arts := make([]artistOut, len(local.Artists))
 	for i, a := range local.Artists {
 		arts[i] = artistOut{a.ID, a.Name, a.CoverArt, a.AlbumCount}
 	}
-	resp["artists"] = arts
+	respond(w, http.StatusOK, map[string]any{"songs": songsOut(local.Songs), "artists": arts, "albums": albumsOut(local.Albums)})
+}
 
-	seen := map[string]bool{}
-	ext := external(tracks, lib, seen)
-	if name, ok := artistMatch(q, artists); ok { // searching an artist: also list their other songs
-		ext = append(ext, external(s.artistTracks(r.Context(), name), lib, seen)...)
+// searchExternal adds what the catalogue has and the library does not. hide_albums names library albums it also
+// returned: its page lists every track, so showing both would be a duplicate.
+func (s *Server) searchExternal(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	resp := map[string]any{"external": []externalOut{}, "external_albums": []externalAlbumOut{}, "hide_albums": []string{}}
+	if len([]rune(q)) < 2 {
+		respond(w, http.StatusOK, resp)
+		return
 	}
+	source := s.eng.Catalog
+	if err := source.Ready(); err != nil {
+		resp["warning"] = err.Error()
+		respond(w, http.StatusOK, resp)
+		return
+	}
+	ctx, cancel := catalogContext(r)
+	defer cancel()
+	found, errSearch := source.Search(ctx, q)
+
+	lib, err := s.library(r.Context(), cred)
+	if err != nil {
+		lib = nil // still useful without the "already owned" filter
+	}
+	ext := external(found.Tracks, lib, map[string]bool{})
 	if len(ext) > 40 {
 		ext = ext[:40]
 	}
-	resp["external"] = ext
-	switch {
-	case !spotifyOK:
-		resp["warning"] = "Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET to search beyond your library."
-	case errSpot != nil:
-		resp["warning"] = "Could not search beyond your library: " + errSpot.Error()
+	if ext != nil {
+		resp["external"] = ext
+	}
+	extAlbums := externalAlbums(found.Albums)
+	resp["external_albums"] = extAlbums
+	if local, err := s.nd.Search(r.Context(), cred, q, 0, 0, 0, 8); err == nil {
+		resp["hide_albums"] = duplicateAlbums(local.Albums, extAlbums)
+	}
+	if errSearch != nil {
+		resp["warning"] = s.catalogWarning(errSearch)
 	}
 	respond(w, http.StatusOK, resp)
 }
 
-// discover lists songs by an artist that the library does not have yet.
+// discover lists what the catalogue has by an artist and the library does not: songs and albums.
 func (s *Server) discover(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	name := strings.TrimSpace(r.URL.Query().Get("artist"))
 	if name == "" {
 		fail(w, http.StatusBadRequest, "artist is required")
 		return
 	}
-	lib, _ := s.library(r.Context(), cred)
-	ext := external(s.artistTracks(r.Context(), name), lib, map[string]bool{})
-	if ext == nil {
-		ext = []externalOut{}
+	resp := map[string]any{"external": []externalOut{}, "albums": []externalAlbumOut{}}
+	source := s.eng.Catalog
+	if source.Ready() != nil {
+		respond(w, http.StatusOK, resp)
+		return
 	}
-	respond(w, http.StatusOK, map[string]any{"external": ext})
+	ctx, cancel := catalogContext(r)
+	defer cancel()
+	lib, _ := s.library(r.Context(), cred)
+	tracks, albums, err := source.ByArtist(ctx, name)
+	ext := external(tracks, lib, map[string]bool{})
+	if len(ext) > 40 {
+		ext = ext[:40]
+	}
+	if ext != nil {
+		resp["external"] = ext
+	}
+	resp["albums"] = missingAlbums(albums, name, lib)
+	if err != nil {
+		resp["warning"] = s.catalogWarning(err)
+	}
+	respond(w, http.StatusOK, resp)
+}
+
+// artistLookup finds the library's artist with exactly this name, so a name can be followed to its page.
+func (s *Server) artistLookup(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		fail(w, http.StatusBadRequest, "name is required")
+		return
+	}
+	found, err := s.nd.Search(r.Context(), cred, name, 0, 0, 20, 0)
+	if err != nil {
+		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
+		return
+	}
+	for _, a := range found.Artists {
+		if match.Norm(a.Name) == match.Norm(name) {
+			respond(w, http.StatusOK, map[string]any{"id": a.ID, "name": a.Name})
+			return
+		}
+	}
+	respond(w, http.StatusOK, map[string]any{"id": "", "name": name})
 }
 
 // home gathers what the start page shows, in parallel.
@@ -225,7 +242,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request, cred subsonic.Cred
 	wg.Wait()
 
 	var fresh []jobs.Job
-	for _, j := range s.jobs.List() {
+	for _, j := range s.jobs.List(cred.User) {
 		if j.State == jobs.Ready {
 			fresh = append(fresh, j)
 		}
@@ -264,16 +281,14 @@ func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cre
 	respond(w, http.StatusOK, map[string]any{"songs": songsOut(lib.songs[offset:end]), "total": len(lib.songs), "has_more": end < len(lib.songs)})
 }
 
-var spotifyID = regexp.MustCompile(`^[A-Za-z0-9]{22}$`)
-
 func (s *Server) download(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	if r.Method != http.MethodPost {
 		fail(w, http.StatusMethodNotAllowed, "use POST")
 		return
 	}
-	id := r.URL.Query().Get("spotify_id")
-	if !spotifyID.MatchString(id) {
-		fail(w, http.StatusBadRequest, "invalid spotify_id")
+	id := r.URL.Query().Get("id")
+	if !s.eng.Catalog.ValidID(id) {
+		fail(w, http.StatusBadRequest, "invalid id")
 		return
 	}
 	job, isNew := s.jobs.Submit(id, cred.User, cred)
@@ -284,21 +299,58 @@ func (s *Server) download(w http.ResponseWriter, r *http.Request, cred subsonic.
 	respond(w, code, job)
 }
 
-func (s *Server) listJobs(w http.ResponseWriter, _ *http.Request, _ subsonic.Cred) {
-	respond(w, http.StatusOK, s.jobs.List())
+func (s *Server) listJobs(w http.ResponseWriter, _ *http.Request, cred subsonic.Cred) {
+	respond(w, http.StatusOK, s.jobs.List(cred.User))
 }
+
+// youtubePause is how long downloads stop after YouTube answers "not a bot". Retrying makes it worse, and with a whole
+// imported playlist in the queue every song in it would retry.
+const youtubePause = 30 * time.Minute
 
 // runJob downloads one song and then waits for Navidrome to index it so the app can play it right away.
 func (s *Server) runJob(ctx context.Context, job jobs.Job, payload any, set func(func(*jobs.Job))) error {
-	if p, ok := payload.(mediaPayload); ok {
+	s.mu.Lock()
+	paused := time.Now().Before(s.youtubeBlocked)
+	s.mu.Unlock()
+	if paused {
+		return errors.New("YouTube asked eco to stop for a while. Try again later, or set up cookies (see docs/configuration.md)")
+	}
+	err := s.runDownload(ctx, job, payload, set)
+	if err != nil && ytdlp.IsBlocked(err) {
+		s.mu.Lock()
+		s.youtubeBlocked = time.Now().Add(youtubePause)
+		s.mu.Unlock()
+	}
+	return err
+}
+
+func (s *Server) runDownload(ctx context.Context, job jobs.Job, payload any, set func(func(*jobs.Job))) error {
+	switch p := payload.(type) {
+	case mediaPayload:
 		return s.runMedia(ctx, p, set)
-	}
-	cred, _ := payload.(subsonic.Cred)
-	track, err := s.eng.Spotify.Track(ctx, job.SpotifyID)
-	if err != nil {
+	case importPayload:
+		m := s.metaForImport(ctx, p.Row)
+		err := s.fetchSong(ctx, m, p.Cred, set)
+		if err == nil {
+			if imp, ok := s.users.Import(p.Cred.User, p.ImportID); ok {
+				if _, err := s.syncImport(ctx, p.Cred, imp); err != nil {
+					log.Printf("updating the playlist of import %s: %v", imp.Name, err)
+				}
+			}
+		}
 		return err
+	case subsonic.Cred:
+		track, err := s.eng.Catalog.Track(ctx, job.Key)
+		if err != nil {
+			return err
+		}
+		return s.fetchSong(ctx, track.Meta, p, set)
 	}
-	m := track.Meta()
+	return errors.New("unknown kind of job")
+}
+
+// fetchSong downloads one song and waits for Navidrome to list it.
+func (s *Server) fetchSong(ctx context.Context, m catalog.Meta, cred subsonic.Cred, set func(func(*jobs.Job))) error {
 	set(func(j *jobs.Job) { j.Title, j.Artist, j.Album, j.State = m.Title, m.Artist, m.Album, jobs.Searching })
 
 	path, err := s.eng.DownloadSong(ctx, m, func(st engine.Stage, pct float64) {
@@ -321,7 +373,7 @@ func (s *Server) runJob(ctx context.Context, job jobs.Job, payload any, set func
 	s.nd.StartScan(scan, cred)
 	for scan.Err() == nil {
 		time.Sleep(time.Second)
-		res, err := s.nd.Search(scan, cred, m.Title, 20, 0, 0)
+		res, err := s.nd.Search(scan, cred, m.Title, 20, 0, 0, 0)
 		if err != nil {
 			continue
 		}

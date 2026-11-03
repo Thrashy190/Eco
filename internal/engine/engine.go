@@ -1,4 +1,4 @@
-// Package engine turns "a Spotify track" into "a tagged file in the library":
+// Package engine turns "a song in the catalogue" into "a tagged file in the library":
 // find the right video, download its audio, write the tags and cover, put it where it belongs.
 // Both the CLI and the web server use it.
 package engine
@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Thrashy190/eco/internal/catalog"
+	"github.com/Thrashy190/eco/internal/catalog/itunes"
+	"github.com/Thrashy190/eco/internal/catalog/musicbrainz"
 	"github.com/Thrashy190/eco/internal/config"
 	"github.com/Thrashy190/eco/internal/library"
 	"github.com/Thrashy190/eco/internal/match"
@@ -39,17 +42,30 @@ const Codec = "m4a"
 type Engine struct {
 	Cfg     *config.Config
 	YT      *ytdlp.Runner
-	Spotify *spotify.Client // app credentials: search and track metadata
+	Catalog catalog.Source  // search and song information
+	Spotify *spotify.Client // app credentials, for `eco get -s` and CATALOG=spotify
 	http    *http.Client
 }
 
 // New builds an engine from the configuration.
 func New(cfg *config.Config) *Engine {
+	client := spotify.New(&spotify.AppCredentials{ID: cfg.SpotifyID, Secret: cfg.SpotifySecret})
+	var source catalog.Source = musicbrainz.New(cfg.MusicBrainzURL)
+	if cfg.Catalog == "spotify" {
+		spot := &spotify.Source{Client: client}
+		if cfg.SpotifyID == "" || cfg.SpotifySecret == "" {
+			spot.Missing = "CATALOG=spotify needs SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET"
+		}
+		source = spot
+	} else if cfg.CatalogBackup == "itunes" {
+		source = &catalog.Fallback{Main: source, Backup: itunes.New(cfg.ITunesCountry)}
+	}
 	return &Engine{
 		Cfg: cfg,
 		YT: &ytdlp.Runner{Bin: cfg.YtDlp, CookiesBrowser: cfg.CookiesBrowser,
 			CookiesFile: cfg.CookiesFile, JSRuntimes: cfg.JSRuntimes},
-		Spotify: spotify.New(&spotify.AppCredentials{ID: cfg.SpotifyID, Secret: cfg.SpotifySecret}),
+		Catalog: source,
+		Spotify: client,
 		http:    &http.Client{Timeout: 30 * time.Second},
 	}
 }
@@ -92,14 +108,14 @@ func (e *Engine) FindVideo(ctx context.Context, song match.Song) (match.Result, 
 	return best, ok, nil
 }
 
-// SongOf describes a Spotify track as something to look for.
-func SongOf(m spotify.Meta) match.Song {
+// SongOf describes a song as something to look for.
+func SongOf(m catalog.Meta) match.Song {
 	return match.Song{Title: m.Title, Artist: m.Artist, DurationSec: float64(m.DurationMs) / 1000}
 }
 
 // Fetch downloads link, tags it with m and stores it under destDir. It returns the final path.
 // progress receives the audio download percentage (0–100) and may be nil.
-func (e *Engine) Fetch(ctx context.Context, link string, m spotify.Meta, destDir string, progress func(Stage, float64)) (string, error) {
+func (e *Engine) Fetch(ctx context.Context, link string, m catalog.Meta, destDir string, progress func(Stage, float64)) (string, error) {
 	say := func(s Stage, p float64) {
 		if progress != nil {
 			progress(s, p)
@@ -124,6 +140,11 @@ func (e *Engine) Fetch(ctx context.Context, link string, m spotify.Meta, destDir
 	}
 	say(Tagging, 100)
 	cover := e.fetchCover(ctx, m.CoverURL)
+	if finder, ok := e.Catalog.(catalog.CoverFinder); ok && len(cover) == 0 { // a volunteer catalogue may have no picture
+		find, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cover = e.fetchCover(ctx, finder.FindCover(find, m.Album, m.Artist))
+		cancel()
+	}
 	if err := tag.Write(ctx, e.Cfg.FFmpeg, audio, Codec, m, cover); err != nil {
 		return "", err
 	}
@@ -165,7 +186,7 @@ func (e *Engine) fetchCover(ctx context.Context, link string) []byte {
 var ErrNoMatch = errors.New("no confident match on YouTube")
 
 // DownloadSong finds a video for m, downloads it and stores it in the library. It returns the final path.
-func (e *Engine) DownloadSong(ctx context.Context, m spotify.Meta, progress func(Stage, float64)) (string, error) {
+func (e *Engine) DownloadSong(ctx context.Context, m catalog.Meta, progress func(Stage, float64)) (string, error) {
 	if progress != nil {
 		progress(Searching, 0)
 	}
@@ -183,13 +204,12 @@ func (e *Engine) DownloadSong(ctx context.Context, m spotify.Meta, progress func
 	return e.Fetch(ctx, "https://www.youtube.com/watch?v="+res.Video.ID, m, e.DestDir(), progress)
 }
 
-// DownloadTrack is DownloadSong for a Spotify track ID.
-func (e *Engine) DownloadTrack(ctx context.Context, trackID string, progress func(Stage, float64)) (spotify.Meta, string, error) {
-	t, err := e.Spotify.Track(ctx, trackID)
+// DownloadTrack is DownloadSong for a song in the catalogue.
+func (e *Engine) DownloadTrack(ctx context.Context, trackID string, progress func(Stage, float64)) (catalog.Meta, string, error) {
+	t, err := e.Catalog.Track(ctx, trackID)
 	if err != nil {
-		return spotify.Meta{}, "", err
+		return catalog.Meta{}, "", err
 	}
-	m := t.Meta()
-	path, err := e.DownloadSong(ctx, m, progress)
-	return m, path, err
+	path, err := e.DownloadSong(ctx, t.Meta, progress)
+	return t.Meta, path, err
 }

@@ -60,6 +60,10 @@ type Song struct {
 	CoverArt string `json:"coverArt"`
 	Year     int    `json:"year"`
 	Starred  string `json:"starred"` // when the user favourited it; empty if not
+	Size     int64  `json:"size"`    // of the file, in bytes
+	Suffix   string `json:"suffix"`  // the file's extension
+	// AlbumArtist is the artist of the album the song is on (an OpenSubsonic field).
+	AlbumArtist string `json:"displayAlbumArtist"`
 }
 
 // Album is an album in the library.
@@ -90,6 +94,7 @@ type response struct {
 		Search struct {
 			Songs   []Song   `json:"song"`
 			Artists []Artist `json:"artist"`
+			Albums  []Album  `json:"album"`
 		} `json:"searchResult3"`
 		AlbumList struct {
 			Albums []Album `json:"album"`
@@ -103,11 +108,27 @@ type response struct {
 		Playlists struct {
 			List []Playlist `json:"playlist"`
 		} `json:"playlists"`
+		Song     Song `json:"song"`
+		Playlist struct {
+			ID      string `json:"id"`
+			Entries []Song `json:"entry"`
+		} `json:"playlist"`
+		Scan struct {
+			Scanning bool `json:"scanning"`
+		} `json:"scanStatus"`
+		User struct {
+			AdminRole bool `json:"adminRole"`
+		} `json:"user"`
 	} `json:"subsonic-response"`
 }
 
 // ErrAuth is returned when Navidrome rejects the credentials.
 var ErrAuth = errors.New("wrong username or password")
+
+// APIError is a request Navidrome understood and refused (not found, not allowed…).
+type APIError struct{ Message string }
+
+func (e *APIError) Error() string { return e.Message }
 
 func (c *Client) call(ctx context.Context, cred Cred, endpoint string, extra url.Values) (*response, error) {
 	q := url.Values{"u": {cred.User}, "v": {"1.16.1"}, "c": {"eco"}, "f": {"json"}}
@@ -137,9 +158,9 @@ func (c *Client) call(ctx context.Context, cred Cred, endpoint string, extra url
 		if msg := out.Body.Error.Message; msg == "Wrong username or password" {
 			return nil, ErrAuth
 		} else if msg != "" {
-			return nil, errors.New(msg)
+			return nil, &APIError{msg}
 		}
-		return nil, errors.New("navidrome returned an error")
+		return nil, &APIError{"navidrome returned an error"}
 	}
 	return &out, nil
 }
@@ -150,22 +171,46 @@ func (c *Client) Ping(ctx context.Context, cred Cred) error {
 	return err
 }
 
+// IsAdmin reports whether this user is a Navidrome administrator. An answer of "not allowed" means no; only a
+// failure to reach Navidrome is an error.
+func (c *Client) IsAdmin(ctx context.Context, cred Cred) (bool, error) {
+	r, err := c.call(ctx, cred, "getUser", url.Values{"username": {cred.User}})
+	if err != nil {
+		var refused *APIError
+		if errors.As(err, &refused) || errors.Is(err, ErrAuth) {
+			return false, nil
+		}
+		return false, err
+	}
+	return r.Body.User.AdminRole, nil
+}
+
+// Song returns one song, with the size and extension of its file.
+func (c *Client) Song(ctx context.Context, cred Cred, id string) (Song, error) {
+	r, err := c.call(ctx, cred, "getSong", url.Values{"id": {id}})
+	if err != nil {
+		return Song{}, err
+	}
+	return r.Body.Song, nil
+}
+
 // SearchResult is what Search returns.
 type SearchResult struct {
 	Songs   []Song
 	Artists []Artist
+	Albums  []Album
 }
 
 // Search runs search3. An empty query lists the whole library, page by page via songOffset.
-func (c *Client) Search(ctx context.Context, cred Cred, query string, songs, songOffset, artists int) (SearchResult, error) {
+func (c *Client) Search(ctx context.Context, cred Cred, query string, songs, songOffset, artists, albums int) (SearchResult, error) {
 	r, err := c.call(ctx, cred, "search3", url.Values{
 		"query": {query}, "songCount": {strconv.Itoa(songs)}, "songOffset": {strconv.Itoa(songOffset)},
-		"artistCount": {strconv.Itoa(artists)}, "albumCount": {"0"},
+		"artistCount": {strconv.Itoa(artists)}, "albumCount": {strconv.Itoa(albums)},
 	})
 	if err != nil {
 		return SearchResult{}, err
 	}
-	return SearchResult{r.Body.Search.Songs, r.Body.Search.Artists}, nil
+	return SearchResult{r.Body.Search.Songs, r.Body.Search.Artists, r.Body.Search.Albums}, nil
 }
 
 // AlbumList returns albums of a kind: newest, recent (recently played), frequent, random, alphabeticalByName…
@@ -192,6 +237,15 @@ func (c *Client) StartScan(ctx context.Context, cred Cred) error {
 	return err
 }
 
+// Scanning reports whether a library scan is running.
+func (c *Client) Scanning(ctx context.Context, cred Cred) (bool, error) {
+	r, err := c.call(ctx, cred, "getScanStatus", nil)
+	if err != nil {
+		return false, err
+	}
+	return r.Body.Scan.Scanning, nil
+}
+
 // Playlist is one of the user's playlists.
 type Playlist struct {
 	ID        string `json:"id"`
@@ -204,7 +258,7 @@ func (c *Client) AllSongs(ctx context.Context, cred Cred) ([]Song, error) {
 	const page = 500
 	var all []Song
 	for offset := 0; ; offset += page {
-		res, err := c.Search(ctx, cred, "", page, offset, 0)
+		res, err := c.Search(ctx, cred, "", page, offset, 0, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -243,6 +297,46 @@ func (c *Client) Playlists(ctx context.Context, cred Cred) ([]Playlist, error) {
 		return nil, err
 	}
 	return r.Body.Playlists.List, nil
+}
+
+// PlaylistExists reports whether this user can see the playlist. It errors only when Navidrome cannot be asked.
+func (c *Client) PlaylistExists(ctx context.Context, cred Cred, id string) (bool, error) {
+	_, err := c.call(ctx, cred, "getPlaylist", url.Values{"id": {id}})
+	if err == nil {
+		return true, nil
+	}
+	var answered *APIError
+	if errors.As(err, &answered) {
+		return false, nil
+	}
+	return false, err
+}
+
+// PlaylistSongs returns the songs of a playlist this user can see.
+func (c *Client) PlaylistSongs(ctx context.Context, cred Cred, id string) ([]Song, error) {
+	r, err := c.call(ctx, cred, "getPlaylist", url.Values{"id": {id}})
+	if err != nil {
+		return nil, err
+	}
+	return r.Body.Playlist.Entries, nil
+}
+
+// SavePlaylist creates a playlist when id is empty, or replaces the songs of an existing one. It returns its ID.
+func (c *Client) SavePlaylist(ctx context.Context, cred Cred, id, name string, songs []string) (string, error) {
+	q := url.Values{"songId": songs}
+	if id != "" {
+		q.Set("playlistId", id)
+	} else {
+		q.Set("name", name)
+	}
+	r, err := c.call(ctx, cred, "createPlaylist", q)
+	if err != nil {
+		return "", err
+	}
+	if r.Body.Playlist.ID != "" {
+		return r.Body.Playlist.ID, nil
+	}
+	return id, nil
 }
 
 // DeletePlaylist deletes a playlist (the songs stay in the library).

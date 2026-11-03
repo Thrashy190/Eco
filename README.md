@@ -3,11 +3,17 @@
 **Your own music app.** Listen to your library, search for any song, and download what you do not have yet — all in one place, on a server you control.
 
 - **Listen**: a fast web app you can install on your phone, with a queue, lock-screen controls, playlists and offline mode.
-- **Search everything**: one search box finds songs in your library *and* songs you do not own. Search an artist and see their other songs too.
+- **Search everything**: one search box finds songs in your library *and* songs and albums you do not own, from [MusicBrainz](https://musicbrainz.org), with iTunes as a backup. No account, key or subscription needed. Search an artist and see their other songs too.
+- **Whole albums, your choice**: open an album to see every track in order and which ones you already have, then tick the ones to download.
 - **One tap to download**: tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
+- **A library like Spotify's**: it opens on what you played lately, with Favorites and anything you pinned on top. Pin songs, albums, playlists and artists, and give your playlists their own cover.
+- **Bring your playlists**: import a file exported from Spotify or anywhere else and get a real playlist of what you have, then download the rest if you want it.
+- **A big-screen layout too**: on a computer or a tablet it becomes panels: your library always at hand, the page, a player bar and what plays next.
 - **Offline, Spotify-style**: tap **Download** on your favorites, a playlist or an album (or save single songs) and they play with no connection. Downloaded collections stay in sync, and *Offline mode* in Settings forces the app to use only what is on your phone.
-- **More than music**: paste a YouTube link, say what it is (podcast, audiobook, video or other) and it appears in the matching Library tab. Podcasts and audiobooks remember where you stopped and play at your speed.
-- **Yours to style**: themes (auto, dark, light, black), any accent colour, compact lists, sharp or soft corners and adjustable animations, saved per account on each device.
+- **More than music**: paste a YouTube link, say what it is (podcast, audiobook or other) and its audio appears in the matching Library section. Podcasts and audiobooks remember where you stopped and play at your speed.
+- **Every device, one remote**: see what plays on your other devices and control it from any of them: pause, skip, volume, or move the music to another device. Only your own devices, wherever they are.
+- **Admins keep the library tidy**: a Navidrome administrator can delete songs, podcasts and audiobooks for everyone, right from the app, and review songs held twice and artists that are really several people.
+- **Yours to style**: themes (auto, dark, light, black), any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list, compact lists, sharp or soft corners and adjustable animations, saved per account on each device.
 - **Yours**: your files, your server. Everything is [Navidrome](https://www.navidrome.org) underneath, so any Subsonic app also works.
 
 ```
@@ -35,14 +41,13 @@ Then:
 2. Open **http://localhost:8000** — that is eco. Sign in with the account you just created.
 3. Add some music (see [Adding music](#adding-music)) and search for it.
 
-Searching beyond your library and downloading need Spotify credentials and, usually, YouTube cookies. Both are explained below; without them eco is still a good player.
+Searching beyond your library works right away. Downloading usually needs YouTube cookies, explained below; without them eco is still a good player.
 
 ## Prerequisites
 
 | You need | Why | Notes |
 |---|---|---|
 | **Docker + Compose v2** | runs everything | `docker compose version` should print v2.x |
-| A **Spotify developer app** (free) | song search and metadata | [setup](docs/configuration.md#spotify). Optional, but needed to search/download |
 | **YouTube cookies** | YouTube blocks anonymous downloads after a while | [setup](docs/configuration.md#youtube-cookies). Optional at first |
 | ~1 GB of free RAM, disk for your music | | Navidrome uses ~70 MB, eco ~30 MB |
 
@@ -50,9 +55,8 @@ Not using Docker? You need [Go 1.22+](https://go.dev/dl/), [ffmpeg](https://ffmp
 
 ## Configuration
 
-Every setting lives in `.env`, and [docs/configuration.md](docs/configuration.md) explains each one and where to get it. The two you will want first:
+Every setting lives in `.env`, and [docs/configuration.md](docs/configuration.md) explains each one and where to get it. The one you will want first:
 
-- **Spotify credentials** (`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`): a free developer app, [two minutes](docs/configuration.md#spotify). Needed to search beyond your library and to download.
 - **YouTube cookies** (`YT_COOKIES_BROWSER` or `secrets/cookies.txt`): [how to set them up](docs/configuration.md#youtube-cookies). YouTube blocks anonymous downloads after a while.
 
 ## Adding music
@@ -61,27 +65,26 @@ Use whichever fits you; they all end up in the same library.
 
 | Way | Good for |
 |---|---|
-| **The search box in eco** | Anything on Spotify's catalogue: search, tap **Get**. |
-| **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk. See [CLI](#command-line). |
+| **The search box in eco** | Anything in [MusicBrainz](docs/configuration.md#where-song-information-comes-from): search, tap **Get**, or open an album and choose its tracks. |
+| **Import a playlist**, in the app | A list exported to a file from Spotify or elsewhere: it becomes a playlist, and you can download what is missing. |
+| **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [CLI](#command-line). |
 | **Copy files** into `data/music/` | Music you already own. Navidrome scans every minute. |
 | **`scripts/upload.sh`** | Your own recordings: converts, tags and uploads them. |
-| **A YouTube link** (podcast, audiobook, video…) | Paste it in the search box. It is stored apart from your music, in `data/media/`. |
-| **Upload page** (`--profile uploads`) | Drag-and-drop uploads from a browser, for trusted people. |
+| **A YouTube link** (podcast, audiobook…) | Paste it in the search box. Only the audio is kept, apart from your music, in `data/media/`. |
 | **Lidarr** (`--profile downloads`) | Whole albums through the \*arr stack. [Guide](docs/downloads-stack.md). |
 
 Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and with a cover.
 
-## Videos, podcasts and audiobooks
+## Podcasts and audiobooks
 
-Paste a YouTube link into the search box (a single video, not a playlist). eco shows what it is, you choose a category and whether to keep the picture, and it downloads in the background:
+Paste a YouTube link into the search box (a single video, not a playlist). eco shows what it is, you choose a category, and it downloads **only the audio** in the background:
 
-| Category | Plays as | Extras |
+| Category | Good for | Extras |
 |---|---|---|
-| **Podcast**, **Audiobook** | audio | remembers where you stopped, speed button (0.75× to 2×), can be saved for offline |
-| **Video** | a full-screen video player | remembers where you stopped; picture quality is set in Settings (up to 1080p) |
-| **Other** | audio or video, your choice | for talks, lectures, sounds… |
+| **Podcast**, **Audiobook** | long listening | remembers where you stopped, speed button (0.75× to 2×), can be saved for offline |
+| **Other** | talks, lectures, sounds… | the same |
 
-These files live in `data/media/`, **not** in your music folder, so Navidrome never mixes them into your artists, albums or shuffled mixes. Only YouTube links are accepted. Videos are too large to save for offline use, so offline mode covers audio only.
+These files live in `data/media/<category>/<video id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. eco stores and serves them itself. Only YouTube links are accepted.
 
 ## Use it from your phone
 
@@ -94,9 +97,9 @@ To reach your server from outside your home you need HTTPS. Options, easiest fir
 The `eco` binary is also a toolbox. With Docker: `docker compose run --rm eco <command>`; without: `./bin/eco <command>`.
 
 ```bash
-eco doctor                          # check yt-dlp, ffmpeg, Navidrome, Spotify, cookies
+eco doctor                          # check yt-dlp, ffmpeg, Navidrome, the catalogue, cookies
 eco get "https://youtube.com/watch?v=..."     # one YouTube link → tagged song
-eco get -q "artist song" URL        # pick the Spotify match yourself (-y: take the first, -n: dry run)
+eco get -q "artist song" URL        # pick the match yourself (-y: take the first, -n: dry run)
 
 # Your Spotify liked songs, step by step (each step can be interrupted and resumed)
 eco likes export                    # signs in to Spotify the first time
@@ -109,7 +112,7 @@ eco likes all                       # every step above
 eco likes all --playlist "My playlist"
 ```
 
-Your **liked songs become your Navidrome favourites** (the *Favorites* tab in eco), not a playlist; playlists are for Spotify playlists you choose. `favorites` needs `ND_USER` and `ND_PASS` ([configuration](docs/configuration.md#nd_user-nd_pass)) and is safe to repeat: songs already favourited are skipped.
+Your **liked songs become your Navidrome favourites**, which eco shows as a *Favorites* playlist at the top of your library. In Navidrome they stay favourites; real playlists are for Spotify playlists you choose. `favorites` needs `ND_USER` and `ND_PASS` ([configuration](docs/configuration.md#nd_user-nd_pass)) and is safe to repeat: songs already favourited are skipped.
 
 `eco likes` keeps its state in `data/likes.csv` (or `data/playlists/NAME.csv`). A song is `pending`, `found`, `review` (needs a human look), `downloaded` or `error`; edit the file freely. `--limit N` processes at most N songs (`0` means no limit).
 
@@ -141,7 +144,8 @@ yt-dlp changes whenever YouTube does. If downloads start failing everywhere, reb
 | `eco doctor` reports something missing | Follow the hint it prints. |
 | "Sign in to confirm you're not a bot" | [YouTube cookies](docs/configuration.md#youtube-cookies). |
 | "no confident match on YouTube" | eco refused a doubtful video (wrong length or title). Use `eco get -q ... URL` to pick one by hand. |
-| Searching only shows your library | `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` are not set or are wrong. |
+| Searching only shows your library | The server cannot reach musicbrainz.org, or it asked eco to wait a moment; the search says which. |
+| A song or album is not found | MusicBrainz is made by volunteers and may not have it yet. [Anyone can add it](https://musicbrainz.org/doc/How_to_Add_a_Release). |
 | A new song does not show up | Navidrome scans every minute; give it a moment. |
 | Wrong username or password | Use your **Navidrome** account: eco has no accounts of its own. |
 
@@ -152,11 +156,12 @@ See [docs/architecture.md](docs/architecture.md).
 ## Development
 
 ```bash
-make check          # gofmt, go vet, go test, JavaScript syntax — the same as CI
+make check          # gofmt, go vet, go test, TypeScript, web tests and build — the same as CI
 make run            # build and serve
+make web-dev        # the web app with hot reload, using the eco running on :8000
 ```
 
-The Go code lives in `cmd/` and `internal/`; the web app in `web/static/` is plain JavaScript modules with no build step and is embedded into the binary. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The Go code lives in `cmd/` and `internal/`; the web app in `web/src/` is React and TypeScript, built with Vite and embedded into the binary. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Responsible use
 

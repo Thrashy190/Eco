@@ -15,19 +15,36 @@ const snapshotTTL = 30 * time.Second
 // and tell instantly whether a Spotify result is already owned, without one Navidrome call per result.
 type snapshot struct {
 	at      time.Time
-	songs   []subsonic.Song     // sorted by title
-	byTitle map[string][]string // normalised title → normalised first artists
+	songs   []subsonic.Song            // sorted by title
+	byTitle map[string][]subsonic.Song // normalised title → songs with that title
 }
 
 // has reports whether the library already holds this title by this artist.
 func (sn *snapshot) has(title, artist string) bool {
+	_, ok := sn.find(title, artist, "")
+	return ok
+}
+
+// find returns the library's copy of this title by this artist. A copy on the given album wins over one on
+// another album, so a track on an album page links to that album's file when both exist.
+func (sn *snapshot) find(title, artist, album string) (subsonic.Song, bool) {
 	a := match.FirstArtist(artist)
-	for _, owned := range sn.byTitle[match.Norm(title)] {
-		if owned != "" && a != "" && (owned == a || contains(owned, a) || contains(a, owned)) {
-			return true
+	wantAlbum := match.Norm(album)
+	var found subsonic.Song
+	ok := false
+	for _, song := range sn.byTitle[match.Norm(title)] {
+		owned := match.FirstArtist(song.Artist)
+		if owned == "" || a == "" || !(owned == a || contains(owned, a) || contains(a, owned)) {
+			continue
+		}
+		if wantAlbum != "" && match.Norm(song.Album) == wantAlbum {
+			return song, true
+		}
+		if !ok {
+			found, ok = song, true
 		}
 	}
-	return false
+	return found, ok
 }
 
 func contains(s, sub string) bool {
@@ -50,7 +67,7 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 	const page = 500
 	var songs []subsonic.Song
 	for offset := 0; ; offset += page {
-		res, err := s.nd.Search(ctx, cred, "", page, offset, 0)
+		res, err := s.nd.Search(ctx, cred, "", page, offset, 0, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -66,10 +83,10 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		}
 		return songs[i].Artist < songs[j].Artist
 	})
-	sn := &snapshot{at: time.Now(), songs: songs, byTitle: map[string][]string{}}
+	sn := &snapshot{at: time.Now(), songs: songs, byTitle: map[string][]subsonic.Song{}}
 	for _, song := range songs {
 		t := match.Norm(song.Title)
-		sn.byTitle[t] = append(sn.byTitle[t], match.FirstArtist(song.Artist))
+		sn.byTitle[t] = append(sn.byTitle[t], song)
 	}
 	s.mu.Lock()
 	s.lib = sn

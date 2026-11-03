@@ -8,8 +8,8 @@ navidrome/
 lidarr/
 prowlarr/
 qbittorrent/
-filebrowser/
 secrets/
 .venv/
-node_modules/
+**/node_modules
+web/dist
 *.md

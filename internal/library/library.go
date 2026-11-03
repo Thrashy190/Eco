@@ -11,8 +11,8 @@ import (
 
 	"github.com/dhowden/tag"
 
+	"github.com/Thrashy190/eco/internal/catalog"
 	"github.com/Thrashy190/eco/internal/match"
-	"github.com/Thrashy190/eco/internal/spotify"
 )
 
 var (
@@ -31,7 +31,7 @@ func Safe(s string) string {
 }
 
 // DestPath is where a song goes: <dir>/<album artist>/<album>/NN - <title>.<codec>.
-func DestPath(m spotify.Meta, codec, dir string) string {
+func DestPath(m catalog.Meta, codec, dir string) string {
 	prefix := ""
 	if m.Track > 0 {
 		prefix = pad2(m.Track) + " - "

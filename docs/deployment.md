@@ -7,10 +7,10 @@ How to run eco on a home server and reach it safely from anywhere.
 ```bash
 curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER   # log out and in afterwards
 git clone <this repository> ~/eco && cd ~/eco
-cp .env.example .env                      # then edit: PUID/PGID (run `id`), TZ, Spotify keys
+cp .env.example .env                      # then edit: PUID/PGID (run `id`), TZ
 mkdir -p data/music navidrome secrets
 docker compose up -d --build
-docker compose exec eco eco doctor        # checks yt-dlp, ffmpeg, Navidrome, Spotify, cookies
+docker compose exec eco eco doctor        # checks yt-dlp, ffmpeg, Navidrome, the catalogue, cookies
 ```
 
 Create your first Navidrome account at `http://<server>:4533` (the first user is the administrator), then add other people under **Settings ▸ Users**. They sign in to eco with those same accounts. Give them a non-administrator account.
@@ -66,16 +66,7 @@ Needs MagicDNS and HTTPS certificates enabled in your tailnet. Everyone who shou
 
 Any proxy that terminates HTTPS and forwards to `127.0.0.1:8000` works (Caddy, nginx, Traefik). Forward everything, including `/rest/` (audio uses `Range` requests) and `/api/`. Disable response buffering for `/rest/`.
 
-## 3. Uploading files from a browser (optional)
-
-`docker compose --profile uploads up -d` starts [File Browser](https://filebrowser.org), limited to `data/music/Uploads`. Publish it on its own hostname (for example `upload.yourdomain.com` → `http://filebrowser:80` in the same tunnel) and **protect it with Cloudflare Access** (Zero Trust ▸ Access ▸ Applications ▸ Self-hosted, policy *Allow* for your email addresses). Unlike eco, this page can change files, so do not leave it open.
-
-1. Read the initial `admin` password: `docker compose logs filebrowser | grep -i password`, sign in and change it.
-2. Create accounts for others under **Settings ▸ User Management**.
-
-Uploaded files are stored as they are (not converted or tagged); Navidrome orders them by their tags, so tag them first.
-
-## 4. Backups
+## 3. Backups
 
 What is irreplaceable and what is not:
 
@@ -83,7 +74,9 @@ What is irreplaceable and what is not:
 |---|---|
 | `navidrome/` | users, playlists, favourites, play counts |
 | `data/likes.csv`, `data/playlists/` | the state of your bulk downloads |
-| `data/music/Originals/`, `Uploads/` | your own recordings, if you have any |
+| `data/music/Originals/` | your own recordings, if you have any |
+| `data/users/` | recents, pins and playlist covers |
+| `data/media/` | imported podcasts and audiobooks |
 | *(not needed)* `data/music/YouTube/` | can be downloaded again from the CSV |
 
 Example with [restic](https://restic.net) to another machine:
@@ -94,7 +87,7 @@ restic -r sftp:user@other-host:/backups/eco backup ~/eco/navidrome ~/eco/data/li
 
 Run it from a systemd timer or cron.
 
-## 5. Security checklist
+## 4. Security checklist
 
 - Strong, unique passwords for every Navidrome account; non-admin for guests.
 - Only HTTPS is reachable from outside; `ECO_BIND`, `ND_BIND` stay on `127.0.0.1` unless you know why not.

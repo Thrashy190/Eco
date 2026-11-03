@@ -2,10 +2,9 @@
 #
 #   docker compose up -d                                  Navidrome + eco (the core)
 #   docker compose --profile tunnel up -d                 + a Cloudflare tunnel to reach it from anywhere
-#   docker compose --profile uploads up -d                + a web page to upload your own music files
 #   docker compose --profile downloads up -d              + Lidarr / Prowlarr / qBittorrent (album downloads)
 #
-# Set COMPOSE_PROFILES=tunnel,uploads in .env to make profiles the default. See README.md.
+# Set COMPOSE_PROFILES=tunnel in .env to make profiles the default. See README.md.
 name: eco
 
 services:
@@ -36,6 +35,10 @@ services:
       - "${ECO_BIND:-127.0.0.1}:${ECO_PORT:-8000}:8000"
     environment:
       ECO_NAVIDROME_URL: http://navidrome:4533
+      CATALOG: ${CATALOG:-musicbrainz}
+      MUSICBRAINZ_URL: ${MUSICBRAINZ_URL:-}
+      CATALOG_BACKUP: ${CATALOG_BACKUP:-itunes}
+      ITUNES_COUNTRY: ${ITUNES_COUNTRY:-us}
       SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
       SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       # A browser is not available inside the container: give yt-dlp a cookies.txt (see README, "YouTube cookies")
@@ -58,20 +61,6 @@ services:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     depends_on:
       - eco
-
-  # ---- profile: uploads ----
-  filebrowser:
-    profiles: [uploads]
-    image: filebrowser/filebrowser:latest
-    container_name: filebrowser
-    restart: unless-stopped
-    user: "${PUID:-1000}:${PGID:-1000}"
-    # No published ports: reach it through the tunnel, protected by Cloudflare Access.
-    # It only sees music/Uploads, never the rest of your library.
-    volumes:
-      - ${DATA_DIR:-./data}/music/Uploads:/srv
-      - ./filebrowser/database:/database
-      - ./filebrowser/config:/config
 
   # ---- profile: downloads (album-level downloads through the *arr stack) ----
   lidarr:

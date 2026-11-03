@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -35,12 +34,10 @@ func youtubeURL(raw string) (string, error) {
 }
 
 type mediaPayload struct {
-	Cred   subsonic.Cred
-	URL    string
-	Prev   ytdlp.Preview
-	Kind   string
-	Format string
-	Height int
+	Cred subsonic.Cred
+	URL  string
+	Prev ytdlp.Preview
+	Kind string
 }
 
 func previewOf(p ytdlp.Preview, existing *media.Item) map[string]any {
@@ -89,21 +86,6 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 		fail(w, http.StatusBadRequest, "kind must be one of: "+strings.Join(media.Kinds, ", "))
 		return
 	}
-	format := q.Get("format")
-	if format == "" {
-		format = media.Audio
-		if kind == "video" {
-			format = media.Video
-		}
-	}
-	if format != media.Audio && format != media.Video {
-		fail(w, http.StatusBadRequest, "format must be audio or video")
-		return
-	}
-	height, _ := strconv.Atoi(q.Get("height"))
-	if height < 144 || height > 2160 {
-		height = 720
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	prev, err := s.eng.YT.Preview(ctx, link)
@@ -119,7 +101,7 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 		respond(w, http.StatusOK, map[string]any{"existing": it})
 		return
 	}
-	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind, format, height}, func(j *jobs.Job) {
+	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind}, func(j *jobs.Job) {
 		j.Kind, j.Title, j.Artist, j.MediaID = kind, prev.Title, prev.Channel, prev.ID
 	})
 	code := http.StatusOK
@@ -135,7 +117,7 @@ func (s *Server) runMedia(ctx context.Context, p mediaPayload, set func(func(*jo
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	files, err := s.eng.YT.DownloadMedia(ctx, p.URL, dir, p.Format, p.Height, func(pct float64) {
+	files, err := s.eng.YT.DownloadMedia(ctx, p.URL, dir, func(pct float64) {
 		set(func(j *jobs.Job) { j.Progress = pct })
 	})
 	if err != nil {
@@ -146,7 +128,7 @@ func (s *Server) runMedia(ctx context.Context, p mediaPayload, set func(func(*jo
 	if st, err := os.Stat(filepath.Join(dir, files.Media)); err == nil {
 		size = st.Size()
 	}
-	item := media.Item{ID: p.Prev.ID, Kind: p.Kind, Format: p.Format, Title: p.Prev.Title, Channel: p.Prev.Channel, Source: p.URL,
+	item := media.Item{ID: p.Prev.ID, Kind: p.Kind, Title: p.Prev.Title, Channel: p.Prev.Channel, Source: p.URL,
 		Duration: int(p.Prev.DurationSec), Size: size, AddedAt: time.Now().Unix(), File: files.Media, Thumb: files.Thumb}
 	if err := s.media.Save(item); err != nil {
 		os.RemoveAll(dir)
@@ -187,7 +169,7 @@ func (s *Server) mediaFile(thumb bool) func(http.ResponseWriter, *http.Request, 
 		}
 		defer f.Close()
 		st, _ := f.Stat()
-		w.Header().Set("Content-Type", map[string]string{".mp4": "video/mp4", ".m4a": "audio/mp4", ".jpg": "image/jpeg", ".webm": "video/webm", ".mkv": "video/x-matroska", ".mp3": "audio/mpeg", ".opus": "audio/ogg"}[strings.ToLower(filepath.Ext(name))])
+		w.Header().Set("Content-Type", map[string]string{".m4a": "audio/mp4", ".jpg": "image/jpeg"}[strings.ToLower(filepath.Ext(name))])
 		if thumb {
 			w.Header().Set("Cache-Control", "private, max-age=86400")
 		}

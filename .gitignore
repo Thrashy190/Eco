@@ -9,8 +9,11 @@ navidrome/
 lidarr/
 prowlarr/
 qbittorrent/
-filebrowser/
 
 # Build output and tooling
 bin/
 node_modules/
+
+# The built web app. dist/.gitkeep stays so that go:embed works before the first build.
+web/dist/*
+!web/dist/.gitkeep

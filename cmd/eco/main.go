@@ -2,7 +2,7 @@
 // and downloads them with the right tags.
 //
 //	eco serve                 start the web app
-//	eco get URL               download one YouTube link, tagged with Spotify's metadata
+//	eco get URL               download one YouTube link, tagged with the catalogue's metadata
 //	eco likes <step>          liked songs / playlists → CSV → YouTube → library, liked songs → Navidrome favourites
 //	eco doctor                check that everything eco needs is installed
 package main
@@ -22,7 +22,7 @@ const usage = `eco — your own music app
 
 Usage:
   eco serve [--listen ADDR]        start the web app (default 127.0.0.1:8000)
-  eco get [flags] URL              download one YouTube link with Spotify tags
+  eco get [flags] URL              download one YouTube link with catalogue tags
   eco likes <step> [flags]         liked songs or a playlist, in steps:
                                      export   Spotify → CSV (asks you to sign in the first time)
                                      search   find the YouTube video of every song

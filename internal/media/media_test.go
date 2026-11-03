@@ -8,7 +8,7 @@ import (
 
 func TestStoreRoundTrip(t *testing.T) {
 	s := Store{Root: t.TempDir()}
-	it := Item{ID: "dQw4w9WgXcQ", Kind: "podcast", Format: Audio, Title: "Episode", File: "media.m4a", AddedAt: 5}
+	it := Item{ID: "dQw4w9WgXcQ", Kind: "podcast", Title: "Episode", File: "media.m4a", AddedAt: 5}
 	if err := os.MkdirAll(s.Dir(it.Kind, it.ID), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -40,11 +40,11 @@ func TestPathsCannotEscape(t *testing.T) {
 			t.Errorf("ValidID(%q) = true", bad)
 		}
 	}
-	if ValidKind("../video") || ValidKind("") {
+	if ValidKind("../podcast") || ValidKind("") || ValidKind("video") {
 		t.Error("invalid kind accepted")
 	}
 	s := Store{Root: "/data/media"}
-	if p := s.Path(Item{ID: "abcdefgh", Kind: "video"}, "../../meta.json"); filepath.Dir(p) != "/data/media/video/abcdefgh" {
+	if p := s.Path(Item{ID: "abcdefgh", Kind: "podcast"}, "../../meta.json"); filepath.Dir(p) != "/data/media/podcast/abcdefgh" {
 		t.Errorf("file name escaped: %s", p)
 	}
 	if _, err := (Store{Root: t.TempDir()}).Find("../etc/passwd"); err == nil {

@@ -48,7 +48,7 @@ func rowOf(it spotify.Item) Row {
 	}
 	return Row{SpotifyID: it.Track.ID, Title: m.Title, Artist: m.Artist, AlbumArtist: m.AlbumArtist, Album: m.Album,
 		Date: m.Date, Track: num(m.Track), Tracks: num(m.Tracks), Disc: num(m.Disc), ISRC: m.ISRC,
-		DurationMs: strconv.Itoa(m.DurationMs), CoverURL: m.CoverURL, SpotifyURL: m.SpotifyURL,
+		DurationMs: strconv.Itoa(m.DurationMs), CoverURL: m.CoverURL, SpotifyURL: m.SourceURL,
 		AddedAt: it.AddedAt, Status: Pending}
 }
 
@@ -307,7 +307,7 @@ func metaOf(r Row) spotify.Meta {
 	n := func(s string) int { v, _ := strconv.Atoi(s); return v }
 	return spotify.Meta{Title: r.Title, Artist: r.Artist, AlbumArtist: r.AlbumArtist, Album: r.Album, Date: r.Date,
 		Track: n(r.Track), Tracks: n(r.Tracks), Disc: n(r.Disc), ISRC: r.ISRC, CoverURL: r.CoverURL,
-		SpotifyURL: r.SpotifyURL, DurationMs: n(r.DurationMs)}
+		SourceURL: r.SpotifyURL, DurationMs: n(r.DurationMs)}
 }
 
 // WritePlaylist writes <music>/Playlists/<name>.m3u with the downloaded songs in list order.

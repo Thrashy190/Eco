@@ -1,4 +1,4 @@
-// Package match decides whether a YouTube video is the song Spotify describes.
+// Package match decides whether a YouTube video is the song the catalogue describes.
 // Duration alone is not enough ("Mi Niña" and "My Girl" by the same artist last the same),
 // so titles are compared too, and unwanted versions (live, remix, sped up…) are penalised.
 package match
@@ -20,7 +20,7 @@ var (
 	reFeat     = regexp.MustCompile(`\b(feat|ft|with)\b.*$`)
 	reNonAlnum = regexp.MustCompile(`[^\p{L}\p{N}]+`) // any alphabet: Cyrillic or Japanese titles must stay distinct
 
-	// Versions we do not want unless the Spotify title itself says so.
+	// Versions we do not want unless the catalogue title itself says so.
 	reUnwanted = regexp.MustCompile(`(?i)\b(live|en vivo|cover|karaoke|remix|sped ?up|speed ?up|slowed|reverb|8d|nightcore|instrumental|acapella|a cappella|acoustic|ac[uú]stic[oa]|edit|reaction|tutorial|1 hora|1 hour|techengue)\b`)
 )
 
@@ -35,8 +35,9 @@ func Norm(s string) string {
 	return strings.Join(strings.Fields(reNonAlnum.ReplaceAllString(s, " ")), " ")
 }
 
-// FirstArtist is the normalised first artist of "A, B & C".
+// FirstArtist is the normalised first artist of "A, B & C" or "A; B".
 func FirstArtist(s string) string {
+	s, _, _ = strings.Cut(s, ";")
 	s, _, _ = strings.Cut(s, ",")
 	s, _, _ = strings.Cut(s, "&")
 	return Norm(s)
@@ -105,6 +106,21 @@ func (r Result) OK() bool { return r.DiffSec <= 10 && len(r.Odd) == 0 }
 // Clear reports whether the candidate is so obviously right that no further search is needed.
 func (r Result) Clear() bool { return r.DiffSec <= 3 && len(r.Odd) == 0 && r.Official }
 
+// SameVersion reports whether two titles name the same version of a song: "Walk" and "Walk (Live)" normalise alike but
+// are not the same recording.
+func SameVersion(a, b string) bool {
+	x, y := unwantedWords(a), unwantedWords(b)
+	if len(x) != len(y) {
+		return false
+	}
+	for w := range x {
+		if !y[w] {
+			return false
+		}
+	}
+	return true
+}
+
 func unwantedWords(s string) map[string]bool {
 	out := map[string]bool{}
 	for _, w := range reUnwanted.FindAllString(s, -1) {
@@ -130,7 +146,10 @@ func Score(song Song, v Video) Result {
 	if !SameTitle(song.Title, v.Title) {
 		odd = append(odd, "different title")
 	}
-	first, _, _ := strings.Cut(song.Artist, ",")
+	first := song.Artist
+	if i := strings.IndexAny(first, ",;"); i >= 0 {
+		first = first[:i]
+	}
 	first = strings.ToLower(strings.TrimSpace(first))
 	official := v.Music || strings.HasSuffix(v.Channel, "- Topic") || (first != "" && strings.Contains(strings.ToLower(v.Channel), first))
 	score := diff + 60*float64(len(odd))

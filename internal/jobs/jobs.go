@@ -6,6 +6,7 @@ import (
 	"context"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,21 +25,22 @@ const (
 
 // Job is one requested download. The JSON form is what the API returns.
 type Job struct {
-	ID         string  `json:"id"`
-	SpotifyID  string  `json:"spotify_id"`
-	State      State   `json:"state"`
-	Progress   float64 `json:"progress"` // 0–100 while downloading
-	Title      string  `json:"title"`
-	Artist     string  `json:"artist"`
-	Album      string  `json:"album"`
-	File       string  `json:"file,omitempty"`
-	LibraryID  string  `json:"library_id,omitempty"` // Navidrome's ID once the song is playable
-	Kind       string  `json:"kind,omitempty"`       // for media imports: video, podcast, audiobook or other
-	MediaID    string  `json:"media_id,omitempty"`   // for media imports: the item's ID once it is ready
-	Error      string  `json:"error,omitempty"`
-	User       string  `json:"user"`
-	StartedAt  int64   `json:"started_at"`
-	FinishedAt int64   `json:"finished_at,omitempty"`
+	ID        string  `json:"id"`
+	Key       string  `json:"key"` // what was asked for: a catalogue ID, media:<video> or import:<hash>
+	State     State   `json:"state"`
+	Progress  float64 `json:"progress"` // 0–100 while downloading
+	Title     string  `json:"title"`
+	Artist    string  `json:"artist"`
+	Album     string  `json:"album"`
+	File      string  `json:"file,omitempty"`
+	LibraryID string  `json:"library_id,omitempty"` // Navidrome's ID once the song is playable
+	Kind      string  `json:"kind,omitempty"`       // for media imports: podcast, audiobook or other
+	MediaID   string  `json:"media_id,omitempty"`   // for media imports: the item's ID once it is ready
+	Error     string  `json:"error,omitempty"`
+	// Everyone who asked for it. Never sent to the app: people must not see what others download.
+	Users      []string `json:"-"`
+	StartedAt  int64    `json:"started_at"`
+	FinishedAt int64    `json:"finished_at,omitempty"`
 }
 
 // Done reports whether the job reached a final state.
@@ -57,7 +59,7 @@ type Manager struct {
 	run    RunFunc
 	mu     sync.Mutex
 	jobs   map[string]*Job
-	active map[string]string // Spotify ID → job ID, so a song is never queued twice
+	active map[string]string // key → job ID, so a song is never queued twice
 	queue  chan item
 	seq    int
 }
@@ -71,20 +73,24 @@ func NewManager(ctx context.Context, run RunFunc) *Manager {
 
 // Submit queues a download. If that song is already queued or running, the existing job is returned
 // and the boolean is false.
-func (m *Manager) Submit(spotifyID, user string, payload any) (Job, bool) {
-	return m.SubmitWith(spotifyID, user, payload, nil)
+func (m *Manager) Submit(key, user string, payload any) (Job, bool) {
+	return m.SubmitWith(key, user, payload, nil)
 }
 
 // SubmitWith is Submit plus a chance to fill in extra fields of a new job (the key is any unique string).
-func (m *Manager) SubmitWith(spotifyID, user string, payload any, init func(*Job)) (Job, bool) {
+func (m *Manager) SubmitWith(key, user string, payload any, init func(*Job)) (Job, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if id, ok := m.active[spotifyID]; ok {
-		return *m.jobs[id], false
+	if id, ok := m.active[key]; ok {
+		j := m.jobs[id]
+		if !j.askedBy(user) {
+			j.Users = append(j.Users, user)
+		}
+		return *j, false
 	}
 	m.seq++
-	j := &Job{ID: strconv.FormatInt(time.Now().UnixMilli(), 36) + strconv.Itoa(m.seq), SpotifyID: spotifyID,
-		State: Queued, User: user, StartedAt: time.Now().Unix()}
+	j := &Job{ID: strconv.FormatInt(time.Now().UnixMilli(), 36) + strconv.Itoa(m.seq), Key: key,
+		State: Queued, Users: []string{user}, StartedAt: time.Now().Unix()}
 	if init != nil {
 		init(j)
 	}
@@ -95,12 +101,21 @@ func (m *Manager) SubmitWith(spotifyID, user string, payload any, init func(*Job
 		m.jobs[j.ID] = j
 		return *j, true
 	}
-	m.jobs[j.ID], m.active[spotifyID] = j, j.ID
+	m.jobs[j.ID], m.active[key] = j, j.ID
 	return *j, true
 }
 
-// List returns the recent jobs, oldest first.
-func (m *Manager) List() []Job {
+func (j Job) askedBy(user string) bool {
+	for _, u := range j.Users {
+		if strings.EqualFold(u, user) { // Navidrome ignores case in usernames
+			return true
+		}
+	}
+	return false
+}
+
+// List returns the recent jobs this user asked for, oldest first.
+func (m *Manager) List(user string) []Job {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cutoff := time.Now().Add(-time.Hour).Unix()
@@ -110,7 +125,9 @@ func (m *Manager) List() []Job {
 			delete(m.jobs, id)
 			continue
 		}
-		out = append(out, *j)
+		if j.askedBy(user) {
+			out = append(out, *j)
+		}
 	}
 	sort.Slice(out, func(a, b int) bool {
 		return out[a].StartedAt < out[b].StartedAt || (out[a].StartedAt == out[b].StartedAt && out[a].ID < out[b].ID)
@@ -140,7 +157,7 @@ func (m *Manager) work(ctx context.Context) {
 					j.State, j.Progress = Ready, 100
 				}
 				j.FinishedAt = time.Now().Unix()
-				delete(m.active, j.SpotifyID)
+				delete(m.active, j.Key)
 			})
 		}
 	}

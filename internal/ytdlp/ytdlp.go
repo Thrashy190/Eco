@@ -283,35 +283,19 @@ func (r *Runner) Preview(ctx context.Context, link string) (Preview, error) {
 // MediaFiles are the files DownloadMedia produced inside its folder.
 type MediaFiles struct{ Media, Thumb string }
 
-// DownloadMedia downloads link into dir as media.<ext> plus media.jpg (the thumbnail).
-// format is "video" (picture and sound, at most maxHeight pixels tall) or "audio" (sound only, M4A).
-func (r *Runner) DownloadMedia(ctx context.Context, link, dir, format string, maxHeight int, onProgress func(percent float64)) (MediaFiles, error) {
+// DownloadMedia downloads the audio of link into dir as media.m4a, plus media.jpg (the thumbnail, used as its cover).
+func (r *Runner) DownloadMedia(ctx context.Context, link, dir string, onProgress func(percent float64)) (MediaFiles, error) {
 	cookies, done := r.cookieCopy()
 	defer done()
-	var pick []string
-	if format == "audio" {
-		pick = []string{"-f", "bestaudio[ext=m4a]/bestaudio/best", "-x", "--audio-format", "m4a"}
-	} else {
-		// H.264 first: AV1 and VP9 do not play on many iPhones. Then anything that fits, then anything at all.
-		h := strconv.Itoa(maxHeight)
-		pick = []string{"-f", "bv*[height<=" + h + "][vcodec^=avc1]+ba[ext=m4a]/b[height<=" + h + "][vcodec^=avc1]/bv*[height<=" + h + "][ext=mp4]+ba[ext=m4a]/b[height<=" + h + "]/b",
-			"--merge-output-format", "mp4"}
-	}
-	args := r.args(cookies, append(append(pick, progressArgs...), "--write-thumbnail", "--convert-thumbnails", "jpg",
-		"-o", filepath.Join(dir, "media.%(ext)s"), link)...)
+	args := r.args(cookies, append(append([]string{"-f", "bestaudio[ext=m4a]/bestaudio/best", "-x", "--audio-format", "m4a"}, progressArgs...),
+		"--write-thumbnail", "--convert-thumbnails", "jpg", "-o", filepath.Join(dir, "media.%(ext)s"), link)...)
 	if err := r.runProgress(ctx, args, onProgress); err != nil {
 		return MediaFiles{}, err
 	}
-	var files MediaFiles
-	for _, ext := range []string{"mp4", "m4a", "mkv", "webm", "mp3", "opus"} {
-		if _, err := os.Stat(filepath.Join(dir, "media."+ext)); err == nil {
-			files.Media = "media." + ext
-			break
-		}
+	if _, err := os.Stat(filepath.Join(dir, "media.m4a")); err != nil {
+		return MediaFiles{}, errors.New("yt-dlp finished but produced no audio file")
 	}
-	if files.Media == "" {
-		return files, errors.New("yt-dlp finished but produced no media file")
-	}
+	files := MediaFiles{Media: "media.m4a"}
 	if _, err := os.Stat(filepath.Join(dir, "media.jpg")); err == nil {
 		files.Thumb = "media.jpg"
 	}

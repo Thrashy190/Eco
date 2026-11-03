@@ -1,8 +1,8 @@
-// Package media stores what is not music: videos, podcasts, audiobooks and anything else imported from a
-// YouTube link. It lives next to the music library, not inside it, because Navidrome would mix these files
-// in with your songs (artists, albums, random mixes). eco serves them itself.
+// Package media stores what is not music: podcasts, audiobooks and anything else imported from a YouTube link.
+// Only the audio is kept. It lives next to the music library, not inside it, because Navidrome would mix these
+// files in with your songs (artists, albums, random mixes). eco serves them itself.
 //
-// Layout: <root>/<kind>/<id>/{media.<ext>, media.jpg, meta.json}
+// Layout: <root>/<kind>/<id>/{media.m4a, media.jpg, meta.json}
 package media
 
 import (
@@ -17,13 +17,7 @@ import (
 )
 
 // Kinds are the categories a user can file an import under, and the folders they live in.
-var Kinds = []string{"video", "podcast", "audiobook", "other"}
-
-// Formats: "video" keeps the picture, "audio" keeps only the sound.
-const (
-	Video = "video"
-	Audio = "audio"
-)
+var Kinds = []string{"podcast", "audiobook", "other"}
 
 var idPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{6,24}$`)
 
@@ -44,7 +38,6 @@ func ValidKind(kind string) bool {
 type Item struct {
 	ID       string `json:"id"`
 	Kind     string `json:"kind"`
-	Format   string `json:"format"` // video | audio
 	Title    string `json:"title"`
 	Channel  string `json:"channel"`
 	Source   string `json:"source"`

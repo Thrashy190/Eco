@@ -13,7 +13,8 @@ type Config struct {
 	Root     string // directory holding .env and the spotify token cache
 	DataDir  string // contains music/ and the CSV state
 	MusicDir string // DataDir/music: the library Navidrome reads
-	MediaDir string // DataDir/media: videos, podcasts, audiobooks (not music; Navidrome never sees it)
+	MediaDir string // DataDir/media: podcasts, audiobooks (not music; Navidrome never sees it)
+	UsersDir string // DataDir/users: each user's recents, pins and playlist covers
 
 	NavidromeURL string // where eco reaches Navidrome
 	Listen       string // address eco serves on
@@ -23,6 +24,11 @@ type Config struct {
 	CookiesBrowser string // e.g. "firefox"; yt-dlp reads that browser's YouTube session
 	CookiesFile    string // Netscape cookies.txt, for servers with no browser
 	JSRuntimes     []string
+
+	Catalog        string // where song and album information comes from: musicbrainz (default) or spotify
+	MusicBrainzURL string // your own MusicBrainz mirror, which has no rate limit
+	CatalogBackup  string // asked for what the catalogue could not answer: itunes (default) or none
+	ITunesCountry  string // which iTunes store to ask, such as us or mx
 
 	SpotifyID, SpotifySecret, SpotifyRedirect string
 
@@ -44,6 +50,7 @@ func Load() *Config {
 		DataDir:  data,
 		MusicDir: filepath.Join(data, "music"),
 		MediaDir: filepath.Join(data, "media"),
+		UsersDir: filepath.Join(data, "users"),
 
 		NavidromeURL: strings.TrimRight(env("ECO_NAVIDROME_URL", "http://127.0.0.1:4533"), "/"),
 		Listen:       env("ECO_LISTEN", "127.0.0.1:8000"),
@@ -53,6 +60,11 @@ func Load() *Config {
 		CookiesBrowser: os.Getenv("YT_COOKIES_BROWSER"),
 		CookiesFile:    os.Getenv("YT_COOKIES_FILE"),
 		JSRuntimes:     jsRuntimes(),
+
+		Catalog:        strings.ToLower(env("CATALOG", "musicbrainz")),
+		MusicBrainzURL: os.Getenv("MUSICBRAINZ_URL"),
+		CatalogBackup:  strings.ToLower(env("CATALOG_BACKUP", "itunes")),
+		ITunesCountry:  env("ITUNES_COUNTRY", "us"),
 
 		SpotifyID:       os.Getenv("SPOTIFY_CLIENT_ID"),
 		SpotifySecret:   os.Getenv("SPOTIFY_CLIENT_SECRET"),

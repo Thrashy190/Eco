@@ -11,13 +11,26 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/Thrashy190/eco/internal/catalog"
 )
 
 const apiBase = "https://api.spotify.com/v1"
 
 // PageSize is the largest page Spotify allows searches in development mode.
 const PageSize = 10
+
+const (
+	// maxRetryWait is the longest pause worth sitting through. Spotify can ask for hours (Retry-After: 12157 was a
+	// real answer), and waiting that long left every search hanging with no result and no message.
+	maxRetryWait = 30 * time.Second
+	// cacheTTL keeps catalogue answers: typing, going back and opening the same artist again must not spend Spotify's
+	// rate limit, which is what got the app blocked in the first place.
+	cacheTTL  = 10 * time.Minute
+	maxCached = 512
+)
 
 // TokenSource hands out a valid access token.
 type TokenSource interface {
@@ -28,11 +41,77 @@ type TokenSource interface {
 type Client struct {
 	http *http.Client
 	src  TokenSource
+	base string
+
+	mu           sync.Mutex
+	blockedUntil time.Time // Spotify asked us to stop until then: nothing is sent before it
+	cache        map[string]cachedBody
+}
+
+type cachedBody struct {
+	body []byte
+	at   time.Time
 }
 
 // New returns a client authenticated by src.
 func New(src TokenSource) *Client {
-	return &Client{http: &http.Client{Timeout: 20 * time.Second}, src: src}
+	return &Client{http: &http.Client{Timeout: 20 * time.Second}, src: src, base: apiBase, cache: map[string]cachedBody{}}
+}
+
+// RateLimitError means Spotify asked eco to stop for a while. Asking again before Until only makes it longer.
+type RateLimitError struct{ Until time.Time }
+
+func (e *RateLimitError) Error() string {
+	left := time.Until(e.Until).Round(time.Minute)
+	if left < time.Minute {
+		return "Spotify asked eco to slow down for a moment"
+	}
+	if left < time.Hour {
+		return fmt.Sprintf("Spotify asked eco to slow down for about %d min", int(left.Minutes()))
+	}
+	return fmt.Sprintf("Spotify asked eco to slow down for about %d h %d min", int(left.Hours()), int(left.Minutes())%60)
+}
+
+// blocked returns the error to give while Spotify's pause lasts.
+func (c *Client) blocked() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if time.Now().Before(c.blockedUntil) {
+		return &RateLimitError{c.blockedUntil}
+	}
+	return nil
+}
+
+func (c *Client) blockFor(wait time.Duration) time.Time {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.blockedUntil = time.Now().Add(wait)
+	return c.blockedUntil
+}
+
+// cacheable says which answers are the same for everyone and worth keeping. A user's likes and playlists are not.
+func (c *Client) cacheable(target string) bool {
+	return strings.HasPrefix(target, c.base+"/search") || strings.HasPrefix(target, c.base+"/albums/")
+}
+
+func (c *Client) cached(target string) ([]byte, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	entry, ok := c.cache[target]
+	if !ok || time.Since(entry.at) > cacheTTL {
+		delete(c.cache, target)
+		return nil, false
+	}
+	return entry.body, true
+}
+
+func (c *Client) remember(target string, body []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.cache) >= maxCached {
+		c.cache = map[string]cachedBody{}
+	}
+	c.cache[target] = cachedBody{body, time.Now()}
 }
 
 // StatusError is returned for any non-2xx response.
@@ -47,7 +126,7 @@ func (e *StatusError) Error() string { return fmt.Sprintf("spotify: HTTP %d: %s"
 func (c *Client) get(ctx context.Context, path string, q url.Values, out any) error {
 	target := path
 	if !strings.HasPrefix(path, "http") {
-		target = apiBase + path
+		target = c.base + path
 	}
 	if len(q) > 0 {
 		sep := "?"
@@ -56,7 +135,16 @@ func (c *Client) get(ctx context.Context, path string, q url.Values, out any) er
 		}
 		target += sep + q.Encode()
 	}
+	useCache := c.cacheable(target)
+	if useCache {
+		if body, ok := c.cached(target); ok {
+			return json.Unmarshal(body, out)
+		}
+	}
 	for attempt := 0; ; attempt++ {
+		if err := c.blocked(); err != nil {
+			return err
+		}
 		tok, err := c.src.Token(ctx)
 		if err != nil {
 			return err
@@ -69,10 +157,15 @@ func (c *Client) get(ctx context.Context, path string, q url.Values, out any) er
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 		resp.Body.Close()
-		if resp.StatusCode == http.StatusTooManyRequests && attempt < 3 {
-			wait, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
+		if resp.StatusCode == http.StatusTooManyRequests {
+			seconds, _ := strconv.Atoi(resp.Header.Get("Retry-After"))
+			wait := time.Duration(max(seconds, 1)) * time.Second
+			until := c.blockFor(wait)
+			if wait > maxRetryWait || attempt >= 3 {
+				return &RateLimitError{until}
+			}
 			select {
-			case <-time.After(time.Duration(max(wait, 1)) * time.Second):
+			case <-time.After(wait):
 				continue
 			case <-ctx.Done():
 				return ctx.Err()
@@ -80,6 +173,9 @@ func (c *Client) get(ctx context.Context, path string, q url.Values, out any) er
 		}
 		if resp.StatusCode/100 != 2 {
 			return &StatusError{resp.StatusCode, strings.TrimSpace(string(body))}
+		}
+		if useCache {
+			c.remember(target, body)
 		}
 		return json.Unmarshal(body, out)
 	}
@@ -118,40 +214,53 @@ type Track struct {
 }
 
 // Meta is the flattened metadata that gets written into audio tags and CSV rows.
-type Meta struct {
-	Title, Artist, AlbumArtist, Album, Date string
-	Track, Tracks, Disc, DurationMs         int
-	ISRC, CoverURL, SpotifyURL              string
+type Meta = catalog.Meta
+
+func artistList(as []struct {
+	Name string `json:"name"`
+}) []string {
+	out := make([]string, len(as))
+	for i, a := range as {
+		out[i] = a.Name
+	}
+	return out
+}
+
+func artistNames(as []struct {
+	Name string `json:"name"`
+}) string {
+	return strings.Join(artistList(as), ", ")
+}
+
+func widestImage(images []struct {
+	URL   string `json:"url"`
+	Width int    `json:"width"`
+}) string {
+	widest, found := -1, ""
+	for _, img := range images {
+		if img.Width > widest {
+			widest, found = img.Width, img.URL
+		}
+	}
+	return found
 }
 
 // Meta flattens a track. Fields Spotify omits (ISRC, cover…) stay empty.
 func (t Track) Meta() Meta {
-	names := func(as []struct {
-		Name string `json:"name"`
-	}) string {
-		out := make([]string, len(as))
-		for i, a := range as {
-			out[i] = a.Name
-		}
-		return strings.Join(out, ", ")
-	}
 	m := Meta{
-		Title: t.Name, Artist: names(t.Artists), AlbumArtist: names(t.Album.Artists), Album: t.Album.Name,
+		Title: t.Name, Artist: artistNames(t.Artists), Artists: artistList(t.Artists), AlbumArtist: artistNames(t.Album.Artists),
+		AlbumArtists: artistList(t.Album.Artists), Album: t.Album.Name,
 		Date: t.Album.ReleaseDate, Track: t.TrackNumber, Tracks: t.Album.TotalTracks, Disc: t.DiscNumber,
-		DurationMs: t.DurationMs, ISRC: t.ExternalIDs.ISRC, SpotifyURL: t.ExternalURLs.Spotify,
+		DurationMs: t.DurationMs, ISRC: t.ExternalIDs.ISRC, SourceURL: t.ExternalURLs.Spotify,
 	}
 	if m.AlbumArtist == "" && len(t.Artists) > 0 {
 		m.AlbumArtist = t.Artists[0].Name
+		m.AlbumArtists = []string{t.Artists[0].Name}
 	}
 	if m.Album == "" {
 		m.Album = t.Name
 	}
-	widest := -1
-	for _, img := range t.Album.Images {
-		if img.Width > widest {
-			widest, m.CoverURL = img.Width, img.URL
-		}
-	}
+	m.CoverURL = widestImage(t.Album.Images)
 	return m
 }
 
@@ -185,6 +294,76 @@ func (c *Client) SearchArtists(ctx context.Context, query string) ([]Artist, err
 	}
 	err := c.get(ctx, "/search", url.Values{"q": {query}, "type": {"artist"}, "limit": {"5"}}, &out)
 	return out.Artists.Items, err
+}
+
+// Album is an album search hit, or a whole album with its tracks when it comes from Album.
+type Album struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	AlbumType   string `json:"album_type"`
+	ReleaseDate string `json:"release_date"`
+	TotalTracks int    `json:"total_tracks"`
+	Artists     []struct {
+		Name string `json:"name"`
+	} `json:"artists"`
+	Images []struct {
+		URL   string `json:"url"`
+		Width int    `json:"width"`
+	} `json:"images"`
+	Tracks []Track `json:"-"` // only filled by Client.Album, in album order
+}
+
+// Artist returns the album's artists as one string.
+func (a Album) Artist() string { return artistNames(a.Artists) }
+
+// CoverURL returns the largest cover, or "" if Spotify has none.
+func (a Album) CoverURL() string { return widestImage(a.Images) }
+
+// SearchAlbums returns one page of album results (at most PageSize).
+func (c *Client) SearchAlbums(ctx context.Context, query string) ([]Album, error) {
+	var out struct {
+		Albums struct {
+			Items []*Album `json:"items"` // Spotify may send null entries
+		} `json:"albums"`
+	}
+	if err := c.get(ctx, "/search", url.Values{"q": {query}, "type": {"album"}, "limit": {strconv.Itoa(PageSize)}}, &out); err != nil {
+		return nil, err
+	}
+	albums := make([]Album, 0, len(out.Albums.Items))
+	for _, a := range out.Albums.Items {
+		if a != nil && a.ID != "" {
+			albums = append(albums, *a)
+		}
+	}
+	return albums, nil
+}
+
+// Album fetches an album and every one of its tracks, in album order.
+func (c *Client) Album(ctx context.Context, id string) (Album, error) {
+	var first struct {
+		Album
+		Tracks trackPage `json:"tracks"`
+	}
+	if err := c.get(ctx, "/albums/"+url.PathEscape(id), nil, &first); err != nil {
+		return Album{}, err
+	}
+	a := first.Album
+	for page := first.Tracks; ; {
+		a.Tracks = append(a.Tracks, page.Items...)
+		if page.Next == "" {
+			return a, nil
+		}
+		next := page.Next
+		page = trackPage{}
+		if err := c.get(ctx, next, nil, &page); err != nil {
+			return a, err
+		}
+	}
+}
+
+type trackPage struct {
+	Next  string  `json:"next"`
+	Items []Track `json:"items"`
 }
 
 // Track fetches a single track by its ID.

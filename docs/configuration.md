@@ -10,7 +10,8 @@ Everything is configured with environment variables, normally in a `.env` file n
 | [`TZ`](#tz) | no | time zone of the logs |
 | [`DATA_DIR`](#data_dir) | no | where music and state live |
 | [`COMPOSE_PROFILES`](#compose_profiles) | no | optional parts to start |
-| [`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`](#spotify) | to search and download | your free Spotify developer app |
+| [`CATALOG`, `MUSICBRAINZ_URL`, `CATALOG_BACKUP`, `ITUNES_COUNTRY`](#where-song-information-comes-from) | no | where song information comes from |
+| [`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`](#spotify) | only `eco likes export` | a Spotify developer app |
 | `SPOTIFY_REDIRECT_URI` | no | only for `eco likes` |
 | [`YT_COOKIES_BROWSER`](#youtube-cookies) / `YT_COOKIES_FILE` | recommended | a YouTube login for yt-dlp |
 | [`ECO_BIND`, `ECO_PORT`, `ND_BIND`](#network) | no | which interface/port to listen on |
@@ -43,15 +44,32 @@ A comma-separated list of optional parts to start with a plain `docker compose u
 | Profile | Starts | See |
 |---|---|---|
 | `tunnel` | Cloudflare tunnel | [deployment.md](deployment.md) |
-| `uploads` | a browser page to upload music files | [deployment.md](deployment.md#3-uploading-files-from-a-browser-optional) |
 | `downloads` | Lidarr, Prowlarr, qBittorrent | [downloads-stack.md](downloads-stack.md) |
 
 You can also choose per command: `docker compose --profile tunnel up -d`.
 
+## Where song information comes from
+
+Searching beyond your library, album pages and the tags of what you download come from [MusicBrainz](https://musicbrainz.org),
+an encyclopedia of music made by volunteers, and pictures from the [Cover Art Archive](https://coverartarchive.org). There
+is nothing to set up: no account, no key and no cost. MusicBrainz's core data is [public domain (CC0)](https://musicbrainz.org/doc/About/Data_License).
+
+What to expect:
+
+- **One request per second** is [its rule](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting) for everyone at one address, so a search takes a couple of seconds. eco keeps answers, so going back to a page costs nothing. The library always answers first.
+- **It has no popularity figures.** eco ranks results itself; a search with the artist and the song in it works best.
+- **Very new or very obscure releases can be missing** until a volunteer adds them, and a few albums have no cover. You can [add them yourself](https://musicbrainz.org/doc/How_to_Add_a_Release).
+
+**iTunes is the backup.** eco asks the [iTunes Search API](https://performance-partners.apple.com/search-api) (free, no account) when MusicBrainz is down or does not have a song or album, and for a cover when it has none. Searches ask both at once, because MusicBrainz cannot rank what it finds: what both have comes first, and when their lengths disagree iTunes's version is the one offered. Past Apple's limit a search simply uses MusicBrainz alone. Apple asks for about 20 requests per minute, which eco keeps to, and says its data is for promoting its store, so whether that suits you is your call: `CATALOG_BACKUP=none` turns it off. `ITUNES_COUNTRY` chooses the store.
+
+`MUSICBRAINZ_URL` points eco at [your own mirror](https://musicbrainz.org/doc/MusicBrainz_Server/Setup), which has no limit.
+`CATALOG=spotify` goes back to Spotify, with the credentials below.
+
 ## Spotify
 
-eco uses Spotify only to look up song information: titles, artists, albums, covers and lengths. You need your own free
-"app" to be allowed to ask.
+**Optional.** eco only needs Spotify for `eco likes export`, which reads your liked songs and playlists through your own
+Spotify login, for `eco get -s`, and for `CATALOG=spotify`. To bring a playlist over without any of this, use **Import a
+playlist** in the app, which reads a file.
 
 1. Sign in at the [Spotify developer dashboard](https://developer.spotify.com/dashboard) and click **Create app**.
 2. Fill it in: any **App name** and **Description**; **Redirect URI** `http://127.0.0.1:8888/callback` (press *Add*); tick **Web API** under *Which API/SDKs are you planning to use*.
@@ -62,8 +80,8 @@ eco uses Spotify only to look up song information: titles, artists, albums, cove
    SPOTIFY_CLIENT_SECRET=...
    ```
 
-Good to know: while an app is in *development mode* the owner of the app needs a Spotify Premium account, and searches
-return at most 10 results per page. eco works within that. To also download your **liked songs** or **playlists** in bulk
+Good to know: while an app is in *development mode* the owner of the app needs a Spotify Premium account, searches
+return at most 10 results per page, and Spotify can stop answering for hours. eco works within that. To also download your **liked songs** or **playlists** in bulk
 (`eco likes`), the first run opens a browser to ask your permission; the login is kept in `.spotify_token.json`.
 `SPOTIFY_REDIRECT_URI` must stay equal to the one you registered in step 2.
 
