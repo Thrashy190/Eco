@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 780" width="1280" height="780" role="img" aria-labelledby="title desc">
-  <title id="title">How eco fits together</title>
-  <desc id="desc">Phones, computers and Subsonic apps reach eco over HTTPS. eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder that Navidrome reads.</desc>
+  <title id="title">How Eco fits together</title>
+  <desc id="desc">Phones, computers and Subsonic apps reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder that Navidrome reads.</desc>
   <defs>
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#1f2430"/></pattern>
     <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9f8d9"/><stop offset="1" stop-color="#3fd0a2"/></linearGradient>
@@ -29,8 +29,8 @@
   <rect width="1280" height="780" rx="24" fill="#0e1016"/>
   <rect width="1280" height="780" rx="24" fill="url(#dots)"/>
 
-  <text x="40" y="52" class="h">How eco fits together</text>
-  <text x="40" y="76" class="sub">Your devices talk to one server. Navidrome keeps the library, eco adds search, downloads and the app.</text>
+  <text x="40" y="52" class="h">How Eco fits together</text>
+  <text x="40" y="76" class="sub">Your devices talk to one server. Navidrome keeps the library, Eco adds search, downloads and the app.</text>
 
   <!-- Devices -->
   <rect x="32" y="104" width="248" height="596" rx="16" class="box"/>
@@ -66,7 +66,7 @@
   <!-- eco -->
   <rect x="400" y="104" width="372" height="596" rx="16" fill="#12151c" stroke="#3fd0a2" stroke-width="1.6"/>
   <g transform="translate(420 118) scale(.0625)"><rect width="512" height="512" rx="112" fill="#08080c"/><g fill="url(#mint)"><rect x="94" y="175" width="30" height="163" rx="15"/><rect x="136" y="125" width="30" height="263" rx="15"/><rect x="178" y="101" width="30" height="86" rx="15"/><rect x="178" y="229" width="30" height="55" rx="15"/><rect x="178" y="326" width="30" height="86" rx="15"/><rect x="220" y="90" width="30" height="75" rx="15"/><rect x="220" y="229" width="30" height="55" rx="15"/><rect x="220" y="348" width="30" height="75" rx="15"/><rect x="262" y="90" width="30" height="75" rx="15"/><rect x="262" y="229" width="30" height="55" rx="15"/><rect x="262" y="348" width="30" height="75" rx="15"/><rect x="304" y="101" width="30" height="86" rx="15"/><rect x="304" y="229" width="30" height="55" rx="15"/><rect x="304" y="326" width="30" height="86" rx="15"/><rect x="346" y="125" width="30" height="159" rx="15"/><rect x="346" y="351" width="30" height="37" rx="15"/><rect x="388" y="175" width="30" height="109" rx="15"/></g></g>
-  <text x="464" y="134" font-size="18" font-weight="700" fill="#f2f4f8">eco</text>
+  <text x="464" y="134" font-size="18" font-weight="700" fill="#f2f4f8">Eco</text>
   <text x="464" y="152" class="d">One Go binary with the app inside</text>
 
   <rect x="420" y="172" width="332" height="80" rx="12" class="card"/>
@@ -109,7 +109,7 @@
     <ellipse cx="1046" cy="278" rx="194" ry="20" fill="#20242f" stroke="#2c3240" stroke-width="1.2"/>
   </g>
   <text x="1046" y="284" text-anchor="middle" class="t">data/music</text>
-  <text x="1046" y="322" text-anchor="middle" class="d">Your files. Navidrome only reads them; eco writes downloads</text>
+  <text x="1046" y="322" text-anchor="middle" class="d">Your files. Navidrome only reads them; Eco writes downloads</text>
 
   <text x="852" y="376" class="group">SONG INFORMATION</text>
   <rect x="842" y="386" width="408" height="118" rx="14" class="box"/>

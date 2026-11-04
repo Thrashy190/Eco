@@ -22,7 +22,7 @@ Everything is configured with environment variables, normally in a `.env` file n
 
 ## PUID, PGID
 
-Files eco and Navidrome create are owned by this user. Run `id -u` and `id -g` on the machine that will run
+Files Eco and Navidrome create are owned by this user. Run `id -u` and `id -g` on the machine that will run
 the containers and copy the numbers (both are `1000` on most single-user Linux installs). If these do not match
 the owner of `DATA_DIR`, the containers cannot write to it.
 
@@ -33,7 +33,7 @@ A [tz database name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zone
 
 ## DATA_DIR
 
-The folder that holds `music/` (the library) and eco's state (`likes.csv`, `playlists/`). Default `./data`
+The folder that holds `music/` (the library), `media/` (imported podcasts and audiobooks) and Eco's state (`likes.csv`, `playlists/`, `users/`, `backup/`). Default `./data`
 (next to the compose file). On a server `/srv/data` is a common choice; create it first and make your user the
 owner: `sudo mkdir -p /srv/data/music && sudo chown -R $(id -u):$(id -g) /srv/data`.
 
@@ -56,18 +56,18 @@ is nothing to set up: no account, no key and no cost. MusicBrainz's core data is
 
 What to expect:
 
-- **One request per second** is [its rule](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting) for everyone at one address, so a search takes a couple of seconds. eco keeps answers, so going back to a page costs nothing. The library always answers first.
-- **It has no popularity figures.** eco ranks results itself; a search with the artist and the song in it works best.
+- **One request per second** is [its rule](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting) for everyone at one address, so a search takes a couple of seconds. Eco keeps answers, so going back to a page costs nothing. The library always answers first.
+- **It has no popularity figures.** Eco ranks results itself; a search with the artist and the song in it works best.
 - **Very new or very obscure releases can be missing** until a volunteer adds them, and a few albums have no cover. You can [add them yourself](https://musicbrainz.org/doc/How_to_Add_a_Release).
 
-**iTunes is the backup.** eco asks the [iTunes Search API](https://performance-partners.apple.com/search-api) (free, no account) when MusicBrainz is down or does not have a song or album, and for a cover when it has none. Searches ask both at once, because MusicBrainz cannot rank what it finds: what both have comes first, and when their lengths disagree iTunes's version is the one offered. Past Apple's limit a search simply uses MusicBrainz alone. Apple asks for about 20 requests per minute, which eco keeps to, and says its data is for promoting its store, so whether that suits you is your call: `CATALOG_BACKUP=none` turns it off. `ITUNES_COUNTRY` chooses the store.
+**iTunes is the backup.** Eco asks the [iTunes Search API](https://performance-partners.apple.com/search-api) (free, no account) when MusicBrainz is down or does not have a song or album, and for a cover when it has none. Searches ask both at once, because MusicBrainz cannot rank what it finds: what both have comes first, and when their lengths disagree iTunes's version is the one offered. Past Apple's limit a search simply uses MusicBrainz alone. Apple asks for about 20 requests per minute, which Eco keeps to, and says its data is for promoting its store, so whether that suits you is your call: `CATALOG_BACKUP=none` turns it off. `ITUNES_COUNTRY` chooses the store.
 
-`MUSICBRAINZ_URL` points eco at [your own mirror](https://musicbrainz.org/doc/MusicBrainz_Server/Setup), which has no limit.
+`MUSICBRAINZ_URL` points Eco at [your own mirror](https://musicbrainz.org/doc/MusicBrainz_Server/Setup), which has no limit.
 `CATALOG=spotify` goes back to Spotify, with the credentials below.
 
 ## Spotify
 
-**Optional.** eco only needs Spotify for `eco likes export`, which reads your liked songs and playlists through your own
+**Optional.** Eco only needs Spotify for `eco likes export`, which reads your liked songs and playlists through your own
 Spotify login, for `eco get -s`, and for `CATALOG=spotify`. To bring a playlist over without any of this, use **Import a
 playlist** in the app, which reads a file.
 
@@ -81,7 +81,7 @@ playlist** in the app, which reads a file.
    ```
 
 Good to know: while an app is in *development mode* the owner of the app needs a Spotify Premium account, searches
-return at most 10 results per page, and Spotify can stop answering for hours. eco works within that. To also download your **liked songs** or **playlists** in bulk
+return at most 10 results per page, and Spotify can stop answering for hours. Eco works within that. To also download your **liked songs** or **playlists** in bulk
 (`eco likes`), the first run opens a browser to ask your permission; the login is kept in `.spotify_token.json`.
 `SPOTIFY_REDIRECT_URI` must stay equal to the one you registered in step 2.
 
@@ -112,9 +112,9 @@ Cookies expire after a few weeks; repeat if downloads start failing again. Treat
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ECO_BIND` | `127.0.0.1` | interface for eco's port. `0.0.0.0` makes it reachable from your whole network |
-| `ECO_PORT` | `8000` | eco's port on the host |
-| `ND_BIND` | `127.0.0.1` | interface for Navidrome's own port (its admin UI; eco reaches it internally) |
+| `ECO_BIND` | `127.0.0.1` | interface for Eco's port. `0.0.0.0` makes it reachable from your whole network |
+| `ECO_PORT` | `8000` | Eco's port on the host |
+| `ND_BIND` | `127.0.0.1` | interface for Navidrome's own port (its admin UI; Eco reaches it internally) |
 
 Keep the defaults and use a [tunnel or Tailscale](deployment.md) for remote access. Opening these ports on your
 router exposes your server to the whole internet.
@@ -148,8 +148,8 @@ You only need these when running the `eco` binary yourself instead of the contai
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `ECO_NAVIDROME_URL` | `http://127.0.0.1:4533` | where eco reaches Navidrome |
-| `ECO_LISTEN` | `127.0.0.1:8000` | address eco serves on |
+| `ECO_NAVIDROME_URL` | `http://127.0.0.1:4533` | where Eco reaches Navidrome |
+| `ECO_LISTEN` | `127.0.0.1:8000` | address Eco serves on |
 | `YTDLP_BIN` | `yt-dlp` on `PATH`, else `./bin/yt-dlp` | the yt-dlp binary (`make tools` downloads one) |
 | `FFMPEG_BIN` | `ffmpeg` | the ffmpeg binary |
 | `ECO_ROOT` | current folder | where `.env` and `.spotify_token.json` live |

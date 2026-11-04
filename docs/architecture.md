@@ -1,20 +1,20 @@
 # Architecture
 
-eco has three moving parts. Navidrome is the music server; eco sits in front of it; yt-dlp and ffmpeg do the downloading.
+Eco has three moving parts. Navidrome is the music server; Eco sits in front of it; yt-dlp and ffmpeg do the downloading.
 
-![How eco fits together: devices reach eco over HTTPS; eco passes audio to Navidrome, asks MusicBrainz and iTunes for song information, and downloads with yt-dlp and ffmpeg into the music folder.](images/architecture.svg)
+![How Eco fits together: devices reach Eco over HTTPS; Eco passes audio to Navidrome, asks MusicBrainz and iTunes for song information, and downloads with yt-dlp and ffmpeg into the music folder.](images/architecture.svg)
 
 ## Why these choices
 
 | Decision | Reason |
 |---|---|
-| **Navidrome as the server** | Light (~70 MB), speaks the Subsonic/OpenSubsonic API, has users, playlists, favourites and play counts. eco does not reimplement any of it. |
-| **eco proxies `/rest/*` untouched** | The web app gets a single origin (no CORS) and any Subsonic client keeps working when pointed at eco. |
-| **No database in eco** | Users and playlists live in Navidrome. Download history is a CSV; job state is in memory; recents, pins and playlist covers are one folder per user. Fewer things to back up. |
-| **Authentication reuses Navidrome's** | Each request carries Subsonic credentials (`u`, `t = md5(password+salt)`, `s`); eco checks them with Navidrome's `ping` and remembers the answer for five minutes. The password is never stored by the web app. |
-| **yt-dlp and ffmpeg are executed, not embedded** | YouTube changes constantly; yt-dlp must be updatable without rebuilding eco. Tags are written by remuxing with ffmpeg (no re-encoding). |
-| **Go, one binary, web app embedded** | Easy to deploy and cross-compile; the web app (React and TypeScript, built with Vite) is compiled into the binary, so running eco needs neither Node nor separate files. |
-| **Navidrome mounts the music read-only** | Only eco changes files: downloads go to `YouTube/`, and an administrator can delete any song. |
+| **Navidrome as the server** | Light (about 150 MB at rest with over 1,000 songs), speaks the Subsonic/OpenSubsonic API, has users, playlists, favourites and play counts. Eco does not reimplement any of it. |
+| **Eco proxies `/rest/*` untouched** | The web app gets a single origin (no CORS) and any Subsonic client keeps working when pointed at Eco. |
+| **No database in Eco** | Users and playlists live in Navidrome. Download history is a CSV; job state is in memory; recents, pins, playlist covers and imported lists are one folder per user. Fewer things to back up. |
+| **Authentication reuses Navidrome's** | Each request carries Subsonic credentials (`u`, `t = md5(password+salt)`, `s`); Eco checks them with Navidrome's `ping` and remembers the answer for five minutes. The password is never stored by the web app. |
+| **yt-dlp and ffmpeg are executed, not embedded** | YouTube changes constantly; yt-dlp must be updatable without rebuilding Eco. Tags are written by remuxing with ffmpeg (no re-encoding). |
+| **Go, one binary, web app embedded** | Easy to deploy and cross-compile; the web app (React and TypeScript, built with Vite) is compiled into the binary, so running Eco needs neither Node nor separate files. |
+| **Navidrome mounts the music read-only** | Only Eco changes files: downloads go to `YouTube/`, and an administrator can delete any song. |
 
 ## Library layout
 
@@ -26,21 +26,22 @@ data/music/
 └── Lidarr/                                          Lidarr's root folder (profile "downloads")
 
 data/media/<kind>/<video id>/{media.m4a, media.jpg, meta.json}       imported audio: podcasts, audiobooks, other
-data/users/<hash of username>/{state.json, covers/<playlist id>.jpg}  recents, pins and playlist covers
+data/users/<hash of username>/{state.json, imports.json, covers/<playlist id>.jpg}  recents, pins, imported lists and playlist covers
+data/backup/artists-<date>/                                           the original files of a clean-up that rewrote artist tags
 ```
 
-`data/media/` is deliberately **outside** `music/`: Navidrome would otherwise index podcasts and audiobooks as albums and artists and shuffle them into your music. Navidrome never sees these files; eco serves them itself (with `Range` support, so seeking works).
+`data/media/` is deliberately **outside** `music/`: Navidrome would otherwise index podcasts and audiobooks as albums and artists and shuffle them into your music. Navidrome never sees these files; Eco serves them itself (with `Range` support, so seeking works).
 
 `Originals/` and `Lidarr/` are kept apart on purpose: Lidarr matches against MusicBrainz and would flag your own music as unrecognised.
 
 ## A download, step by step
 
-1. The web app calls `POST /api/download?id=…`. eco queues a job and answers at once.
+1. The web app calls `POST /api/download?id=…`. Eco queues a job and answers at once.
 2. A worker (one at a time, to be kind to YouTube) reads the track from the catalogue: title, artists, album, cover, length.
-3. **Choosing the video.** A plain YouTube search runs first (one cheap call that already returns length and channel). Only if that result is not clearly right does eco also search YouTube Music, which is slower and rate-limited sooner. Each candidate is scored by how far its length is from the catalogue's, penalised for unwanted versions (live, remix, sped up…) unless the song itself is one, and rewarded for official channels. The title must also match: a different song of the same length is rejected.
+3. **Choosing the video.** A plain YouTube search runs first (one cheap call that already returns length and channel). Only if that result is not clearly right does Eco also search YouTube Music, which is slower and rate-limited sooner. Each candidate is scored by how far its length is from the catalogue's, penalised for unwanted versions (live, remix, sped up…) unless the song itself is one, and rewarded for official channels. The title must also match: a different song of the same length is rejected.
 4. A candidate is accepted automatically only if it is within 10 s and has nothing odd about its title; otherwise the job fails with the reason, so a wrong song never reaches your library.
 5. yt-dlp downloads the audio (progress is reported), ffmpeg tags it and embeds the cover, and the file is moved into place.
-6. eco asks Navidrome to scan and looks for the new song, so the app can play it immediately. The job then becomes `ready` with the song's Navidrome ID.
+6. Eco asks Navidrome to scan and looks for the new song, so the app can play it immediately. The job then becomes `ready` with the song's Navidrome ID.
 
 The web app polls `/api/jobs` and draws a spinner, then a progress ring, then a check.
 
@@ -51,9 +52,9 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | Endpoint | Returns |
 |---|---|
 | `GET /api/search?q=` | `songs`, `artists` and `albums` from your library. Never waits for the catalogue |
-| `GET /api/search/external?q=` | what the catalogue adds: `external` (songs you do not own, plus the artist's other songs when the query is an artist), `external_albums`, `hide_albums` (library albums the catalogue also returned), and `warning` when it is slow or limiting eco |
+| `GET /api/search/external?q=` | what the catalogue adds: `external` (songs you do not own, plus the artist's other songs when the query is an artist), `external_albums`, `hide_albums` (library albums the catalogue also returned), and `warning` when it is slow or limiting Eco |
 | `GET /api/catalog/albums/{id}` | a whole album from the catalogue, tracks in order; a track you have carries `library` with the song from your library |
-| `GET /api/albums/match?name=&artist=` | the whole catalogue album matching a library album, tracks in order with what you have marked; `album` is null when there is none |
+| `GET /api/albums/match?name=&artist=` | the whole catalogue album matching a library album, tracks in order with what you have marked; `album` is null when there is none, and the answer is 503 when the catalogue could not say in time, so ask again |
 | `GET /api/artists/lookup?name=` | the library artist with exactly this name; `id` is empty when there is none |
 | `GET /api/me/library` | your `recents`, `pins` and `covers`; albums Navidrome saw played fill out the recents |
 | `POST /api/me/recents`, `POST /api/me/pins` · `DELETE /api/me/{recents,pins}/{type}/{id}` | remember or forget an item (JSON body: `type`, `id`, `name`, how to draw it) |
@@ -70,9 +71,9 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/media/preview?url=` | what a YouTube link is (title, channel, length, thumbnail) and whether it is already imported |
 | `POST /api/media/import?url=&kind=` | import the audio of a link as `podcast`, `audiobook` or `other`; the same video is never imported twice |
 | `GET /api/media?kind=` | imported items, newest first |
-| `GET /api/media/{id}/file`, `/thumb` · `DELETE /api/media/{id}` | the media (with `Range`), its thumbnail, delete |
+| `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
-| `GET /api/me` | who you are and whether you are an administrator |
+| `GET /api/me` | who you are, whether you are an administrator, and which `catalog` answers |
 | `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song's file or an imported item, for everyone |
 | `GET /api/connect/events?device=&name=&can_volume=` | a device's stream (Server-Sent Events): `devices`, `state`, `command` |
 | `POST /api/connect/state?device=` · `POST /api/connect/command?device=` | report what this device plays; send a command to another device of your account |
@@ -81,13 +82,13 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 
 ## Imported media
 
-`internal/media` keeps items on disk (one folder per video, with a `meta.json`), so there is still no database. Only the audio is downloaded, as M4A, with the video's thumbnail as its cover. Only `youtube.com`, `youtu.be` and their subdomains are accepted: letting a signed-in user make the server fetch arbitrary addresses would turn eco into a probe of your home network. A failed import removes its half-written folder.
+`internal/media` keeps items on disk (one folder per video, with a `meta.json`), so there is still no database. Only the audio is downloaded, as M4A, with the video's thumbnail as its cover. Only `youtube.com`, `youtu.be` and their subdomains are accepted: letting a signed-in user make the server fetch arbitrary addresses would turn Eco into a probe of your home network. A failed import removes its half-written folder.
 
 ## Your library
 
-The library opens on **Recent**: Favorites, then what you pinned, then what you opened or played lately. Favorites are stars in Navidrome, but the app presents them as a playlist with the reserved ID `favorites`. `internal/userdata` stores the recents and pins on the server, so every device shows the same list, with one JSON file per user and a copy in the browser for offline use.
+The library opens on **Recent**: Favorites, then what you pinned, then what you opened or played lately. Favorites are stars in Navidrome, but the app presents them as a playlist with the reserved ID `favorites`. `internal/userdata` stores the recents and pins on the server, so every device shows the same list, with one JSON file per user and a copy in the browser for offline use. That copy is checked before it is used or saved (`isLibraryState`): an answer cut short reaches the app as `{}`, and once saved it would blank the app on every launch.
 
-Playlist covers are stored the same way, because the Subsonic API has nowhere to put them: they appear in eco only, for the user who chose them. The browser crops the picture to a 640×640 JPEG before uploading, and the server refuses anything that is not a real JPEG.
+Playlist covers are stored the same way, because the Subsonic API has nowhere to put them: they appear in Eco only, for the user who chose them. The browser crops the picture to a 640×640 JPEG before uploading, and the server refuses anything that is not a real JPEG.
 
 An album looks the same however you reach it. `/catalog-album/{id}` starts from the catalogue. `/album/{id}` shows the library at once and turns into the same page as soon as the catalogue finds the album, keeping any song it does not list under "Also in your library". Either way you see the whole album with what you have marked and can tick tracks to download. While the catalogue is being asked the page says so, and it asks again when the catalogue runs out of time: `/api/albums/match` answers 503 for "could not say in time", which is different from `album: null`, "no such album". Each answer is cached, so asking again gets further. With no match `/album/{id}` stays what the library holds and keeps playing.
 
@@ -97,7 +98,7 @@ An album looks the same however you reach it. `/catalog-album/{id}` starts from 
 
 ## Keeping the library tidy
 
-Administrators get **Library clean-up** in Settings. eco proposes and an administrator decides. *Copies* are songs with the same title, version and first artist within 3 s of each other; deleting one goes through the same identification as any deletion, and the person's favourite and playlists move to the copy that stays. *Artists*: Navidrome treats `Bad Bunny, Chuwi` as one artist, because a comma can be part of a name, but splits `Bad Bunny; Chuwi`. eco rewrites those tags, keeping a copy of each file in `data/backup/` and only replacing a file once the audio of the new one is proven identical. New downloads are tagged that way from the start. Song IDs, favourites and playlists survive this (checked on a real Navidrome); an album whose album artist changes gets a new ID.
+Administrators get **Library clean-up** in Settings. Eco proposes and an administrator decides. *Copies* are songs with the same title, version and first artist within 3 s of each other; deleting one goes through the same identification as any deletion, and the person's favourite and playlists move to the copy that stays. *Artists*: Navidrome treats `Bad Bunny, Chuwi` as one artist, because a comma can be part of a name, but splits `Bad Bunny; Chuwi`. Eco rewrites those tags, keeping a copy of each file in `data/backup/` and only replacing a file once the audio of the new one is proven identical. New downloads are tagged that way from the start. Song IDs, favourites and playlists survive this (checked on a real Navidrome); an album whose album artist changes gets a new ID.
 
 ## Screens
 
@@ -121,7 +122,7 @@ Two limits come from browsers. iOS ignores `audio.volume`, so an iPhone cannot h
 
 ## Offline in the web app
 
-Everything saved for offline lives in the browser's IndexedDB: audio and cover as Blobs, plus a small record per song. A **collection** (favorites, a playlist, an album) remembers its list of songs, so it can be shown and played with no server. A song can be held by several collections and by an individual save; its files are deleted only when nothing holds it. When a downloaded collection is opened online, eco quietly downloads new songs and releases removed ones. The service worker caches only the app shell; audio and data never go through it.
+Everything saved for offline lives in the browser's IndexedDB: audio and cover as Blobs, plus a small record per song. A **collection** (favorites, a playlist, an album) remembers its list of songs, so it can be shown and played with no server. A song can be held by several collections and by an individual save; its files are deleted only when nothing holds it. When a downloaded collection is opened online, Eco quietly downloads new songs and releases removed ones. The service worker caches only the app shell; audio and data never go through it.
 
 A saved song plays from there with no request for its audio, and so does the next one in the queue; if a saved copy will not play and there is a connection, the retry streams it. The lock screen uses the saved cover too.
 
@@ -131,7 +132,7 @@ Web apps cannot download freely in the background: iPhones freeze them when they
 
 ## The likes workflow (`eco likes`)
 
-For bulk downloads the CSV is the source of truth. Each step reads it, works, and saves after every song, so everything can be stopped and resumed. Before searching or downloading, eco scans the tags of your whole library and marks songs you already have as `downloaded` (so songs fetched by other means are never fetched twice). A download that finds YouTube demanding a sign-in stops and leaves the remaining songs as `found`.
+For bulk downloads the CSV is the source of truth. Each step reads it, works, and saves after every song, so everything can be stopped and resumed. Before searching or downloading, Eco scans the tags of your whole library and marks songs you already have as `downloaded` (so songs fetched by other means are never fetched twice). A download that finds YouTube demanding a sign-in stops and leaves the remaining songs as `found`.
 
 Liked songs end up as **Navidrome favourites**: `eco likes favorites` stars every downloaded song for the user in `ND_USER`, oldest like first, so Navidrome's newest-first favourites list matches the order of your likes. Songs are matched by title, artist, album and length (Navidrome's `path` is not the file name). Spotify playlists, in contrast, become `.m3u` playlists.
 
@@ -144,7 +145,7 @@ Liked songs end up as **Navidrome favourites**: `eco likes favorites` stars ever
 | `internal/engine` | find the video, download, tag, place the file |
 | `internal/match` | normalising titles and scoring candidates (well tested; start here when a wrong song slips through) |
 | `internal/ytdlp`, `internal/tag` | wrappers for yt-dlp and ffmpeg |
-| `internal/catalog` | what eco needs from a music catalogue, `musicbrainz` (the default, with its ranking), `itunes` and `Fallback`, which asks the second for what the first could not answer |
+| `internal/catalog` | what Eco needs from a music catalogue, `musicbrainz` (the default, with its ranking), `itunes` and `Fallback`, which asks the second for what the first could not answer |
 | `internal/spotify` | Web API client and the PKCE login (`eco likes export`), and the optional `CATALOG=spotify` |
 | `internal/imports` | reading lists of songs from CSV and Spotify's account data |
 | `internal/subsonic` | Navidrome client |

@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="web/public/icon.svg" alt="eco logo" width="112" height="112">
+  <img src="web/public/icon.svg" alt="Eco logo" width="112" height="112">
 </p>
 
-<h1 align="center">ECO</h1>
+<h1 align="center">Eco</h1>
 
 <p align="center">
   <strong>Your own music app.</strong><br>
@@ -71,7 +71,7 @@
 ## How it fits together
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Your devices reach eco over HTTPS. eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder Navidrome reads." width="100%">
+  <img src="docs/images/architecture.svg" alt="Your devices reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder Navidrome reads." width="100%">
 </p>
 
 More in [docs/architecture.md](docs/architecture.md).
@@ -90,10 +90,10 @@ docker compose up -d --build
 Then:
 
 1. Open **http://localhost:4533** and create your first account. The first user is the administrator.
-2. Open **http://localhost:8000**. That is eco. Sign in with the account you just created.
+2. Open **http://localhost:8000**. That is Eco. Sign in with the account you just created.
 3. Add some music (see [Adding music](#adding-music)) and search for it.
 
-Searching beyond your library works right away. Downloading usually needs YouTube cookies, explained below; without them eco is still a good player.
+Searching beyond your library works right away. Downloading usually needs YouTube cookies, explained below; without them Eco is still a good player.
 
 ## Prerequisites
 
@@ -101,9 +101,9 @@ Searching beyond your library works right away. Downloading usually needs YouTub
 |---|---|---|
 | **Docker and Compose v2** | runs everything | `docker compose version` should print v2.x |
 | **YouTube cookies** | YouTube blocks anonymous downloads after a while | [setup](docs/configuration.md#youtube-cookies). Optional at first |
-| About 1 GB of free RAM, disk for your music | | Navidrome uses about 70 MB, eco about 30 MB |
+| About 1 GB of free RAM, disk for your music | | At rest, with over 1,000 songs: Navidrome about 150 MB, Eco about 10 MB. Downloads use more while they run |
 
-Not using Docker? You need [Go 1.22+](https://go.dev/dl/), [ffmpeg](https://ffmpeg.org), [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [deno](https://deno.com) or Node.js 20+, plus a running Navidrome. See [Running without Docker](#running-without-docker).
+Not using Docker? You need [Go 1.22+](https://go.dev/dl/), [Node.js 22.22+](https://nodejs.org) to build the web app, [ffmpeg](https://ffmpeg.org) and [yt-dlp](https://github.com/yt-dlp/yt-dlp), plus a running Navidrome. yt-dlp also needs a JavaScript runtime, and that Node.js counts. See [Running without Docker](#running-without-docker).
 
 ## Configuration
 
@@ -117,7 +117,7 @@ Use whichever fits you; they all end up in the same library.
 
 | Way | Good for |
 |---|---|
-| **The search box in eco** | Anything in [MusicBrainz](docs/configuration.md#where-song-information-comes-from): search, tap **Get**, or open an album and choose its tracks. |
+| **The search box in Eco** | Anything in [MusicBrainz](docs/configuration.md#where-song-information-comes-from): search, tap **Get**, or open an album and choose its tracks. |
 | **Import a playlist**, in the app | A list exported to a file from Spotify or elsewhere: it becomes a playlist, and you can download what is missing. |
 | **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [Command line](#command-line). |
 | **Copy files** into `data/music/` | Music you already own. Navidrome scans every minute. |
@@ -129,26 +129,26 @@ Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and w
 
 ## Podcasts and audiobooks
 
-Paste a YouTube link into the search box (a single video, not a playlist). eco shows what it is, you choose a category, and it downloads **only the audio** in the background:
+Paste a YouTube link into the search box (a single video, not a playlist). Eco shows what it is, you choose a category, and it downloads **only the audio** in the background:
 
 | Category | Good for | Extras |
 |---|---|---|
 | **Podcast**, **Audiobook** | long listening | remembers where you stopped, speed button (0.75x to 2x), can be saved for offline |
 | **Other** | talks, lectures, sounds | the same |
 
-These files live in `data/media/<category>/<video id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. eco stores and serves them itself. Only YouTube links are accepted.
+These files live in `data/media/<category>/<video id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. Eco stores and serves them itself. Only YouTube links are accepted.
 
 ## Use it from your phone
 
-Open eco in your phone's browser and use **Add to Home Screen** (iPhone: Share, then Add to Home Screen; Android: menu, then Install app). It then behaves like an app.
+Open Eco in your phone's browser and use **Add to Home Screen** (iPhone: Share, then Add to Home Screen; Android: menu, then Install app). It then behaves like an app.
 
 To reach your server from outside your home you need HTTPS. Options, easiest first, are described in [docs/deployment.md](docs/deployment.md): a **Cloudflare Tunnel** (`--profile tunnel`), **Tailscale**, or a reverse proxy of your own. Do not expose the port directly to the internet.
 
 ### Offline on a phone
 
-Downloads are kept in the app's own private storage (the browser's IndexedDB). They do not appear in the Files app or the photo roll, Settings in eco shows how much space they use, and removing the app from the home screen deletes them.
+Downloads are kept in the app's own private storage (the browser's IndexedDB). They do not appear in the Files app or the photo roll, Settings in Eco shows how much space they use, and removing the app from the home screen deletes them.
 
-A web app cannot download freely in the background. An iPhone freezes it shortly after it leaves the screen, unless music is playing, so a long download there runs while the app is open: eco keeps the screen on for it, and when you return it carries on from where it was. Nothing is lost when that happens. Whatever is already saved plays at once, even before the whole collection arrives.
+A web app cannot download freely in the background. An iPhone freezes it shortly after it leaves the screen, unless music is playing, so a long download there runs while the app is open: Eco keeps the screen on for it, and when you return it carries on from where it was. Nothing is lost when that happens. Whatever is already saved plays at once, even before the whole collection arrives.
 
 ## Command line
 
@@ -168,9 +168,12 @@ eco likes all                       # every step above
 
 # A Spotify playlist becomes a Navidrome playlist
 eco likes all --playlist "My playlist"
+eco likes playlist --playlist "My playlist"   # only write its .m3u again ("download" already does it)
+
+eco version                         # which release this is
 ```
 
-Your **liked songs become your Navidrome favourites**, which eco shows as a *Favorites* playlist at the top of your library. In Navidrome they stay favourites; real playlists are for Spotify playlists you choose. `favorites` needs `ND_USER` and `ND_PASS` ([configuration](docs/configuration.md#nd_user-nd_pass)) and is safe to repeat: songs already favourited are skipped.
+Your **liked songs become your Navidrome favourites**, which Eco shows as a *Favorites* playlist at the top of your library. In Navidrome they stay favourites; real playlists are for Spotify playlists you choose. `favorites` needs `ND_USER` and `ND_PASS` ([configuration](docs/configuration.md#nd_user-nd_pass)) and is safe to repeat: songs already favourited are skipped.
 
 `eco likes` keeps its state in `data/likes.csv` (or `data/playlists/NAME.csv`). A song is `pending`, `found`, `review` (needs a human look), `downloaded` or `error`; edit the file freely. `--limit N` processes at most N songs (`0` means no limit).
 
@@ -184,14 +187,17 @@ make doctor         # tells you what is missing
 make run            # http://127.0.0.1:8000
 ```
 
-eco reads `.env` from the current directory. Point it at your Navidrome with `ECO_NAVIDROME_URL` (default `http://127.0.0.1:4533`).
+Eco reads `.env` from the current directory. Point it at your Navidrome with `ECO_NAVIDROME_URL` (default `http://127.0.0.1:4533`).
 
 ## Updating
 
 ```bash
 git pull
-docker compose up -d --build
+make docker             # builds the image and records its release
+docker compose up -d
 ```
+
+`docker compose up -d --build` also works, but `eco version` and the logs then say `dev`.
 
 Each feature and fix is a [release](https://github.com/Thrashy190/eco/releases) with its notes, numbered with [semantic versioning](https://semver.org): `v1.2.3` is a fix over `v1.2.2`, `v1.3.0` adds something, and `v2.0.0` asks you to change something when updating.
 
@@ -203,12 +209,12 @@ yt-dlp changes whenever YouTube does. If downloads start failing everywhere, reb
 |---|---|
 | `eco doctor` reports something missing | Follow the hint it prints. |
 | "Sign in to confirm you're not a bot" | [YouTube cookies](docs/configuration.md#youtube-cookies). |
-| "no confident match on YouTube" | eco refused a doubtful video (wrong length or title). Use `eco get -q ... URL` to pick one by hand. |
-| Searching only shows your library | The server cannot reach musicbrainz.org, or it asked eco to wait a moment; the search says which. |
+| "no confident match on YouTube" | Eco refused a doubtful video (wrong length or title). Use `eco get -q ... URL` to pick one by hand. |
+| Searching only shows your library | The server cannot reach musicbrainz.org, or it asked Eco to wait a moment; the search says which. |
 | A song or album is not found | MusicBrainz is made by volunteers and may not have it yet. [Anyone can add it](https://musicbrainz.org/doc/How_to_Add_a_Release). |
 | A new song does not show up | Navidrome scans every minute; give it a moment. |
 | A download for offline says *Waiting* | No connection, or the server is not answering. It carries on by itself. |
-| Wrong username or password | Use your **Navidrome** account: eco has no accounts of its own. |
+| Wrong username or password | Use your **Navidrome** account: Eco has no accounts of its own. |
 
 ## Development
 
@@ -222,7 +228,7 @@ The Go code lives in `cmd/` and `internal/`; the web app in `web/src/` is React 
 
 ## Responsible use
 
-eco is a tool for managing and playing a personal music library. It downloads audio from YouTube using yt-dlp; doing so may violate YouTube's terms of service and, depending on where you live and what you download, copyright law. You are responsible for what you download and for having the right to do so. Do not use eco to distribute copyrighted music. Buying music from the artists you love is always welcome.
+Eco is a tool for managing and playing a personal music library. It downloads audio from YouTube using yt-dlp; doing so may violate YouTube's terms of service and, depending on where you live and what you download, copyright law. You are responsible for what you download and for having the right to do so. Do not use Eco to distribute copyrighted music. Buying music from the artists you love is always welcome.
 
 ## License
 

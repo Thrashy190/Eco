@@ -1,6 +1,6 @@
 # Album downloads with Lidarr, Prowlarr and qBittorrent (optional)
 
-eco downloads **single songs** from YouTube. If you also want **whole albums** from indexers you configure yourself, the standard *arr stack is included as an opt-in profile. eco does not depend on it, and eco is not affected if you never turn it on.
+Eco downloads **single songs** from YouTube. If you also want **whole albums** from indexers you configure yourself, the standard *arr stack is included as an opt-in profile. Eco does not depend on it, and Eco is not affected if you never turn it on.
 
 ```bash
 docker compose --profile downloads up -d        # Lidarr :8686, Prowlarr :9696, qBittorrent :8080 (all on 127.0.0.1)
@@ -21,7 +21,7 @@ Lidarr (what to get) ◄──► Prowlarr (where to look, Torznab indexers)
 ```
 
 - **One shared mount.** Lidarr and qBittorrent both mount `${DATA_DIR}:/data`, so Lidarr can *hardlink* a finished download into the library instead of copying it. Do not split those mounts.
-- **Separate folders.** Lidarr's root folder is `data/music/Lidarr`. Keep your own and eco-made music out of it: Lidarr matches against MusicBrainz and would mark them unrecognised.
+- **Separate folders.** Lidarr's root folder is `data/music/Lidarr`. Keep your own and Eco-made music out of it: Lidarr matches against MusicBrainz and would mark them unrecognised.
 - **Hook.** `scripts/scan-navidrome.sh` asks Navidrome to rescan as soon as Lidarr imports something. It needs a Navidrome **admin** user: set `ND_USER` and `ND_PASS` in `.env` (the real password).
 
 ## Setup checklist

@@ -12,7 +12,7 @@ make run        # http://127.0.0.1:8000 (needs a running Navidrome: see README)
 make web-dev    # the web app with hot reload on :5173, using the eco running on :8000
 ```
 
-You need Go 1.22+, Node 20+, ffmpeg and yt-dlp (which also uses deno or Node to solve YouTube's challenges).
+You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (which also uses deno or Node to solve YouTube's challenges).
 
 ## Guidelines
 
@@ -34,7 +34,7 @@ Releases are automatic. When a push to `main` passes CI, [semantic-release](http
 | a footer `BREAKING CHANGE: ...`, or `feat!:` | people must change something when updating | `v2.0.0` |
 | `docs:`, `test:`, `refactor:`, `ci:`, `chore:` | nothing changes for people | no release |
 
-Write what changes for the person using eco: the message becomes the release notes.
+Write what changes for the person using Eco: the message becomes the release notes.
 
 ## Where things are
 
