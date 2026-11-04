@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { getSongs, signOut, username, whoAmI } from "../lib/api";
 import { initials, plural } from "../lib/format";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
+import { Credit } from "../components/common";
 import { Icon, Ring } from "../components/Icon";
 import { openDevicePicker } from "../components/Devices";
 import { ME_KEY } from "../stores/admin";
@@ -230,6 +231,8 @@ export function Settings() {
             <button type="button" className="pill" onClick={signOut}>Sign out</button>
           </Setting>
         </Group>
+
+        <Credit />
       </div>
     </>
   );

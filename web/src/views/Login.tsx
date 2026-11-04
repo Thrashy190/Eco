@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Credit } from "../components/common";
 import { signIn } from "../lib/api";
 
 export function Login() {
@@ -28,6 +29,7 @@ export function Login() {
         <input name="password" type="password" placeholder="Password" autoComplete="current-password" required />
         <button type="submit" className="primary" disabled={busy}>Sign in</button>
         <p className="error" role="alert">{error}</p>
+        <Credit />
       </form>
     </div>
   );

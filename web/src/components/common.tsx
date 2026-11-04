@@ -25,6 +25,11 @@ export const Welcome = ({ title, children }: { title: string; children?: ReactNo
 
 export const Shelf = ({ children }: { children: ReactNode }) => <div className="shelf">{children}</div>;
 
+/** Who made the app and where its code lives. noreferrer keeps a private server's address out of GitHub's logs. */
+export const Credit = () => (
+  <p className="credit">Built by Thrashy · <a href="https://github.com/Thrashy190/eco" target="_blank" rel="noreferrer">View on GitHub</a></p>
+);
+
 export function OfflineBanner() {
   const forced = useSettings((s) => s.offlineMode);
   return (

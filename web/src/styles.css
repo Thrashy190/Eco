@@ -266,6 +266,8 @@ body.has-player #view { padding-bottom: calc(var(--tabs-h) + var(--mini-h) + var
 .login input:focus { border-color: var(--accent); }
 .login .primary { justify-content: center; margin-top: 4px; }
 .login .error { color: var(--danger); min-height: 1.3em; margin: 0; font-size: .9rem; }
+.credit, .login .credit { margin: 0; color: var(--muted); font-size: .85rem; text-align: center; }
+.credit a { display: inline-block; padding: 6px 0; color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
 
 @media (min-width: 900px) {
   .hero h1 { font-size: 2.4rem; }
