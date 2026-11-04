@@ -2,7 +2,7 @@
   <img src="web/public/icon.svg" alt="eco logo" width="112" height="112">
 </p>
 
-<h1 align="center">eco</h1>
+<h1 align="center">ECO</h1>
 
 <p align="center">
   <strong>Your own music app.</strong><br>
