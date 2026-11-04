@@ -177,7 +177,7 @@ func (u *UserLogin) authorize(ctx context.Context) (tokenResponse, error) {
 	go srv.Serve(ln)
 	defer srv.Close()
 
-	fmt.Fprintf(os.Stderr, "Open this link to let eco read your liked songs and playlists:\n  %s\n\n", authURL)
+	fmt.Fprintf(os.Stderr, "Open this link to let Eco read your liked songs and playlists:\n  %s\n\n", authURL)
 	openBrowser(authURL)
 
 	select {

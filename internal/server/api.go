@@ -313,7 +313,7 @@ func (s *Server) runJob(ctx context.Context, job jobs.Job, payload any, set func
 	paused := time.Now().Before(s.youtubeBlocked)
 	s.mu.Unlock()
 	if paused {
-		return errors.New("YouTube asked eco to stop for a while. Try again later, or set up cookies (see docs/configuration.md)")
+		return errors.New("YouTube asked Eco to stop for a while. Try again later, or set up cookies (see docs/configuration.md)")
 	}
 	err := s.runDownload(ctx, job, payload, set)
 	if err != nil && ytdlp.IsBlocked(err) {

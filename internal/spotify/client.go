@@ -58,18 +58,18 @@ func New(src TokenSource) *Client {
 	return &Client{http: &http.Client{Timeout: 20 * time.Second}, src: src, base: apiBase, cache: map[string]cachedBody{}}
 }
 
-// RateLimitError means Spotify asked eco to stop for a while. Asking again before Until only makes it longer.
+// RateLimitError means Spotify asked Eco to stop for a while. Asking again before Until only makes it longer.
 type RateLimitError struct{ Until time.Time }
 
 func (e *RateLimitError) Error() string {
 	left := time.Until(e.Until).Round(time.Minute)
 	if left < time.Minute {
-		return "Spotify asked eco to slow down for a moment"
+		return "Spotify asked Eco to slow down for a moment"
 	}
 	if left < time.Hour {
-		return fmt.Sprintf("Spotify asked eco to slow down for about %d min", int(left.Minutes()))
+		return fmt.Sprintf("Spotify asked Eco to slow down for about %d min", int(left.Minutes()))
 	}
-	return fmt.Sprintf("Spotify asked eco to slow down for about %d h %d min", int(left.Hours()), int(left.Minutes())%60)
+	return fmt.Sprintf("Spotify asked Eco to slow down for about %d h %d min", int(left.Hours()), int(left.Minutes())%60)
 }
 
 // blocked returns the error to give while Spotify's pause lasts.

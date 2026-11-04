@@ -8,7 +8,7 @@ export function openDevicePicker(): void {
   const active = target ?? selfId;
   const list = devices.length ? devices : [{ id: selfId, name: myDeviceName() }];
   const alone = list.length < 2;
-  openSheet("Listen on", alone ? "Open eco on another device with this account and it appears here" : undefined,
+  openSheet("Listen on", alone ? "Open Eco on another device with this account and it appears here" : undefined,
     list.map((device) => ({
       icon: device.id === active ? "check" : "devices",
       label: device.id === selfId ? `${device.name} (this device)` : device.name,

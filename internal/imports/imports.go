@@ -176,7 +176,7 @@ type spotifyExport struct {
 func parseJSON(name string, data []byte) ([]List, error) {
 	var file spotifyExport
 	if err := json.Unmarshal(data, &file); err != nil {
-		return nil, errors.New("this file is not a list of songs eco can read")
+		return nil, errors.New("this file is not a list of songs Eco can read")
 	}
 	order := []string{}
 	byName := map[string][]Row{}
