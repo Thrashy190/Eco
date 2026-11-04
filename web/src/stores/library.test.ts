@@ -1,8 +1,27 @@
 import { describe, expect, it } from "vitest";
 import type { LibraryEntry } from "../lib/types";
-import { entryRoute, entrySong, favoritesEntry, libraryRows, songEntry } from "./library";
+import { entryRoute, entrySong, favoritesEntry, isLibraryState, libraryRows, songEntry } from "./library";
 
 const entry = (type: LibraryEntry["type"], id: string): LibraryEntry => ({ type, id, name: id });
+
+describe("isLibraryState", () => {
+  it("accepts a real state, empty or not", () => {
+    expect(isLibraryState({ recents: [], pins: [], covers: {} })).toBe(true);
+    expect(isLibraryState({ recents: [entry("album", "a1")], pins: [entry("song", "s1")], covers: { p1: 5 } })).toBe(true);
+  });
+
+  it("refuses an answer that was cut short, which reaches the app as {}", () => {
+    expect(isLibraryState({})).toBe(false);
+  });
+
+  it("refuses anything missing a part or holding the wrong thing", () => {
+    expect(isLibraryState(null)).toBe(false);
+    expect(isLibraryState({ recents: [], pins: [] })).toBe(false);
+    expect(isLibraryState({ recents: [], pins: [], covers: null })).toBe(false);
+    expect(isLibraryState({ recents: null, pins: [], covers: {} })).toBe(false);
+    expect(isLibraryState({ recents: [], pins: "x", covers: {} })).toBe(false);
+  });
+});
 
 describe("libraryRows", () => {
   const favorites = favoritesEntry(3);

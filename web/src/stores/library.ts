@@ -12,8 +12,19 @@ const KEY = ["me", "library"];
 const EMPTY: LibraryState = { recents: [], pins: [], covers: {} };
 
 const cacheKey = () => `eco.library.${api.username()}`;
+/** An answer cut short reaches here as {}. Saved as the copy on this device, it blanked the app on every launch. */
+export const isLibraryState = (value: unknown): value is LibraryState => {
+  const state = value as LibraryState | null;
+  return Array.isArray(state?.recents) && Array.isArray(state?.pins) && typeof state?.covers === "object" && state.covers !== null;
+};
+
 function readCache(): LibraryState {
-  try { return (JSON.parse(localStorage.getItem(cacheKey()) ?? "null") as LibraryState | null) ?? EMPTY; } catch { return EMPTY; }
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(cacheKey()) ?? "null");
+    return isLibraryState(saved) ? saved : EMPTY;
+  } catch {
+    return EMPTY;
+  }
 }
 function writeCache(state: LibraryState): void {
   try { localStorage.setItem(cacheKey(), JSON.stringify(state)); } catch { /* storage unavailable */ }
@@ -23,7 +34,12 @@ export function useLibraryState(): LibraryState {
   const online = useOnline();
   const { data } = useQuery({
     queryKey: KEY,
-    queryFn: async () => { const state = await api.getLibrary(); writeCache(state); return state; },
+    queryFn: async () => {
+      const state = await api.getLibrary();
+      if (!isLibraryState(state)) throw new Error("The server's answer was cut short");
+      writeCache(state);
+      return state;
+    },
     enabled: online,
     initialData: readCache,
     initialDataUpdatedAt: 0, // the copy on this device is shown right away, then refreshed
