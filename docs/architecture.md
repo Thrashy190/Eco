@@ -2,14 +2,7 @@
 
 eco has three moving parts. Navidrome is the music server; eco sits in front of it; yt-dlp and ffmpeg do the downloading.
 
-```
- browser / phone ──► eco ──────────────► Navidrome ──► data/music/**   (read-only for Navidrome)
-   (web app)        │  /rest/*  passthrough                ▲
-                    │  /api/*   search, discover, download │
-                    └──► MusicBrainz, Cover Art Archive    │
-                    └──► iTunes Search API (backup)        │
-                    └──► yt-dlp ──► ffmpeg (tags, cover) ──┘  writes data/music/YouTube/**
-```
+![How eco fits together: devices reach eco over HTTPS; eco passes audio to Navidrome, asks MusicBrainz and iTunes for song information, and downloads with yt-dlp and ffmpeg into the music folder.](images/architecture.svg)
 
 ## Why these choices
 
@@ -44,7 +37,7 @@ data/users/<hash of username>/{state.json, covers/<playlist id>.jpg}  recents, p
 
 1. The web app calls `POST /api/download?id=…`. eco queues a job and answers at once.
 2. A worker (one at a time, to be kind to YouTube) reads the track from the catalogue: title, artists, album, cover, length.
-3. **Choosing the video.** A plain YouTube search runs first (one cheap call that already returns length and channel). Only if that result is not clearly right does eco also search YouTube Music, which is slower and rate-limited sooner. Each candidate is scored by how far its length is from Spotify's, penalised for unwanted versions (live, remix, sped up…) unless the song itself is one, and rewarded for official channels. The title must also match: a different song of the same length is rejected.
+3. **Choosing the video.** A plain YouTube search runs first (one cheap call that already returns length and channel). Only if that result is not clearly right does eco also search YouTube Music, which is slower and rate-limited sooner. Each candidate is scored by how far its length is from the catalogue's, penalised for unwanted versions (live, remix, sped up…) unless the song itself is one, and rewarded for official channels. The title must also match: a different song of the same length is rejected.
 4. A candidate is accepted automatically only if it is within 10 s and has nothing odd about its title; otherwise the job fails with the reason, so a wrong song never reaches your library.
 5. yt-dlp downloads the audio (progress is reported), ffmpeg tags it and embeds the cover, and the file is moved into place.
 6. eco asks Navidrome to scan and looks for the new song, so the app can play it immediately. The job then becomes `ready` with the song's Navidrome ID.
@@ -96,7 +89,7 @@ The library opens on **Recent**: Favorites, then what you pinned, then what you 
 
 Playlist covers are stored the same way, because the Subsonic API has nowhere to put them: they appear in eco only, for the user who chose them. The browser crops the picture to a 640×640 JPEG before uploading, and the server refuses anything that is not a real JPEG.
 
-An album looks the same however you reach it. `/catalog-album/{id}` starts from the catalogue. `/album/{id}` shows the library at once and turns into the same page as soon as the catalogue finds the album, keeping any song it does not list under "Also in your library". Either way you see the whole album with what you have marked and can tick tracks to download. Without Spotify (not configured, or limiting eco) `/album/{id}` stays what the library holds and keeps playing.
+An album looks the same however you reach it. `/catalog-album/{id}` starts from the catalogue. `/album/{id}` shows the library at once and turns into the same page as soon as the catalogue finds the album, keeping any song it does not list under "Also in your library". Either way you see the whole album with what you have marked and can tick tracks to download. While the catalogue is being asked the page says so, and it asks again when the catalogue runs out of time: `/api/albums/match` answers 503 for "could not say in time", which is different from `album: null`, "no such album". Each answer is cached, so asking again gets further. With no match `/album/{id}` stays what the library holds and keeps playing.
 
 ## Lists from elsewhere
 
@@ -129,6 +122,12 @@ Two limits come from browsers. iOS ignores `audio.volume`, so an iPhone cannot h
 ## Offline in the web app
 
 Everything saved for offline lives in the browser's IndexedDB: audio and cover as Blobs, plus a small record per song. A **collection** (favorites, a playlist, an album) remembers its list of songs, so it can be shown and played with no server. A song can be held by several collections and by an individual save; its files are deleted only when nothing holds it. When a downloaded collection is opened online, eco quietly downloads new songs and releases removed ones. The service worker caches only the app shell; audio and data never go through it.
+
+A saved song plays from there with no request for its audio, and so does the next one in the queue; if a saved copy will not play and there is a connection, the retry streams it. The lock screen uses the saved cover too.
+
+Downloads are a queue that outlives a bad moment (`stores/saving.ts`). A collection keeps the list of what to fetch until every song has arrived, and single songs wait in `localStorage`, so the queue picks up by itself when the app opens, returns to the screen or reconnects. A failed song is tried three times, and time in the background or offline does not count. One that still fails is set aside and the others carry on; three failing in a row means the server, so the queue waits and tries them again. A song the library no longer has leaves the collection. Navidrome reports that as HTTP 200 with a JSON error, so an answer is checked before being stored as audio, and a download shorter than announced counts as failed.
+
+Web apps cannot download freely in the background: iPhones freeze them when they leave the screen unless audio is playing, and Safari has no Background Fetch. So the screen stays on while a download runs (a wake lock, released while waiting), and a long download spans several sessions. A native app would be needed for true background downloads.
 
 ## The likes workflow (`eco likes`)
 

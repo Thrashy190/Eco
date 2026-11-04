@@ -1,35 +1,87 @@
-# eco
+<p align="center">
+  <img src="web/public/icon.svg" alt="eco logo" width="112" height="112">
+</p>
 
-**Your own music app.** Listen to your library, search for any song, and download what you do not have yet — all in one place, on a server you control.
+<h1 align="center">eco</h1>
 
-- **Listen**: a fast web app you can install on your phone, with a queue, lock-screen controls, playlists and offline mode.
-- **Search everything**: one search box finds songs in your library *and* songs and albums you do not own, from [MusicBrainz](https://musicbrainz.org), with iTunes as a backup. No account, key or subscription needed. Search an artist and see their other songs too.
-- **Whole albums, your choice**: open an album to see every track in order and which ones you already have, then tick the ones to download.
-- **One tap to download**: tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
-- **A library like Spotify's**: it opens on what you played lately, with Favorites and anything you pinned on top. Pin songs, albums, playlists and artists, and give your playlists their own cover.
-- **Bring your playlists**: import a file exported from Spotify or anywhere else and get a real playlist of what you have, then download the rest if you want it.
-- **A big-screen layout too**: on a computer or a tablet it becomes panels: your library always at hand, the page, a player bar and what plays next.
-- **Offline, Spotify-style**: tap **Download** on your favorites, a playlist or an album (or save single songs) and they play with no connection. Downloaded collections stay in sync, and *Offline mode* in Settings forces the app to use only what is on your phone.
-- **More than music**: paste a YouTube link, say what it is (podcast, audiobook or other) and its audio appears in the matching Library section. Podcasts and audiobooks remember where you stopped and play at your speed.
-- **Every device, one remote**: see what plays on your other devices and control it from any of them: pause, skip, volume, or move the music to another device. Only your own devices, wherever they are.
-- **Admins keep the library tidy**: a Navidrome administrator can delete songs, podcasts and audiobooks for everyone, right from the app, and review songs held twice and artists that are really several people.
-- **Yours to style**: themes (auto, dark, light, black), any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list, compact lists, sharp or soft corners and adjustable animations, saved per account on each device.
-- **Yours**: your files, your server. Everything is [Navidrome](https://www.navidrome.org) underneath, so any Subsonic app also works.
+<p align="center">
+  <strong>Your own music app.</strong><br>
+  Listen to your library, search for any song and download what you do not have yet, on a server you control.
+</p>
 
-```
- your phone / browser ──► eco (this project) ──► Navidrome ──► your music files
-                              │                      ▲
-                              └─ yt-dlp + ffmpeg ────┘   downloads, tags, covers
-```
+<p align="center">
+  <a href="https://github.com/Thrashy190/eco/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/Thrashy190/eco?sort=semver&label=release&color=3fd0a2"></a>
+  <a href="https://github.com/Thrashy190/eco/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Thrashy190/eco/ci.yml?branch=main&label=CI"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/Thrashy190/eco?color=blue"></a>
+</p>
 
-> **Status:** early, actively developed. The interface is English only for now.
+<p align="center">
+  <img alt="Go" src="https://img.shields.io/github/go-mod/go-version/Thrashy190/eco?logo=go&logoColor=white&label=Go&color=00ADD8">
+  <img alt="React" src="https://img.shields.io/github/package-json/dependency-version/Thrashy190/eco/react?filename=web%2Fpackage.json&logo=react&logoColor=black&label=React&color=61DAFB">
+  <img alt="TypeScript" src="https://img.shields.io/github/package-json/dependency-version/Thrashy190/eco/dev/typescript?filename=web%2Fpackage.json&logo=typescript&logoColor=white&label=TypeScript&color=3178C6">
+  <img alt="Vite" src="https://img.shields.io/github/package-json/dependency-version/Thrashy190/eco/dev/vite?filename=web%2Fpackage.json&logo=vite&logoColor=white&label=Vite&color=646CFF">
+  <img alt="Node 22 to build" src="https://img.shields.io/badge/Node-22-5FA04E?logo=nodedotjs&logoColor=white">
+  <br>
+  <img alt="Docker Compose v2" src="https://img.shields.io/badge/Docker_Compose-v2-2496ED?logo=docker&logoColor=white">
+  <img alt="Navidrome" src="https://img.shields.io/badge/Navidrome-0.64-0084FF">
+  <img alt="MusicBrainz" src="https://img.shields.io/badge/MusicBrainz-API_v2-BA478F?logo=musicbrainz&logoColor=white">
+  <img alt="yt-dlp" src="https://img.shields.io/badge/yt--dlp-latest-CC0000">
+  <img alt="ffmpeg" src="https://img.shields.io/badge/ffmpeg-tags_and_covers-007808?logo=ffmpeg&logoColor=white">
+</p>
 
-## Quick start (Docker)
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#adding-music">Adding music</a> ·
+  <a href="docs/configuration.md">Configuration</a> ·
+  <a href="docs/architecture.md">Architecture</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
 
-You need a machine that is always on (a PC, a Raspberry Pi 4+, a home server, a VPS) with [Docker](https://docs.docker.com/engine/install/) and Docker Compose v2.
+> **Status:** early and actively developed. The interface is English only for now.
+
+## What it does
+
+**Listen**
+
+- A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
+- On a computer or a tablet it becomes panels: your library at hand, the page, a player bar and what plays next.
+- Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
+- Paste a YouTube link to keep its audio as a podcast or an audiobook. Those remember where you stopped and play at your speed.
+
+**Find and download**
+
+- One search box finds songs in your library and songs and albums you do not own, from [MusicBrainz](https://musicbrainz.org) with iTunes as a backup. No account, key or subscription.
+- Open an album to see every track in order and which ones you have, then tick the ones to download.
+- Tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
+- Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest.
+
+**Take it with you**
+
+- Download your favorites, a playlist, an album or single songs. They play from the device, with no request to the server for the audio.
+- A download does not fail because of a bad moment: failed songs are tried again, and what is left carries on by itself after the connection returns or the app reopens. [What phones allow in the background](#offline-on-a-phone) has limits.
+- Downloaded collections stay in sync, and *Offline mode* in Settings uses only what is on the device.
+
+**Make it yours**
+
+- Themes, any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list.
+- Pin songs, albums, playlists and artists, and give playlists their own cover.
+- Administrators can delete songs for everyone and review songs held twice and artists that are really several people.
+- Your files, your server. [Navidrome](https://www.navidrome.org) is underneath, so any Subsonic app also works.
+
+## How it fits together
+
+<p align="center">
+  <img src="docs/images/architecture.svg" alt="Your devices reach eco over HTTPS. eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder Navidrome reads." width="100%">
+</p>
+
+More in [docs/architecture.md](docs/architecture.md).
+
+## Quick start
+
+You need a machine that is always on (a PC, a Raspberry Pi 4 or newer, a home server, a VPS) with [Docker](https://docs.docker.com/engine/install/) and Docker Compose v2.
 
 ```bash
-git clone <this repository> eco && cd eco
+git clone https://github.com/Thrashy190/eco.git && cd eco
 cp .env.example .env
 mkdir -p data/music navidrome secrets       # folders the containers use
 docker compose up -d --build
@@ -38,7 +90,7 @@ docker compose up -d --build
 Then:
 
 1. Open **http://localhost:4533** and create your first account. The first user is the administrator.
-2. Open **http://localhost:8000** — that is eco. Sign in with the account you just created.
+2. Open **http://localhost:8000**. That is eco. Sign in with the account you just created.
 3. Add some music (see [Adding music](#adding-music)) and search for it.
 
 Searching beyond your library works right away. Downloading usually needs YouTube cookies, explained below; without them eco is still a good player.
@@ -47,9 +99,9 @@ Searching beyond your library works right away. Downloading usually needs YouTub
 
 | You need | Why | Notes |
 |---|---|---|
-| **Docker + Compose v2** | runs everything | `docker compose version` should print v2.x |
+| **Docker and Compose v2** | runs everything | `docker compose version` should print v2.x |
 | **YouTube cookies** | YouTube blocks anonymous downloads after a while | [setup](docs/configuration.md#youtube-cookies). Optional at first |
-| ~1 GB of free RAM, disk for your music | | Navidrome uses ~70 MB, eco ~30 MB |
+| About 1 GB of free RAM, disk for your music | | Navidrome uses about 70 MB, eco about 30 MB |
 
 Not using Docker? You need [Go 1.22+](https://go.dev/dl/), [ffmpeg](https://ffmpeg.org), [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [deno](https://deno.com) or Node.js 20+, plus a running Navidrome. See [Running without Docker](#running-without-docker).
 
@@ -67,10 +119,10 @@ Use whichever fits you; they all end up in the same library.
 |---|---|
 | **The search box in eco** | Anything in [MusicBrainz](docs/configuration.md#where-song-information-comes-from): search, tap **Get**, or open an album and choose its tracks. |
 | **Import a playlist**, in the app | A list exported to a file from Spotify or elsewhere: it becomes a playlist, and you can download what is missing. |
-| **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [CLI](#command-line). |
+| **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [Command line](#command-line). |
 | **Copy files** into `data/music/` | Music you already own. Navidrome scans every minute. |
 | **`scripts/upload.sh`** | Your own recordings: converts, tags and uploads them. |
-| **A YouTube link** (podcast, audiobook…) | Paste it in the search box. Only the audio is kept, apart from your music, in `data/media/`. |
+| **A YouTube link** (podcast, audiobook...) | Paste it in the search box. Only the audio is kept, apart from your music, in `data/media/`. |
 | **Lidarr** (`--profile downloads`) | Whole albums through the \*arr stack. [Guide](docs/downloads-stack.md). |
 
 Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and with a cover.
@@ -81,16 +133,22 @@ Paste a YouTube link into the search box (a single video, not a playlist). eco s
 
 | Category | Good for | Extras |
 |---|---|---|
-| **Podcast**, **Audiobook** | long listening | remembers where you stopped, speed button (0.75× to 2×), can be saved for offline |
-| **Other** | talks, lectures, sounds… | the same |
+| **Podcast**, **Audiobook** | long listening | remembers where you stopped, speed button (0.75x to 2x), can be saved for offline |
+| **Other** | talks, lectures, sounds | the same |
 
 These files live in `data/media/<category>/<video id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. eco stores and serves them itself. Only YouTube links are accepted.
 
 ## Use it from your phone
 
-Open eco in your phone's browser and use **Add to Home Screen** (iPhone: Share ▸ Add to Home Screen; Android: menu ▸ Install app). It then behaves like an app.
+Open eco in your phone's browser and use **Add to Home Screen** (iPhone: Share, then Add to Home Screen; Android: menu, then Install app). It then behaves like an app.
 
 To reach your server from outside your home you need HTTPS. Options, easiest first, are described in [docs/deployment.md](docs/deployment.md): a **Cloudflare Tunnel** (`--profile tunnel`), **Tailscale**, or a reverse proxy of your own. Do not expose the port directly to the internet.
+
+### Offline on a phone
+
+Downloads are kept in the app's own private storage (the browser's IndexedDB). They do not appear in the Files app or the photo roll, Settings in eco shows how much space they use, and removing the app from the home screen deletes them.
+
+A web app cannot download freely in the background. An iPhone freezes it shortly after it leaves the screen, unless music is playing, so a long download there runs while the app is open: eco keeps the screen on for it, and when you return it carries on from where it was. Nothing is lost when that happens. Whatever is already saved plays at once, even before the whole collection arrives.
 
 ## Command line
 
@@ -98,7 +156,7 @@ The `eco` binary is also a toolbox. With Docker: `docker compose run --rm eco <c
 
 ```bash
 eco doctor                          # check yt-dlp, ffmpeg, Navidrome, the catalogue, cookies
-eco get "https://youtube.com/watch?v=..."     # one YouTube link → tagged song
+eco get "https://youtube.com/watch?v=..."     # one YouTube link becomes a tagged song
 eco get -q "artist song" URL        # pick the match yourself (-y: take the first, -n: dry run)
 
 # Your Spotify liked songs, step by step (each step can be interrupted and resumed)
@@ -135,6 +193,8 @@ git pull
 docker compose up -d --build
 ```
 
+Each feature and fix is a [release](https://github.com/Thrashy190/eco/releases) with its notes, numbered with [semantic versioning](https://semver.org): `v1.2.3` is a fix over `v1.2.2`, `v1.3.0` adds something, and `v2.0.0` asks you to change something when updating.
+
 yt-dlp changes whenever YouTube does. If downloads start failing everywhere, rebuild without cache to get the latest: `docker compose build --no-cache eco && docker compose up -d`.
 
 ## Troubleshooting
@@ -147,16 +207,13 @@ yt-dlp changes whenever YouTube does. If downloads start failing everywhere, reb
 | Searching only shows your library | The server cannot reach musicbrainz.org, or it asked eco to wait a moment; the search says which. |
 | A song or album is not found | MusicBrainz is made by volunteers and may not have it yet. [Anyone can add it](https://musicbrainz.org/doc/How_to_Add_a_Release). |
 | A new song does not show up | Navidrome scans every minute; give it a moment. |
+| A download for offline says *Waiting* | No connection, or the server is not answering. It carries on by itself. |
 | Wrong username or password | Use your **Navidrome** account: eco has no accounts of its own. |
-
-## How it works
-
-See [docs/architecture.md](docs/architecture.md).
 
 ## Development
 
 ```bash
-make check          # gofmt, go vet, go test, TypeScript, web tests and build — the same as CI
+make check          # gofmt, go vet, go test, TypeScript, web tests and build: the same as CI
 make run            # build and serve
 make web-dev        # the web app with hot reload, using the eco running on :8000
 ```
