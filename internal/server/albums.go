@@ -156,7 +156,13 @@ func (s *Server) albumMatch(w http.ResponseWriter, r *http.Request, cred subsoni
 	ctx, cancel := catalogContext(r)
 	defer cancel()
 	album, ok, err := source.FindAlbum(ctx, name, artist)
-	if err != nil || !ok {
+	if err != nil {
+		// "It could not say in time" is not "it has no such album": this used to leave the page showing only the songs in
+		// the library until the album was opened again. The web app asks again, and what was learned so far is cached.
+		fail(w, http.StatusServiceUnavailable, "The catalogue did not answer in time")
+		return
+	}
+	if !ok {
 		respond(w, http.StatusOK, none)
 		return
 	}

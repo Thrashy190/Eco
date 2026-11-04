@@ -419,6 +419,8 @@ body.has-player #view { padding-bottom: calc(var(--tabs-h) + var(--mini-h) + var
 
 /* ---------- Small helpers ---------- */
 .muted { color: var(--muted); }
+.album-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.album-more .link { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
 .preview-text { flex: 1; min-width: 0; display: grid; }
 .preview-text span { color: var(--muted); font-size: .85rem; }
 

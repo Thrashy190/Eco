@@ -11,7 +11,7 @@ import { ArtistLinks } from "../components/ArtistLinks";
 import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../components/cards";
 import { BackButton, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
-import { Icon } from "../components/Icon";
+import { Icon, Ring } from "../components/Icon";
 import { ExternalRow, GetAllButton, PlayButtons, SongList } from "../components/songs";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
@@ -70,10 +70,11 @@ export function AlbumView() {
 
   // The library answers first; when the catalogue knows the album the page becomes the same one search leads to
   const [waiting, setWaiting] = useState(false);
-  const { data: whole } = useQuery({
+  // The server says so when the catalogue could not answer in time, and what it did learn is kept: asking again gets further
+  const { data: whole, isPending: matching, fetchStatus, error: noMatch, refetch } = useQuery({
     queryKey: ["album-match", album?.name, album?.artist],
     queryFn: () => matchCatalogAlbum(album!.name, album!.artist),
-    enabled: online && Boolean(album), retry: false, refetchInterval: waiting ? 10_000 : false,
+    enabled: online && Boolean(album), retry: 4, retryDelay: 2000, refetchInterval: waiting ? 10_000 : false,
   });
   const extra = useMemo(() => album?.songs.filter((s) => !whole?.tracks.some((t) => t.library?.id === s.id)) ?? [], [album, whole]);
 
@@ -84,9 +85,15 @@ export function AlbumView() {
   } else if (album) {
     const spec: CollectionSpec = { id: key, kind: "album", title: album.name, subtitle: album.artist };
     body = (
-      <CollectionPage art={<Picture src={coverUrl(album.cover, 400)} className="cover huge" />} title={album.name}
-        subtitle={<><ArtistLinks name={album.artist} id={album.artistId} />{album.year ? ` · ${album.year}` : ""}</>}
-        songs={album.songs} spec={spec} entry={entry!} numbered />
+      <>
+        <CollectionPage art={<Picture src={coverUrl(album.cover, 400)} className="cover huge" />} title={album.name}
+          subtitle={<><ArtistLinks name={album.artist} id={album.artistId} />{album.year ? ` · ${album.year}` : ""}</>}
+          songs={album.songs} spec={spec} entry={entry!} numbered />
+        {online && matching && fetchStatus === "fetching" && <p className="note album-more"><Ring percent={-1} size={16} />Looking for the rest of this album…</p>}
+        {online && noMatch && !whole && (
+          <p className="note album-more">The catalogue is not answering, so this only shows what you have. <button type="button" className="link" onClick={() => void refetch()}>Try again</button></p>
+        )}
+      </>
     );
   } else if (online && isPending) {
     body = <Skeleton />;

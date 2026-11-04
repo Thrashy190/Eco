@@ -157,3 +157,21 @@ func TestAnIDGoesBackToItsOwnCatalogue(t *testing.T) {
 		t.Error("ValidID")
 	}
 }
+
+// Main running out of time while Backup lacks the album must not read as "no such album": the album page stayed short
+// until it was opened a second time.
+func TestAnAlbumMainCouldNotCheckIsNotMissing(t *testing.T) {
+	down := errors.New("no answer in time")
+	f := &Fallback{Main: &fake{prefix: "m-", err: down}, Backup: &fake{prefix: "b-"}}
+	if _, ok, err := f.FindAlbum(context.Background(), "SKINS", "XXXTENTACION"); ok || !errors.Is(err, down) {
+		t.Errorf("ok = %v, err = %v", ok, err)
+	}
+	f = &Fallback{Main: &fake{prefix: "m-", err: down}, Backup: &fake{prefix: "b-", album: Album{ID: "b-1"}, found: true}}
+	if album, ok, err := f.FindAlbum(context.Background(), "SKINS", "XXXTENTACION"); !ok || err != nil || album.ID != "b-1" {
+		t.Errorf("the backup has it: %+v %v %v", album, ok, err)
+	}
+	f = &Fallback{Main: &fake{prefix: "m-"}, Backup: &fake{prefix: "b-"}}
+	if _, ok, err := f.FindAlbum(context.Background(), "SKINS", "XXXTENTACION"); ok || err != nil {
+		t.Errorf("neither has it: %v %v", ok, err)
+	}
+}

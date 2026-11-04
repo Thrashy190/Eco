@@ -226,10 +226,13 @@ func (f *Fallback) FindAlbum(ctx context.Context, name, artist string) (Album, b
 		return album, true, nil
 	}
 	album, ok, errBackup := f.Backup.FindAlbum(ctx, name, artist)
-	if errBackup == nil {
-		return album, ok, nil
+	switch {
+	case errBackup == nil && ok:
+		return album, true, nil
+	case err != nil: // Main could not say, so Backup not having it does not mean there is no such album
+		return Album{}, false, err
 	}
-	return Album{}, false, err
+	return Album{}, false, errBackup
 }
 
 // FindTrack implements Source.

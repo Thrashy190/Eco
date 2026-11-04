@@ -204,3 +204,34 @@ func TestHashedAssetsAreCachedForever(t *testing.T) {
 		t.Errorf("index: %d %q", rec.Code, rec.Header().Get("Cache-Control"))
 	}
 }
+
+// silentCatalogue never answers in time, or answers that it has nothing.
+type silentCatalogue struct {
+	catalog.Source
+	err error
+}
+
+func (silentCatalogue) Ready() error { return nil }
+func (c silentCatalogue) FindAlbum(context.Context, string, string) (catalog.Album, bool, error) {
+	return catalog.Album{}, false, c.err
+}
+
+// The album page only shows what the library holds when the catalogue has no such album. Telling a slow catalogue apart
+// from that is what lets it ask again, instead of staying short until the album is opened a second time.
+func TestAlbumMatchTellsSlowFromMissing(t *testing.T) {
+	cfg := &config.Config{NavidromeURL: fakeNavidrome(t).URL, MediaDir: t.TempDir(), UsersDir: t.TempDir()}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	s, err := New(ctx, cfg, engine.New(cfg), fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.eng.Catalog = silentCatalogue{err: context.DeadlineExceeded}
+	if rec := call(t, s.Handler(), "GET", "/api/albums/match?name=SKINS&artist=XXXTENTACION", ""); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("no answer in time: %d %s", rec.Code, rec.Body)
+	}
+	s.eng.Catalog = silentCatalogue{}
+	if rec := call(t, s.Handler(), "GET", "/api/albums/match?name=SKINS&artist=XXXTENTACION", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"album":null`) {
+		t.Errorf("no such album: %d %s", rec.Code, rec.Body)
+	}
+}
