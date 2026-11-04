@@ -39,3 +39,11 @@ Write what changes for the person using Eco: the message becomes the release not
 ## Where things are
 
 See [docs/architecture.md](docs/architecture.md) for the code map and how a download works.
+
+## Reporting a security problem
+
+Please do not open a public issue. See [SECURITY.md](SECURITY.md).
+
+## Code of conduct
+
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).

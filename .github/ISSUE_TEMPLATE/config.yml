@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/Thrashy190/eco/security/advisories/new
+    about: Please report vulnerabilities in private.

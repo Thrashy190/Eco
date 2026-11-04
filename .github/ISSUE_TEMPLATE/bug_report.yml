@@ -1,0 +1,41 @@
+name: Bug report
+description: Something in Eco does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: A download that says "not a bot" usually needs [YouTube cookies](https://github.com/Thrashy190/eco/blob/main/docs/configuration.md#youtube-cookies). `eco doctor` and [Troubleshooting](https://github.com/Thrashy190/eco#troubleshooting) solve many problems.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: And what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Eco version
+      description: "The output of `docker compose exec eco eco version`. If it says dev, give the output of `git describe --tags --always`."
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and browser
+      description: For example, iPhone 15 with the app on the home screen, or Firefox on Linux.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The output of `docker compose logs --tail 100 eco`. Remove passwords, tokens and personal data before pasting.
+      render: text

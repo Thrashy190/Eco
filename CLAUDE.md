@@ -80,10 +80,12 @@ Tests are Go unit tests (`internal/match`, `internal/catalog`, `internal/catalog
 - **React escapes text; keep it that way.** Never use `dangerouslySetInnerHTML`. Server data goes through `react-query`, shared client state through a `zustand` store in `web/src/stores`. Do not add a UI kit or a CSS framework: `styles.css` holds the design tokens the themes depend on.
 - Spotify (development mode, only for `eco likes export` and `CATALOG=spotify`) returns at most 10 results per page (`limit=11` is a 400), needs the app owner to have Premium, and may omit fields (ISRC, genres): read them as optional.
 - ffmpeg does not write the ISRC into M4A; Navidrome does not need it.
+- **Dependabot's `fix:` is on purpose** (`.github/dependabot.yml`): merging an update to what ships in the app makes a release, so people get it. CI tools and development libraries use `ci:` and `chore:`, which make none.
+- **`main` cannot be force-pushed or deleted** (the "Protect main" ruleset). Direct pushes and release tags still work.
 
 ## Layout
 
-`cmd/eco` (CLI) · `internal/{server,engine,catalog,match,ytdlp,tag,spotify,subsonic,imports,lists,library,jobs,media,userdata,connect,config}` · `web/src/{lib,stores,components,views}` (UI), `web/public` (icons, manifest, service worker, `boot.js`) · `scripts/` (Lidarr hook, `upload.sh`) · `docs/` · `Dockerfile`, `docker-compose.yml` (+ `docker-compose.vpn.yml`).
+`cmd/eco` (CLI) · `internal/{server,engine,catalog,match,ytdlp,tag,spotify,subsonic,imports,lists,library,jobs,media,userdata,connect,config}` · `web/src/{lib,stores,components,views}` (UI), `web/public` (icons, manifest, service worker, `boot.js`) · `scripts/` (Lidarr hook, `upload.sh`) · `docs/` · `.github/` (CI, Dependabot, issue and pull request templates) · `Dockerfile`, `docker-compose.yml` (+ `docker-compose.vpn.yml`).
 
 Before the Go rewrite the tool was Python (`bajar.py`, `likes.py`) with Spanish docs; a backup of those sources is in `data/backup/` on the maintainer's machine, not in the repository.
 
