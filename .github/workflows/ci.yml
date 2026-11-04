@@ -22,3 +22,23 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -t eco:ci .
       - run: docker run --rm eco:ci version
+
+  # Every feature or fix that reaches main becomes a release, once the checks above pass. The version comes from the
+  # commit messages: fix: is a patch, feat: a minor version, a breaking change the major one. See CONTRIBUTING.md.
+  release:
+    needs: [check, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes semantic-release@25.0.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -23,6 +23,19 @@ You need Go 1.22+, Node 20+, ffmpeg and yt-dlp (which also uses deno or Node to 
 - **Do not commit secrets or personal data.** `.env`, `secrets/` and `data/` are git-ignored.
 - Keep changes small and say *why* in the description, not only what.
 
+## Commit messages and releases
+
+Releases are automatic. When a push to `main` passes CI, [semantic-release](https://semantic-release.gitbook.io) reads the commit messages since the last tag, decides the version, tags it (`v1.2.3`) and publishes a GitHub release with the notes. So the first word of a commit message matters:
+
+| Commit message | Means | `v1.2.3` becomes |
+|---|---|---|
+| `fix: stop the album page from showing part of an album` | a bug fixed | `v1.2.4` |
+| `feat: resume offline downloads` | something new | `v1.3.0` |
+| a footer `BREAKING CHANGE: ...`, or `feat!:` | people must change something when updating | `v2.0.0` |
+| `docs:`, `test:`, `refactor:`, `ci:`, `chore:` | nothing changes for people | no release |
+
+Write what changes for the person using eco: the message becomes the release notes.
+
 ## Where things are
 
 See [docs/architecture.md](docs/architecture.md) for the code map and how a download works.
