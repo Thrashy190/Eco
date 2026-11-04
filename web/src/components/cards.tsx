@@ -59,12 +59,16 @@ export function DownloadToggle({ spec, songs }: { spec: Parameters<typeof toggle
   offline.useOfflineVersion();
   const progress = useSaving((s) => s.collections[spec.id]);
   const saved = offline.isCollectionSaved(spec.id);
+  const unfinished = !saved && Boolean(offline.collection(spec.id)?.songs);
   let content;
   if (progress) {
     const percent = progress.total ? ((progress.done + Math.max(progress.percent, 0) / 100) / progress.total) * 100 : 0;
-    content = <><Ring percent={percent} size={18} />{`${Math.min(progress.done + 1, progress.total)}/${progress.total}`}</>;
+    const count = `${Math.min(progress.done + 1, progress.total)}/${progress.total}`;
+    content = <><Ring percent={percent} size={18} />{progress.waiting ? `Waiting · ${count}` : count}</>;
   } else if (saved) {
     content = <><Icon name="check" size={16} />Downloaded</>;
+  } else if (unfinished) {
+    content = <><Icon name="offline" size={16} />Resume</>;
   } else {
     content = <><Icon name="offline" size={16} />Download</>;
   }

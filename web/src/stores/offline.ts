@@ -7,6 +7,7 @@
 import { useSyncExternalStore } from "react";
 import { hasCover, songCover, sourceUrl } from "../lib/api";
 import { megabytes } from "../lib/format";
+import { cutShort, saysNotFound, streamProblem } from "../lib/retry";
 import type { CollectionKind, CollectionRecord, CollectionSpec, MediaKind, Song } from "../lib/types";
 
 export { megabytes };
@@ -99,21 +100,46 @@ export const list = () => [...meta.values()].filter((m) => m.direct).sort((a, b)
 export const song = (id: string): Song | null => { const m = meta.get(id); return m ? asSong(m) : null; };
 export const allSongs = () => [...meta.values()].map(asSong);
 
+/** Trying again cannot help: the library no longer has this song. */
+export class Unavailable extends Error {}
+/** The device is full: the songs after this one would fail too. */
+export class NoRoom extends Error {}
+
+const STALLED_AFTER = 30_000; // a phone coming back from the background can leave a download hanging forever
+
 async function download(item: Song, onProgress?: (percent: number) => void): Promise<Blob> {
-  const response = await fetch(sourceUrl(item));
-  if (!response.ok || !response.body) throw new Error("Could not download this song");
-  const total = Number(response.headers.get("content-length")) || 0;
-  const reader = response.body.getReader();
-  const chunks: Uint8Array<ArrayBuffer>[] = [];
-  let received = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value as Uint8Array<ArrayBuffer>);
-    received += value.length;
-    onProgress?.(total ? (received / total) * 100 : -1);
+  const stop = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const alive = () => { clearTimeout(timer); timer = setTimeout(() => stop.abort(), STALLED_AFTER); };
+  alive();
+  try {
+    const response = await fetch(sourceUrl(item), { signal: stop.signal });
+    const type = response.headers.get("content-type") ?? "";
+    const problem = streamProblem(response.status, type);
+    if (problem === "gone") throw new Unavailable("This song is no longer in the library");
+    if (problem === "read-body") {
+      if (saysNotFound(await response.json().catch(() => null))) throw new Unavailable("This song is no longer in the library");
+      throw new Error("The server refused this song");
+    }
+    if (problem || !response.body) throw new Error("Could not download this song");
+    const total = Number(response.headers.get("content-length")) || 0;
+    const encoded = Boolean(response.headers.get("content-encoding"));
+    const reader = response.body.getReader();
+    const chunks: Uint8Array<ArrayBuffer>[] = [];
+    let received = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      alive();
+      chunks.push(value as Uint8Array<ArrayBuffer>);
+      received += value.length;
+      onProgress?.(total && !encoded ? (received / total) * 100 : -1);
+    }
+    if (cutShort(received, total, encoded)) throw new Error("The download was cut short");
+    return new Blob(chunks, { type: type || "audio/mp4" });
+  } finally {
+    clearTimeout(timer);
   }
-  return new Blob(chunks, { type: response.headers.get("content-type") || "audio/mp4" });
 }
 
 interface SaveOptions {
@@ -125,7 +151,7 @@ interface SaveOptions {
 /** Save a song to the device. */
 export async function save(item: Song, { ref = null, direct = true, onProgress }: SaveOptions = {}): Promise<void> {
   const existing = meta.get(item.id);
-  if (existing) { // already here: just record who holds it
+  if (existing) { // already here: just record who holds it, with no request to the server
     const next = { ...existing, direct: existing.direct || direct, refs: [...new Set([...(existing.refs ?? []), ...(ref ? [ref] : [])])] };
     await run(["meta"], "readwrite", (m) => { m.put(next); });
     meta.set(item.id, next);
@@ -135,7 +161,7 @@ export async function save(item: Song, { ref = null, direct = true, onProgress }
   const audio = await download(item, onProgress);
   let cover: Blob | null = null;
   if (hasCover(item)) {
-    try { const r = await fetch(songCover(item, 400)); if (r.ok) cover = await r.blob(); } catch { /* the song is fine without art */ }
+    try { const r = await fetch(songCover(item, 400), { signal: AbortSignal.timeout(STALLED_AFTER) }); if (r.ok) cover = await r.blob(); } catch { /* the song is fine without art */ }
   }
   const info: SavedSong = {
     id: item.id, title: item.title, artist: item.artist, album: item.album, albumId: item.albumId, artistId: item.artistId,
@@ -146,6 +172,8 @@ export async function save(item: Song, { ref = null, direct = true, onProgress }
     m.put(info);
     a.put({ id: item.id, blob: audio });
     if (cover) c.put({ id: item.id, blob: cover });
+  }).catch((e: DOMException) => {
+    throw e?.name === "QuotaExceededError" ? new NoRoom("This device is out of space for downloads") : e;
   });
   meta.set(item.id, info);
   void navigator.storage?.persist?.(); // ask the browser not to evict what we saved
@@ -208,17 +236,35 @@ async function putCollection(record: CollectionRecord): Promise<void> {
   notify();
 }
 
-/** Download every song of a collection and remember it. onProgress receives (songsDone, songsTotal, percentOfCurrentSong). */
-export async function saveCollection(spec: CollectionSpec, songs: Song[], onProgress?: (done: number, total: number, percent: number) => void): Promise<void> {
-  let record: CollectionRecord = { ...spec, songIds: songs.map((s) => s.id), complete: false, savedAt: Date.now() };
-  await putCollection(record);
-  for (let i = 0; i < songs.length; i++) {
-    onProgress?.(i, songs.length, 0);
-    await save(songs[i], { ref: spec.id, direct: false, onProgress: (p) => onProgress?.(i, songs.length, p) });
-  }
-  record = { ...record, complete: true };
-  await putCollection(record);
-  onProgress?.(songs.length, songs.length, 100);
+/** Whether anything of this collection can be played from the device. A long download can be under way or waiting. */
+export const hasCollectionSongs = (id: string) => (collections.get(id)?.songIds ?? []).some((s) => meta.has(s));
+
+/** Remember a collection to download and its songs, so the download survives the app closing. stores/saving.ts runs it. */
+export async function beginCollection(spec: CollectionSpec, songs: Song[]): Promise<void> {
+  void navigator.storage?.persist?.(); // asked while someone is tapping, which is when browsers tend to say yes
+  await putCollection({ ...spec, songIds: songs.map((s) => s.id), songs, complete: false, savedAt: Date.now() });
+}
+
+/** Collections with a download still to finish. Records from before downloads could resume have no list and need a new tap. */
+export const unfinishedCollections = () => [...collections.values()].filter((c) => !c.complete && c.songs?.length);
+
+/** The songs of a collection not on this device yet. */
+export const stillToSave = (id: string) => (collections.get(id)?.songs ?? []).filter((s) => !(meta.get(s.id)?.refs ?? []).includes(id));
+
+/** Take songs the library no longer has out of a collection. */
+export async function forgetFromCollection(id: string, songIds: string[]): Promise<void> {
+  const record = collections.get(id);
+  if (!record || !songIds.length) return;
+  const gone = new Set(songIds);
+  await putCollection({ ...record, songIds: record.songIds.filter((s) => !gone.has(s)), songs: record.songs?.filter((s) => !gone.has(s.id)) });
+}
+
+/** Every song arrived: the list of what to fetch is not needed any more. */
+export async function finishCollection(id: string): Promise<void> {
+  const record = collections.get(id);
+  if (!record) return;
+  const { songs: _done, ...rest } = record;
+  await putCollection({ ...rest, complete: true });
 }
 
 /** Make a saved collection match the server's current list: download new songs, release removed ones. */
@@ -228,13 +274,19 @@ export async function syncCollection(id: string, songs: Song[], onProgress?: (do
   const wanted = new Set(songs.map((s) => s.id));
   const gone = record.songIds.filter((x) => !wanted.has(x));
   const fresh = songs.filter((s) => !(meta.get(s.id)?.refs ?? []).includes(id));
+  let added = 0;
   for (let i = 0; i < fresh.length; i++) {
     onProgress?.(i, fresh.length);
-    await save(fresh[i], { ref: id, direct: false });
+    try {
+      await save(fresh[i], { ref: id, direct: false });
+      added++;
+    } catch (e) { // this song is tried again the next time the collection opens; the others should not wait for it
+      if (e instanceof NoRoom) throw e;
+    }
   }
   for (const x of gone) await release(x, id);
   if (fresh.length || gone.length) await putCollection({ ...record, songIds: songs.map((s) => s.id) });
-  return { added: fresh.length, removed: gone.length };
+  return { added, removed: gone.length };
 }
 
 export async function removeCollection(id: string): Promise<void> {

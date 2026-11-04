@@ -229,6 +229,7 @@ export interface CollectionRecord extends CollectionSpec {
   songIds: string[];
   complete: boolean;
   savedAt: number;
+  songs?: Song[]; // what to download, kept until every song has arrived so it can resume after the app closes
 }
 
 /** A song of a list imported from elsewhere. */

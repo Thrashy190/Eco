@@ -16,6 +16,7 @@ import { startConnect } from "./stores/connect";
 import { pollJobs } from "./stores/downloads";
 import * as offline from "./stores/offline";
 import * as player from "./stores/player";
+import { watchSaving } from "./stores/saving";
 import { loadSettings, useOnline, useSettings, watchNetwork } from "./stores/settings";
 import { closeSheet, toast } from "./stores/ui";
 import { AlbumLookup, CatalogAlbumView } from "./views/CatalogAlbum";
@@ -94,9 +95,12 @@ function SignedIn({ user }: { user: string }) {
   useEffect(() => (online ? startConnect() : undefined), [online, user]);
   useEffect(() => {
     loadSettings(user);
-    void offline.init();
+    let stopSaving: (() => void) | undefined;
+    let left = false;
+    void offline.init().then(() => { if (!left) stopSaving = watchSaving(); });
     pollJobs();
-    return watchNetwork((connected) => toast(connected ? "Back online" : "You are offline"));
+    const stopNetwork = watchNetwork((connected) => toast(connected ? "Back online" : "You are offline"));
+    return () => { left = true; stopSaving?.(); stopNetwork(); };
   }, [user]);
 
   return (

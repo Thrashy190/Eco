@@ -99,7 +99,7 @@ export function AlbumView() {
     body = <Skeleton />;
   } else {
     const saved = offline.collection(key);
-    body = saved?.complete
+    body = saved && offline.hasCollectionSongs(key)
       ? <CollectionPage art={<CollectionCover id={key} className="cover huge" />} title={saved.title} subtitle={saved.subtitle} songs={offline.collectionSongs(key)} spec={saved} entry={{ type: "album", id, name: saved.title }} numbered fromDevice />
       : <Empty>{online && error ? error.message : "This album is not downloaded."}</Empty>;
   }
@@ -195,8 +195,9 @@ function RegularPlaylist({ id }: { id: string }) {
   }
   if (online && isPending) return <Skeleton />;
   const saved = offline.collection(key);
-  if (saved?.complete) {
-    return <CollectionPage art={<CollectionCover id={key} className="cover huge" />} title={saved.title} subtitle={plural(saved.songIds.length, "song")} songs={offline.collectionSongs(key)} spec={saved} entry={{ type: "playlist", id, name: saved.title }} fromDevice />;
+  if (saved && offline.hasCollectionSongs(key)) {
+    const here = offline.collectionSongs(key);
+    return <CollectionPage art={<CollectionCover id={key} className="cover huge" />} title={saved.title} subtitle={plural(here.length, "song")} songs={here} spec={saved} entry={{ type: "playlist", id, name: saved.title }} fromDevice />;
   }
   return <Empty>{online && error ? error.message : "This playlist is not downloaded."}</Empty>;
 }

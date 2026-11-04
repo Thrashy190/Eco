@@ -197,8 +197,9 @@ async function load(startAt = 0, autoplay = true): Promise<void> {
   clearTimeout(prepareTimer);
   if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
   if (prepared?.id === song.id) { objectUrl = prepared.url; prepared = null; } else forgetPrepared();
-  // A song saved on this device plays from storage: no network needed
-  if (!objectUrl && offline.isSaved(song.id)) {
+  // A song saved on this device plays from storage, with no request to the server. If that copy would not play and there
+  // is a connection, the second try streams it (see the error listener)
+  if (!objectUrl && offline.isSaved(song.id) && (retried !== song.id || !isOnline())) {
     const saved = await offline.audioUrl(song.id).catch(() => null);
     if (serial !== loadSerial) { if (saved) URL.revokeObjectURL(saved); return; }
     objectUrl = saved;
@@ -394,11 +395,26 @@ audio.addEventListener("timeupdate", () => {
   }
 });
 
+let sessionCover: string | null = null;
+
 function updateMediaSession(song: Song): void {
   if (!("mediaSession" in navigator)) return;
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: song.title, artist: song.artist, album: song.album || "",
-    artwork: hasCover(song) ? [{ src: songCover(song, 512), sizes: "512x512", type: "image/jpeg" }] : [],
+  const show = (src: string | null, size: number) => {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: song.title, artist: song.artist, album: song.album || "",
+      artwork: src ? [{ src, sizes: `${size}x${size}`, type: "image/jpeg" }] : [],
+    });
+  };
+  const fromServer = () => show(hasCover(song) && isOnline() ? songCover(song, 512) : null, 512);
+  if (sessionCover) { URL.revokeObjectURL(sessionCover); sessionCover = null; }
+  if (!offline.isSaved(song.id)) { fromServer(); return; }
+  // A song on this device brings its own picture to the lock screen
+  show(null, 0);
+  void offline.savedCoverUrl(song.id).then((url) => {
+    if (current()?.id !== song.id) { if (url) URL.revokeObjectURL(url); return; }
+    if (!url) { fromServer(); return; }
+    sessionCover = url;
+    show(url, 400);
   });
 }
 

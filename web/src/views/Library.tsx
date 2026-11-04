@@ -121,8 +121,8 @@ function EntryRow({ entry, pinned, fixed, inRecents }: { entry: LibraryEntry; pi
 /** Saved on this device: an entry can be opened without a connection only if it was downloaded. */
 export function availableOffline(entry: LibraryEntry): boolean {
   switch (entry.type) {
-    case "playlist": return entry.id === FAVORITES_ID || offline.isCollectionSaved(`playlist:${entry.id}`);
-    case "album": return offline.isCollectionSaved(`album:${entry.id}`);
+    case "playlist": return entry.id === FAVORITES_ID || offline.hasCollectionSongs(`playlist:${entry.id}`);
+    case "album": return offline.hasCollectionSongs(`album:${entry.id}`);
     case "song": return offline.isSaved(entry.id);
     default: return false;
   }
