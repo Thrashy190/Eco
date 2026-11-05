@@ -35,7 +35,7 @@ export function TopBar() {
   }, []);
 
   return (
-    <header className="absolute z-20 inset-x-0 top-0 flex items-center gap-1.5 h-14 pl-3 pr-2 rounded-full bg-glass-strong backdrop-blur-2xl backdrop-saturate-150 shadow-[0_12px_32px_rgb(0_0_0/.22),inset_0_0_0_1px_var(--line)]">
+    <header className="relative z-20 flex-none flex items-center gap-1.5 h-14 pl-3 pr-2 rounded-full bg-glass-strong backdrop-blur-2xl backdrop-saturate-150 shadow-[0_12px_32px_rgb(0_0_0/.22),inset_0_0_0_1px_var(--line)]">
       <Link to="/home" className="flex-none flex items-center gap-2 pr-1.5" aria-label="Eco, home">
         <img src={__LOGO_URL__} alt="" width="30" height="30" className="rounded-[9px]" />
         <span className="hidden min-[1000px]:inline font-title font-bold text-[1.25rem] tracking-[-.03em]">Eco</span>

@@ -74,11 +74,12 @@ function Shell() {
   return (
     <div className="wide:fixed wide:inset-0 wide:grid wide:grid-cols-[minmax(0,1fr)_auto] wide:gap-3 wide:p-3 wide:pt-[calc(var(--safe-top)+12px)] wide:pb-[calc(var(--safe-bottom)+12px)]">
       {wide && <Ambient />}
-      <div className="wide:relative wide:min-w-0 wide:min-h-0">
+      {/* The bar has its own row, so the page's scrollbar starts below it instead of running underneath */}
+      <div className="wide:relative wide:flex wide:flex-col wide:gap-1 wide:min-w-0 wide:min-h-0">
         {wide && <TopBar />}
         {/* Keyed by address, so a new page also starts scrolled to the top where the page itself is what scrolls */}
         <main id="view" key={pathname}
-          className="max-w-205 mx-auto min-h-screen pt-[calc(var(--safe-top)+6px)] pb-[calc(var(--tabs-h)+var(--safe-bottom)+24px)] animate-view-in in-[.has-player]:pb-[calc(var(--tabs-h)+var(--mini-h)+var(--safe-bottom)+32px)] wide:@container wide:max-w-none wide:min-h-0 wide:h-full wide:overflow-y-auto wide:scroll-pt-22 wide:pt-19 wide:pb-10 wide:in-[.has-player]:pb-10 wide:in-[.has-capsule]:pb-28 wide:[scrollbar-width:thin] wide:[scrollbar-color:var(--surface-3)_transparent]">
+          className="max-w-205 mx-auto min-h-screen pt-[calc(var(--safe-top)+6px)] pb-[calc(var(--tabs-h)+var(--safe-bottom)+24px)] animate-view-in in-[.has-player]:pb-[calc(var(--tabs-h)+var(--mini-h)+var(--safe-bottom)+32px)] wide:@container wide:w-full wide:max-w-none wide:min-h-0 wide:flex-1 wide:overflow-y-auto wide:scroll-pt-3 wide:pt-3 wide:pb-10 wide:mask-[linear-gradient(to_bottom,transparent,black_12px)] wide:in-[.has-player]:pb-10 wide:in-[.has-capsule]:pb-28 wide:[scrollbar-width:thin] wide:[scrollbar-color:var(--surface-3)_transparent]">
           <div className="wide:max-w-[1400px] wide:mx-auto"><Outlet /></div>
         </main>
       </div>
