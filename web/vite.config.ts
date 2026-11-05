@@ -61,12 +61,11 @@ function serviceWorkerShell(): Plugin {
   };
 }
 
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   base: "./",
   plugins: [tailwindcss(), react(), versionedIcons(), serviceWorkerShell()],
-  define: { __LOGO_URL__: JSON.stringify(command === "build" ? `/${versioned("icon.svg")}` : "/icon.svg") },
   build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 900 },
   // `npm run dev` serves the UI with hot reload; the data still comes from a running eco
   server: { proxy: { "/api": "http://127.0.0.1:8000", "/rest": "http://127.0.0.1:8000" } },
   test: { environment: "node", include: ["src/**/*.test.ts"] },
-}));
+});

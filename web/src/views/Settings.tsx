@@ -30,7 +30,7 @@ const SEG = "flex p-0.75 gap-0.5 rounded-full bg-surface-2 [&>button]:flex-1 [&>
 const SWATCH = "relative size-9.5 rounded-full bg-(--c) shadow-[inset_0_0_0_2px_rgb(255_255_255/.18)] transition-transform duration-200 ease-spring active:scale-[.88] aria-pressed:scale-[1.12] aria-pressed:shadow-[0_0_0_3px_var(--bg),0_0_0_5px_var(--c)]";
 const REORDER_BUTTON = "tap size-9 grid place-items-center rounded-full text-muted flex-none disabled:opacity-25! hover:text-text";
 
-function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" }) {
+function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" | "dynamicAccent" }) {
   const on = useSettings((s) => s[name]);
   return <button type="button" className={ui.toggle} role="switch" aria-checked={on} onClick={() => setSettings({ [name]: !on })} />;
 }
@@ -51,13 +51,14 @@ const Group = ({ title, children }: { title: string; children: ReactNode }) => (
 function Swatches() {
   const accent = useSettings((s) => s.accent).toLowerCase();
   const isPreset = ACCENTS.some(([, color]) => color === accent);
+  const dynamic = useSettings((s) => s.dynamicAccent);
   return (
     <div className="flex flex-wrap gap-3 items-center">
       {ACCENTS.map(([name, color]) => (
-        <button key={color} type="button" className={SWATCH} style={{ "--c": color } as React.CSSProperties} aria-label={name} title={name} aria-pressed={color === accent} onClick={() => setSettings({ accent: color })} />
+        <button key={color} type="button" className={SWATCH} style={{ "--c": color } as React.CSSProperties} aria-label={name} title={name} aria-pressed={!dynamic && color === accent} onClick={() => setSettings({ accent: color, dynamicAccent: false })} />
       ))}
-      <span className={cx(SWATCH, "bg-[conic-gradient(#ff6b6b,#ffb84d,#b5e853,#7cf0c0,#6aa8ff,#b18cff,#ff7eb6,#ff6b6b)] overflow-hidden")} style={{ "--c": "transparent" } as React.CSSProperties} title="Pick any colour" aria-pressed={!isPreset}>
-        <input type="color" className="absolute -inset-2 size-15 opacity-0 cursor-pointer" aria-label="Custom colour" value={accent} onChange={(e) => setSettings({ accent: e.target.value })} />
+      <span className={cx(SWATCH, "bg-[conic-gradient(#ff6b6b,#ffb84d,#b5e853,#7cf0c0,#6aa8ff,#b18cff,#ff7eb6,#ff6b6b)] overflow-hidden")} style={{ "--c": "transparent" } as React.CSSProperties} title="Pick any colour" aria-pressed={!dynamic && !isPreset}>
+        <input type="color" className="absolute -inset-2 size-15 opacity-0 cursor-pointer" aria-label="Custom colour" value={accent} onChange={(e) => setSettings({ accent: e.target.value, dynamicAccent: false })} />
       </span>
     </div>
   );
@@ -170,7 +171,8 @@ export function Settings() {
           <Setting title="Theme" description="Follows your phone unless you choose one" stack>
             <Segmented name="theme" options={[["system", "Auto"], ["dark", "Dark"], ["light", "Light"], ["black", "Black"]]} />
           </Setting>
-          <Setting title="Accent colour" description="Buttons, highlights and the active tab" stack><Swatches /></Setting>
+          <Setting title="Dynamic colour" description="Buttons, highlights and the Eco logo take the colour of the album playing"><Toggle name="dynamicAccent" /></Setting>
+          <Setting title="Accent colour" description="Buttons, highlights and the logo, when nothing is playing or dynamic colour is off" stack><Swatches /></Setting>
           <Preview />
           <Setting title="Corners"><Segmented name="corners" options={[["soft", "Soft"], ["sharp", "Sharp"]]} /></Setting>
           <Setting title="List size" description="Compact fits more songs on screen"><Segmented name="density" options={[["comfortable", "Comfy"], ["compact", "Compact"]]} /></Setting>

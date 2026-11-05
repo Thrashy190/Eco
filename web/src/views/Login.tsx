@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Credit } from "../components/common";
+import { Logo } from "../components/Logo";
 import { signIn } from "../lib/api";
 import { cx, ui } from "../lib/ui";
 
@@ -25,7 +26,7 @@ export function Login() {
   return (
     <div className="min-h-dvh grid place-items-center p-6 bg-[radial-gradient(90%_60%_at_50%_0%,rgb(var(--glow)/.2),transparent_70%)]">
       <form className="w-full max-w-90 grid gap-3 justify-items-stretch text-center" onSubmit={submit}>
-        <img className="mx-auto mb-1 rounded-[18px]" src={__LOGO_URL__} alt="" width="72" height="72" />
+        <Logo size={72} className="mx-auto mb-1" />
         <h1 className="text-[2.6rem] font-extrabold tracking-[-.04em] wide:font-title wide:text-[3.5rem] wide:font-bold">Eco</h1>
         <p className="text-muted mb-2.5">Your music, wherever you are.</p>
         <input className={FIELD} name="user" placeholder="Username" autoComplete="username" autoCapitalize="none" autoCorrect="off" required />

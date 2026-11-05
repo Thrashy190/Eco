@@ -73,7 +73,7 @@ function Shell() {
 
   return (
     <div className="wide:fixed wide:inset-0 wide:grid wide:grid-cols-[minmax(0,1fr)_auto] wide:gap-3 wide:p-3 wide:pt-[calc(var(--safe-top)+12px)] wide:pb-[calc(var(--safe-bottom)+12px)]">
-      {wide && <Ambient />}
+      <Ambient />
       {/* The bar has its own row, so the page's scrollbar starts below it instead of running underneath */}
       <div className="wide:relative wide:flex wide:flex-col wide:gap-1 wide:min-w-0 wide:min-h-0">
         {wide && <TopBar />}

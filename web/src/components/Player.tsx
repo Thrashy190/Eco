@@ -15,7 +15,7 @@ import { toggleFavorite, useStarred } from "../stores/favorites";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline } from "../stores/saving";
-import { setSettings, useSettings } from "../stores/settings";
+import { setCoverColor, setSettings, useSettings } from "../stores/settings";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
 import { DeviceButton, openDevicePicker } from "./Devices";
@@ -299,17 +299,24 @@ export function Player() {
 
 /**
  * The room takes the colour of the music: on a big screen, a slow wash of the cover's colour behind everything. It reads
- * the small cover the player has already fetched, and with "Colour the player" off only the accent colour shows.
+ * the small cover the player has already fetched, and with "Colour the player" off only the accent colour shows. The same
+ * colour feeds the accent when it is set to follow the album, which is why this also runs on a phone.
  */
 export function Ambient() {
   const { song } = useShown();
+  const wide = useWide();
   const tintOn = useSettings((s) => s.tint);
-  const tint = useTint(song && hasCover(song) ? songCover(song, 96) : "", tintOn && Boolean(song));
+  const dynamic = useSettings((s) => s.dynamicAccent);
+  const art = song && hasCover(song) ? songCover(song, 96) : "";
+  const tint = useTint(art, (tintOn || dynamic) && Boolean(song));
+  const known = art && tint !== NEUTRAL ? tint : null;
   useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty("--tint", tintOn && song ? tint : "var(--glow)");
-  }, [tint, tintOn, song]);
+    document.documentElement.style.setProperty("--tint", tintOn && known ? known : "var(--glow)");
+    setCoverColor(known);
+  }, [known, tintOn]);
+  useEffect(() => () => setCoverColor(null), []); // signed out: nothing is playing
   const wash = "absolute transition-colors duration-[1400ms] rounded-full";
+  if (!wide) return null;
   return (
     <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
       <i className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />

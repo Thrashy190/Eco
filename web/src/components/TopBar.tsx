@@ -11,6 +11,7 @@ import { useShown } from "../stores/connect";
 import { setSettings, useSettings } from "../stores/settings";
 import { useSearchText } from "../stores/ui";
 import { Icon } from "./Icon";
+import { Logo } from "./Logo";
 
 const plainButton = "tap size-9 flex-none grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost active:scale-[.94]";
 
@@ -39,7 +40,7 @@ export function TopBar() {
   return (
     <header className="relative z-20 flex-none flex items-center gap-1.5 h-14 pl-3 pr-2 rounded-full bg-glass-strong backdrop-blur-2xl backdrop-saturate-150 shadow-[0_12px_32px_rgb(0_0_0/.22),inset_0_0_0_1px_var(--line)]">
       <Link to="/home" className="flex-none flex items-center gap-2 pr-1.5" aria-label="Eco, home">
-        <img src={__LOGO_URL__} alt="" width="30" height="30" className="rounded-[9px]" />
+        <Logo size={30} />
         <span className="hidden min-[1000px]:inline font-title font-bold text-[1.25rem] tracking-[-.03em]">Eco</span>
       </Link>
       <button type="button" className={plainButton} aria-label="Back" onClick={() => navigate(-1)}><Icon name="back" size={20} /></button>
