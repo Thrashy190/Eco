@@ -19,6 +19,8 @@ services:
     environment:
       ND_SCANSCHEDULE: 1m
       ND_SESSIONTIMEOUT: 720h
+      # Songs downloaded into an album you already have bring it back to the top of Recently added
+      ND_RECENTLYADDEDBYMODTIME: "true"
     volumes:
       - ./navidrome:/data
       - ${DATA_DIR:-./data}/music:/music:ro # read-only: Navidrome never changes your files
