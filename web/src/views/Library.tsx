@@ -7,7 +7,7 @@ import { getAlbums, getArtists, getPlaylists, getSongs, getStarred, toSong } fro
 import { plural } from "../lib/format";
 import { scrollRoot } from "../lib/media";
 import type { Album, CollectionRecord, LibraryEntry, MediaKind, Playlist } from "../lib/types";
-import { AlbumCard, ArtistCard } from "../components/cards";
+import { AlbumCard, ArtistCard, SavedCard } from "../components/cards";
 import { Empty, OfflineBanner, Pill, Section, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon } from "../components/Icon";
@@ -15,6 +15,7 @@ import { SavedStatus, SongList } from "../components/songs";
 import { deleteSongForEveryone, isAdmin } from "../stores/admin";
 import { useIsCurrent } from "../stores/connect";
 import { coverUrl } from "../lib/api";
+import { cx, ui } from "../lib/ui";
 import {
   entryRoute, entrySong, favoritesEntry, FAVORITES_ID, forget, isPinned, libraryRows, playlistEntry, togglePin, useLibraryState,
 } from "../stores/library";
@@ -42,19 +43,19 @@ export function Library() {
   const active = tabs.some(([key]) => key === tab) ? tab! : "recent";
   return (
     <>
-      <header className="hero compact library-head">
+      <header className={cx(ui.heroCompact, "flex items-center justify-between gap-3")}>
         <h1>Library</h1>
         {online && (active === "albums" || active === "artists") && <ViewToggle />}
       </header>
       {!online && <OfflineBanner />}
-      <nav className="segments" aria-label="Library sections">
+      <nav className={ui.segments} aria-label="Library sections">
         {tabs.map(([key, label]) => (
-          <NavLink key={key} to={key === "recent" ? "/library" : `/library/${key}`} className={key === active ? "active" : ""} end>
+          <NavLink key={key} to={key === "recent" ? "/library" : `/library/${key}`} className={ui.segment} data-on={key === active || undefined} end>
             {label}{key === "offline" && offline.count() > 0 && <small>{offline.count()}</small>}
           </NavLink>
         ))}
       </nav>
-      <div className="library-content">
+      <div>
         {active === "recent" && <RecentTab />}
         {active === "playlists" && <PlaylistsTab />}
         {active === "albums" && <AlbumsTab />}
@@ -70,7 +71,7 @@ export function Library() {
 function ViewToggle() {
   const view = useSettings((s) => s.libraryView);
   return (
-    <button type="button" className="round" aria-label={view === "grid" ? "Show as a list" : "Show as a grid"} title={view === "grid" ? "Show as a list" : "Show as a grid"}
+    <button type="button" className={ui.round} aria-label={view === "grid" ? "Show as a list" : "Show as a grid"} title={view === "grid" ? "Show as a list" : "Show as a grid"}
       onClick={() => setSettings({ libraryView: view === "grid" ? "list" : "grid" })}>
       <Icon name={view === "grid" ? "list" : "grid"} size={20} />
     </button>
@@ -82,7 +83,7 @@ function ViewToggle() {
 export function EntryArt({ entry }: { entry: LibraryEntry }) {
   switch (entry.type) {
     case "playlist": return <PlaylistArt id={entry.id} cover={entry.cover} size={96} />;
-    case "artist": return <ArtistAvatar name={entry.name} cover={entry.cover} size={96} className="avatar small" />;
+    case "artist": return <ArtistAvatar name={entry.name} cover={entry.cover} size={96} className={ui.avatarSmall} />;
     case "catalog_album":
     case "spotify_album": return <Picture src={entry.cover_url} external />;
     default: return <Picture src={coverUrl(entry.cover, 96)} />;
@@ -106,14 +107,14 @@ function EntryRow({ entry, pinned, fixed, inRecents }: { entry: LibraryEntry; pi
     online && isSong && isAdmin() && { icon: "trash", label: "Delete for everyone", danger: true, run: () => void deleteSongForEveryone(entrySong(entry)) },
   ]);
   return (
-    <li className={`row lib-row${isCurrent ? " current" : ""}`} onClick={open}>
+    <li className={ui.row} data-current={isCurrent || undefined} onClick={open}>
       <EntryArt entry={entry} />
-      <div className="text">
+      <div className={ui.text}>
         <b>{entry.name}</b>
-        <span>{pinned && <span className="pin-mark" title="Pinned"><Icon name="pin-fill" size={12} /></span>}{entry.subtitle}</span>
+        <span>{pinned && <span className={ui.pinMark} title="Pinned"><Icon name="pin-fill" size={12} /></span>}{entry.subtitle}</span>
       </div>
       {isSong && <SavedStatus id={entry.id} />}
-      {!fixed && <button className="icon-button" aria-label={`More options for ${entry.name}`} onClick={(e) => { e.stopPropagation(); menu(); }}><Icon name="more" size={20} /></button>}
+      {!fixed && <button className={ui.rowMore} aria-label={`More options for ${entry.name}`} onClick={(e) => { e.stopPropagation(); menu(); }}><Icon name="more" size={20} /></button>}
     </li>
   );
 }
@@ -138,12 +139,12 @@ function RecentTab() {
   const isFirstRun = online && rows.length === 1;
   return (
     <>
-      <ul className="rows">
+      <ul className={ui.rows}>
         {rows.map(({ entry, pinned }) => (
           <EntryRow key={`${entry.type}/${entry.id}`} entry={entry} pinned={pinned} fixed={entry.id === FAVORITES_ID} inRecents={recentKeys.has(`${entry.type}/${entry.id}`)} />
         ))}
       </ul>
-      {isFirstRun && <p className="note">Playlists, albums and artists you open will show up here. Open the ⋯ menu on anything to pin it to the top.</p>}
+      {isFirstRun && <p className={ui.note}>Playlists, albums and artists you open will show up here. Open the ⋯ menu on anything to pin it to the top.</p>}
     </>
   );
 }
@@ -157,14 +158,14 @@ function PlaylistRow({ playlist }: { playlist: Playlist }) {
   const pinned = isPinned(pins, entry);
   offline.useOfflineVersion();
   return (
-    <li className="row" onClick={() => navigate(`/playlist/${playlist.id}`)}>
+    <li className={ui.row} onClick={() => navigate(`/playlist/${playlist.id}`)}>
       <PlaylistArt id={playlist.id} cover={playlist.cover} size={96} />
-      <div className="text">
+      <div className={ui.text}>
         <b>{playlist.name}</b>
-        <span>{pinned && <span className="pin-mark" title="Pinned"><Icon name="pin-fill" size={12} /></span>}{plural(playlist.songCount, "song")}</span>
+        <span>{pinned && <span className={ui.pinMark} title="Pinned"><Icon name="pin-fill" size={12} /></span>}{plural(playlist.songCount, "song")}</span>
       </div>
-      {offline.isCollectionSaved(`playlist:${playlist.id}`) && <span className="status"><Icon name="check" size={16} /></span>}
-      <button className="icon-button" aria-label={`More options for ${playlist.name}`} onClick={(e) => {
+      {offline.isCollectionSaved(`playlist:${playlist.id}`) && <span className={ui.status}><Icon name="check" size={16} /></span>}
+      <button className={ui.rowMore} aria-label={`More options for ${playlist.name}`} onClick={(e) => {
         e.stopPropagation();
         openSheet(playlist.name, "Playlist", [{ icon: pinned ? "pin-fill" : "pin", label: pinned ? "Unpin" : "Pin to the top", run: () => void togglePin(entry) }]);
       }}><Icon name="more" size={20} /></button>
@@ -175,9 +176,9 @@ function PlaylistRow({ playlist }: { playlist: Playlist }) {
 function FavoritesRow({ count }: { count?: number }) {
   const navigate = useNavigate();
   return (
-    <li className="row" onClick={() => navigate(`/playlist/${FAVORITES_ID}`)}>
+    <li className={ui.row} onClick={() => navigate(`/playlist/${FAVORITES_ID}`)}>
       <PlaylistArt id={FAVORITES_ID} />
-      <div className="text"><b>Favorites</b><span>{count === undefined ? "Your favorite songs" : plural(count, "song")}</span></div>
+      <div className={ui.text}><b>Favorites</b><span>{count === undefined ? "Your favorite songs" : plural(count, "song")}</span></div>
     </li>
   );
 }
@@ -185,10 +186,10 @@ function FavoritesRow({ count }: { count?: number }) {
 const SavedCollectionRow = ({ collection }: { collection: CollectionRecord }) => {
   const navigate = useNavigate();
   return (
-    <li className="row" onClick={() => navigate(offline.collectionRoute(collection.id))}>
-      <CollectionCover id={collection.id} className="cover" />
-      <div className="text"><b>{collection.title}</b><span>{`${collection.subtitle} · ${plural(collection.songIds.length, "song")}`}</span></div>
-      <span className="status"><Icon name="check" size={16} /></span>
+    <li className={ui.row} onClick={() => navigate(offline.collectionRoute(collection.id))}>
+      <CollectionCover id={collection.id} className={ui.cover} />
+      <div className={ui.text}><b>{collection.title}</b><span>{`${collection.subtitle} · ${plural(collection.songIds.length, "song")}`}</span></div>
+      <span className={ui.status}><Icon name="check" size={16} /></span>
     </li>
   );
 };
@@ -200,7 +201,7 @@ function PlaylistsTab() {
   if (!online) {
     const saved = offline.collectionList("playlist").filter((c) => c.complete);
     return (
-      <ul className="rows">
+      <ul className={ui.rows}>
         <FavoritesRow count={offline.collection(FAVORITES_ID)?.songIds.length} />
         {saved.map((c) => <SavedCollectionRow key={c.id} collection={c} />)}
       </ul>
@@ -208,8 +209,8 @@ function PlaylistsTab() {
   }
   return (
     <>
-      <div className="actions"><Link className="pill" to="/import"><Icon name="upload" size={16} />Import a playlist</Link></div>
-      <ul className="rows">
+      <div className={ui.actions}><Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import a playlist</Link></div>
+      <ul className={ui.rows}>
         <FavoritesRow count={favorites.data?.length} />
         {lists.data?.map((p) => <PlaylistRow key={p.id} playlist={p} />)}
       </ul>
@@ -228,24 +229,24 @@ function AlbumsTab() {
   if (!online) {
     const saved = offline.collectionList("album").filter((c) => c.complete);
     if (!saved.length) return <Empty>No albums are downloaded.</Empty>;
-    return <div className="grid">{saved.map((c) => <Link className="card" key={c.id} to={offline.collectionRoute(c.id)}><CollectionCover id={c.id} /><b>{c.title}</b><span>{c.subtitle}</span></Link>)}</div>;
+    return <div className={ui.grid}>{saved.map((c) => <SavedCard key={c.id} to={offline.collectionRoute(c.id)} art={<CollectionCover id={c.id} className={cx(ui.coverBig, ui.cardCover)} />} title={c.title} subtitle={c.subtitle} />)}</div>;
   }
   if (isPending) return <Skeleton />;
   if (error) return <Empty>{error.message}</Empty>;
   if (!data.length) return <Empty>No albums yet.</Empty>;
   if (view === "list") {
     return (
-      <ul className="rows">
+      <ul className={ui.rows}>
         {data.map((a) => (
-          <li key={a.id} className="row"><Link className="row-link" to={`/album/${a.id}`}>
+          <li key={a.id} className={ui.row}><Link className={ui.rowLink} to={`/album/${a.id}`}>
             <Picture src={coverUrl(a.cover, 96)} />
-            <div className="text"><b>{a.name}</b><span>{[a.artist, a.year].filter(Boolean).join(" · ")}</span></div>
+            <div className={ui.text}><b>{a.name}</b><span>{[a.artist, a.year].filter(Boolean).join(" · ")}</span></div>
           </Link></li>
         ))}
       </ul>
     );
   }
-  return <div className="grid">{data.map((a) => <AlbumCard key={a.id} album={a} />)}</div>;
+  return <div className={ui.grid}>{data.map((a) => <AlbumCard key={a.id} album={a} />)}</div>;
 }
 
 function ArtistsTab() {
@@ -258,19 +259,19 @@ function ArtistsTab() {
   const needle = filter.toLowerCase();
   return (
     <>
-      <input type="search" className="filter" placeholder={`Filter ${data.length} artists`} aria-label="Filter artists" value={filter} onChange={(e) => setFilter(e.target.value)} />
+      <input type="search" className={ui.filter} placeholder={`Filter ${data.length} artists`} aria-label="Filter artists" value={filter} onChange={(e) => setFilter(e.target.value)} />
       {view === "list"
         ? (
-          <ul className="rows">
+          <ul className={ui.rows}>
             {data.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => (
-              <li key={a.id} className="row"><Link className="row-link" to={`/artist/${a.id}`}>
-                <ArtistAvatar name={a.name} cover={a.cover} size={96} className="avatar small" />
-                <div className="text"><b>{a.name}</b><span>{a.albumCount !== undefined ? plural(a.albumCount, "album") : "Artist"}</span></div>
+              <li key={a.id} className={ui.row}><Link className={ui.rowLink} to={`/artist/${a.id}`}>
+                <ArtistAvatar name={a.name} cover={a.cover} size={96} className={ui.avatarSmall} />
+                <div className={ui.text}><b>{a.name}</b><span>{a.albumCount !== undefined ? plural(a.albumCount, "album") : "Artist"}</span></div>
               </Link></li>
             ))}
           </ul>
         )
-        : <div className="grid">{data.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>}
+        : <div className={ui.grid}>{data.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>}
     </>
   );
 }
@@ -296,9 +297,9 @@ function SongsTab() {
   const songs = data.pages.flatMap((p) => p.songs).map(toSong);
   return (
     <>
-      <p className="count">{plural(data.pages[0].total, "song")}</p>
+      <p className={ui.count}>{plural(data.pages[0].total, "song")}</p>
       <SongList songs={songs} />
-      <div className="more" ref={marker} />
+      <div className={ui.more} ref={marker} />
     </>
   );
 }
@@ -321,11 +322,11 @@ function DownloadsTab() {
   }
   return (
     <>
-      {space && <p className="count">{`${plural(offline.count(), "song")} · ${offline.megabytes(space.used)}${space.quota ? ` of ${offline.megabytes(space.quota)} available` : ""}`}</p>}
-      {collections.length > 0 && <Section title="Collections"><ul className="rows">{collections.map((c) => <SavedCollectionRow key={c.id} collection={c} />)}</ul></Section>}
+      {space && <p className={ui.count}>{`${plural(offline.count(), "song")} · ${offline.megabytes(space.used)}${space.quota ? ` of ${offline.megabytes(space.quota)} available` : ""}`}</p>}
+      {collections.length > 0 && <Section title="Collections"><ul className={ui.rows}>{collections.map((c) => <SavedCollectionRow key={c.id} collection={c} />)}</ul></Section>}
       {saved.length > 0 && <Section title="Songs" action={<Pill icon="play" onClick={() => player.play(saved, 0)}>Play</Pill>}><SongList songs={saved} /></Section>}
       {spoken.length > 0 && <Section title="Podcasts, audiobooks & more"><SongList songs={spoken} /></Section>}
-      <button className="danger-link" onClick={async () => {
+      <button className={ui.dangerLink} onClick={async () => {
         if (!confirm("Remove every download from this device?")) return;
         for (const c of collections) await offline.removeCollection(c.id);
         for (const s of offline.list()) await offline.remove(s.id);

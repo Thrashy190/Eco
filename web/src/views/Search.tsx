@@ -7,6 +7,7 @@ import { Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../comp
 import { Icon } from "../components/Icon";
 import { ExternalRow, GetAllButton, SongList } from "../components/songs";
 import { isWide } from "../lib/media";
+import { ui } from "../lib/ui";
 import * as offline from "../stores/offline";
 import { useOnline } from "../stores/settings";
 import { useSearchText } from "../stores/ui";
@@ -60,11 +61,11 @@ function Results({ query }: { query: string }) {
       {songs.length > 0 && <Section title="In your library"><SongList songs={songs} /></Section>}
       {external.length > 0 && (
         <Section title="Not in your library yet" action={<GetAllButton externals={external} />}>
-          <ul className="rows">{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
+          <ul className={ui.rows}>{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
         </Section>
       )}
-      {looking && <p className="note">Looking in the catalogue…</p>}
-      {warning && <p className="note">{warning}</p>}
+      {looking && <p className={ui.note}>Looking in the catalogue…</p>}
+      {warning && <p className={ui.note}>{warning}</p>}
     </>
   );
 }
@@ -110,12 +111,12 @@ export function Search() {
 
   return (
     <>
-      <div className="searchbar">
-        <Icon name="search" size={20} />
-        <input type="search" placeholder="Songs, artists, albums, or a YouTube link…" autoComplete="off" enterKeyHint="search" aria-label="Search"
+      <div className="sticky top-0 z-10 flex items-center gap-2.5 px-4 py-3 bg-[linear-gradient(var(--page)_78%,transparent)] text-muted wide:hidden">
+        <span className="absolute left-8 pointer-events-none inline-flex"><Icon name="search" size={20} /></span>
+        <input type="search" className="flex-1 min-w-0 pl-11 pr-4 py-3.25 rounded-card border border-transparent bg-surface-2 text-text outline-none focus:border-accent" placeholder="Songs, artists, albums, or a YouTube link…" autoComplete="off" enterKeyHint="search" aria-label="Search"
           value={text} autoFocus={!opening && !isWide()} onChange={(e) => useSearchText.setState({ text: e.target.value })} />
       </div>
-      <div className="results">{body}</div>
+      <div className="wide:pt-2">{body}</div>
     </>
   );
 }

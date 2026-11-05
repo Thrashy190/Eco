@@ -6,9 +6,10 @@ import { Navigate, useNavigate, useParams, useSearchParams } from "react-router"
 import { getCatalogAlbum, matchCatalogAlbum, toSong } from "../lib/api";
 import { clock, plural } from "../lib/format";
 import type { AlbumTrack, Job, LibraryEntry, Song, CatalogAlbumPage } from "../lib/types";
+import { cx, ui } from "../lib/ui";
 import { ArtistLinks } from "../components/ArtistLinks";
 import { DownloadToggle, PinButton } from "../components/cards";
-import { BackButton, Empty, Pill, Section, Skeleton } from "../components/common";
+import { BackButton, DetailPage, Empty, Pill, Section, Skeleton } from "../components/common";
 import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { JobProgress, PlayButtons, SavedStatus, SongList, songMenu } from "../components/songs";
@@ -45,24 +46,24 @@ function TrackRow({ track, showArtist, selected, onToggle, onPlay }: TrackRowPro
   const { current: isCurrent } = useIsCurrent(song?.id);
   const selectable = status === "missing" || status === "failed";
   return (
-    <li className={`row track${isCurrent ? " current" : ""}${selectable ? " selectable" : ""}${status === "owned" ? "" : " not-owned"}`}
+    <li className={cx(ui.row, status !== "owned" && !selectable && "cursor-default", status !== "owned" && !selectable && "[&>div>b]:text-muted")} data-current={isCurrent || undefined}
       onClick={status === "owned" ? onPlay : selectable ? onToggle : undefined}>
       {selectable
-        ? <span className={`tick${selected ? " on" : ""}`} role="checkbox" aria-checked={selected} aria-label={`Download ${track.title}`}>{selected && <Icon name="check" size={16} />}</span>
-        : <span className="num">{track.track}</span>}
-      <div className="text">
+        ? <span className={ui.tick} data-on={selected || undefined} role="checkbox" aria-checked={selected} aria-label={`Download ${track.title}`}>{selected && <Icon name="check" size={16} />}</span>
+        : <span className={ui.num}>{track.track}</span>}
+      <div className={ui.text}>
         <b>{track.title}</b>
         <span>
           {status === "owned" ? "Downloaded" : status === "indexing" ? "Adding to your library…" : status === "failed" ? "Could not download. Tap to select it and try again." : "Not downloaded"}
           {showArtist ? ` · ${track.artist}` : ""}
         </span>
       </div>
-      {status === "busy" && job && <span className="download"><JobProgress state={job.state as "queued"} progress={job.progress} /></span>}
-      {status === "indexing" && <span className="download"><Ring percent={-1} /></span>}
+      {status === "busy" && job && <span className={ui.download}><JobProgress state={job.state as "queued"} progress={job.progress} /></span>}
+      {status === "indexing" && <span className={ui.download}><Ring percent={-1} /></span>}
       {status === "owned" && song && <SavedStatus id={song.id} />}
-      {status === "owned" && <span className="status owned-mark" title="Downloaded"><Icon name="check" size={18} /></span>}
-      <span className="time">{clock(track.duration)}</span>
-      {song && <button className="icon-button" aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate); }}><Icon name="more" size={20} /></button>}
+      {status === "owned" && <span className={cx(ui.status, "mr-0.5")} title="Downloaded"><Icon name="check" size={18} /></span>}
+      <span className={ui.time}>{clock(track.duration)}</span>
+      {song && <button className={ui.rowMore} aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate); }}><Icon name="more" size={20} /></button>}
     </li>
   );
 }
@@ -112,36 +113,36 @@ export function AlbumPage({ art, page, artistId, entry, extra = [], onWaiting }:
 
   return (
     <>
-      <header className="detail">
-        {art}
-        <div className="info">
-          <h1>{album.name}</h1>
-          <p><ArtistLinks name={album.artist} id={artistId} />{album.year ? ` · ${album.year}` : ""}</p>
-          <p>{`${fromTracks.length} of ${plural(tracks.length, "song")} downloaded`}</p>
-        </div>
-      </header>
-      {owned.length > 0
-        ? (
-          <PlayButtons songs={owned} from={entry}>
-            {libraryAlbum && <DownloadToggle spec={{ id: `album:${libraryAlbum}`, kind: "album", title: album.name, subtitle: album.artist }} songs={owned} />}
-            <PinButton entry={entry} />
-          </PlayButtons>
-        )
-        : <div className="actions"><PinButton entry={entry} /></div>}
+      <DetailPage art={art}
+        info={(
+          <>
+            <h1>{album.name}</h1>
+            <p><ArtistLinks name={album.artist} id={artistId} />{album.year ? ` · ${album.year}` : ""}</p>
+            <p>{`${fromTracks.length} of ${plural(tracks.length, "song")} downloaded`}</p>
+          </>
+        )}
+        actions={owned.length > 0
+          ? (
+            <PlayButtons songs={owned} from={entry}>
+              {libraryAlbum && <DownloadToggle spec={{ id: `album:${libraryAlbum}`, kind: "album", title: album.name, subtitle: album.artist }} songs={owned} />}
+              <PinButton entry={entry} />
+            </PlayButtons>
+          )
+          : <div className={ui.actions}><PinButton entry={entry} /></div>}>
       {selectable.length > 0 && (
-        <div className="select-bar">
+        <div className={ui.selectBar}>
           <Pill icon={allChosen ? "check" : undefined} onClick={() => setSelected(allChosen ? new Set() : new Set(selectable.map((t) => t.id)))}>
             {allChosen ? "Clear selection" : `Select all ${selectable.length}`}
           </Pill>
-          <button className="get" disabled={!chosen.length} onClick={() => void downloadChosen()}>
+          <button className={ui.get} disabled={!chosen.length} onClick={() => void downloadChosen()}>
             <Icon name="download" size={18} />{chosen.length ? `Download ${plural(chosen.length, "song")}` : "Tap songs to choose"}
           </button>
         </div>
       )}
-      <ul className="rows">
+      <ul className={ui.rows}>
         {discs.map((disc) => (
           <Fragment key={disc}>
-            {discs.length > 1 && <li className="disc-title">{`Disc ${disc}`}</li>}
+            {discs.length > 1 && <li className={ui.discTitle}>{`Disc ${disc}`}</li>}
             {tracks.filter((t) => t.disc === disc).map((track) => (
               <TrackRow key={track.id} track={track} showArtist={track.artist !== album.artist} selected={selected.has(track.id)}
                 onToggle={() => toggle(track.id)}
@@ -151,6 +152,7 @@ export function AlbumPage({ art, page, artistId, entry, extra = [], onWaiting }:
         ))}
       </ul>
       {extra.length > 0 && <Section title="Also in your library"><SongList songs={extra} hideAlbum from={entry} /></Section>}
+      </DetailPage>
     </>
   );
 }
@@ -176,7 +178,7 @@ export function CatalogAlbumView() {
   return (
     <>
       <BackButton />
-      <AlbumPage art={<Picture src={data.album.cover_url} className="cover huge" external />} page={data} artistId={artistId} entry={entry!} onWaiting={setWaiting} />
+      <AlbumPage art={<Picture src={data.album.cover_url} className={ui.coverHuge} external />} page={data} artistId={artistId} entry={entry!} onWaiting={setWaiting} />
     </>
   );
 }

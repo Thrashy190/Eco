@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { coverUrl, getCleanup, removeDuplicate, separateArtists } from "../lib/api";
 import { clock, plural } from "../lib/format";
 import type { CleanupReport, DuplicateSong } from "../lib/types";
+import { cx, ui } from "../lib/ui";
 import { BackButton, Empty, Section, Skeleton, useIncremental } from "../components/common";
 import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
@@ -33,13 +34,13 @@ function DuplicateCard({ group, onDone }: { group: CleanupReport["duplicates"][n
   }
 
   return (
-    <div className="cleanup-card">
-      <ul className="rows">
+    <div className="mx-3 mb-3.5 pt-1.5 pb-0.5 rounded-card shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8 wide:bg-glass-strong">
+      <ul className={ui.rows}>
         {group.songs.map((song) => (
-          <li key={song.id} className="row track selectable" onClick={() => setKeep(song.id)}>
-            <span className={`tick round-tick${song.id === keep ? " on" : ""}`} role="radio" aria-checked={song.id === keep} aria-label={`Keep the copy from ${song.album}`}>{song.id === keep && <Icon name="check" size={16} />}</span>
+          <li key={song.id} className={ui.row} onClick={() => setKeep(song.id)}>
+            <span className={cx(ui.tick, "rounded-full")} data-on={song.id === keep || undefined} role="radio" aria-checked={song.id === keep} aria-label={`Keep the copy from ${song.album}`}>{song.id === keep && <Icon name="check" size={16} />}</span>
             <Picture src={coverUrl(song.cover, 96)} />
-            <div className="text">
+            <div className={ui.text}>
               <b>{song.title}</b>
               <span>{`${song.artist} · ${song.album}`}</span>
               <span>{[clock(song.duration), megabytes(song.size), song.starred && "favorite"].filter(Boolean).join(" · ")}</span>
@@ -47,8 +48,8 @@ function DuplicateCard({ group, onDone }: { group: CleanupReport["duplicates"][n
           </li>
         ))}
       </ul>
-      <div className="actions">
-        <button type="button" className="pill danger" disabled={busy} onClick={() => void remove()}>
+      <div className={ui.actionsPlain}>
+        <button type="button" className={cx(ui.pill, "text-danger")} disabled={busy} onClick={() => void remove()}>
           {busy ? <Ring percent={-1} size={16} /> : <Icon name="trash" size={16} />}{`Keep the selected, delete ${others.length === 1 ? "the other" : `the other ${others.length}`}`}
         </button>
       </div>
@@ -70,24 +71,24 @@ function Artists({ report, onStart }: { report: CleanupReport; onStart: () => vo
 
   return (
     <Section title={`Artists to separate (${artists.length})`}>
-      <p className="note">“Bad Bunny, Chuwi” counts as one artist in Navidrome. Separated, each one gets their own page. Names with no proof they are two people, such as “Tyler, The Creator”, start unticked.</p>
+      <p className={ui.note}>“Bad Bunny, Chuwi” counts as one artist in Navidrome. Separated, each one gets their own page. Names with no proof they are two people, such as “Tyler, The Creator”, start unticked.</p>
       {task.running
-        ? <div className="actions"><span className="pill"><Ring percent={task.total ? (task.done / task.total) * 100 : -1} size={18} />{`${task.done} of ${plural(task.total, "song")}…`}</span></div>
+        ? <div className={ui.actions}><span className={ui.pill}><Ring percent={task.total ? (task.done / task.total) * 100 : -1} size={18} />{`${task.done} of ${plural(task.total, "song")}…`}</span></div>
         : artists.length > 0 && (
-          <div className="select-bar">
-            <button type="button" className="pill" onClick={() => setChosen(picked.length === artists.length ? new Set() : new Set(artists.map((a) => a.name)))}>{picked.length === artists.length ? "Clear selection" : "Select all"}</button>
-            <button type="button" className="get" disabled={!picked.length} onClick={() => void start()}><Icon name="check" size={18} />{`Separate ${picked.length} (${plural(songs, "song")})`}</button>
+          <div className={ui.selectBar}>
+            <button type="button" className={ui.pill} onClick={() => setChosen(picked.length === artists.length ? new Set() : new Set(artists.map((a) => a.name)))}>{picked.length === artists.length ? "Clear selection" : "Select all"}</button>
+            <button type="button" className={ui.get} disabled={!picked.length} onClick={() => void start()}><Icon name="check" size={18} />{`Separate ${picked.length} (${plural(songs, "song")})`}</button>
           </div>
         )}
-      {task.backup && !task.running && task.total > 0 && <p className="note">{`Last run: ${task.done - (task.failed?.length ?? 0)} of ${plural(task.total, "song")} done. The original files are in ${task.backup}.`}</p>}
-      {(task.failed?.length ?? 0) > 0 && <ul className="note">{task.failed!.slice(0, 20).map((f, i) => <li key={i}>{`${f.title}: ${f.error}`}</li>)}</ul>}
-      <ul className="rows">
+      {task.backup && !task.running && task.total > 0 && <p className={ui.note}>{`Last run: ${task.done - (task.failed?.length ?? 0)} of ${plural(task.total, "song")} done. The original files are in ${task.backup}.`}</p>}
+      {(task.failed?.length ?? 0) > 0 && <ul className={cx(ui.note, "grid gap-1 text-danger!")}>{task.failed!.slice(0, 20).map((f, i) => <li key={i}>{`${f.title}: ${f.error}`}</li>)}</ul>}
+      <ul className={ui.rows}>
         {visible.map((artist) => {
           const on = chosen.has(artist.name);
           return (
-            <li key={artist.name} className="row track selectable" onClick={() => setChosen((now) => { const next = new Set(now); if (on) next.delete(artist.name); else next.add(artist.name); return next; })}>
-              <span className={`tick${on ? " on" : ""}`} role="checkbox" aria-checked={on} aria-label={artist.name}>{on && <Icon name="check" size={16} />}</span>
-              <div className="text"><b>{artist.parts.join("  ·  ")}</b><span>{`${plural(artist.songs, "song")}${artist.sure ? "" : " · check this one: it may be one name"}`}</span></div>
+            <li key={artist.name} className={ui.row} onClick={() => setChosen((now) => { const next = new Set(now); if (on) next.delete(artist.name); else next.add(artist.name); return next; })}>
+              <span className={ui.tick} data-on={on || undefined} role="checkbox" aria-checked={on} aria-label={artist.name}>{on && <Icon name="check" size={16} />}</span>
+              <div className={ui.text}><b>{artist.parts.join("  ·  ")}</b><span>{`${plural(artist.songs, "song")}${artist.sure ? "" : " · check this one: it may be one name"}`}</span></div>
             </li>
           );
         })}
@@ -119,11 +120,11 @@ export function Cleanup() {
   return (
     <>
       <BackButton />
-      <header className="hero compact"><h1>Library clean-up</h1><p>{data ? `${plural(data.songs, "song")} checked` : "Checking your library…"}</p></header>
+      <header className={ui.heroCompact}><h1>Library clean-up</h1><p>{data ? `${plural(data.songs, "song")} checked` : "Checking your library…"}</p></header>
       {isPending && <Skeleton />}
       {error && <Empty>{error.message}</Empty>}
       {data && (
-        <div className="narrow">
+        <div className={ui.narrow}>
           <Section title={`Songs you have twice (${groups.length})`}>
             {groups.length === 0
               ? <Empty>No duplicates. Same title and artist, and about the same length, is what counts as one.</Empty>

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
@@ -62,7 +63,7 @@ function serviceWorkerShell(): Plugin {
 
 export default defineConfig(({ command }) => ({
   base: "./",
-  plugins: [react(), versionedIcons(), serviceWorkerShell()],
+  plugins: [tailwindcss(), react(), versionedIcons(), serviceWorkerShell()],
   define: { __LOGO_URL__: JSON.stringify(command === "build" ? `/${versioned("icon.svg")}` : "/icon.svg") },
   build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 900 },
   // `npm run dev` serves the UI with hot reload; the data still comes from a running eco

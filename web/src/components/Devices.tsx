@@ -1,3 +1,4 @@
+import { cx } from "../lib/ui";
 import { myDeviceName, selectDevice, selfId, useConnect } from "../stores/connect";
 import { openSheet } from "../stores/ui";
 import { Icon } from "./Icon";
@@ -19,7 +20,7 @@ export function openDevicePicker(): void {
 /** Shows where the music plays and opens the picker. */
 export function DeviceButton({ name }: { name: string }) {
   return (
-    <button type="button" className={`device-button${name ? " remote" : ""}`} onClick={openDevicePicker}>
+    <button type="button" className={cx("inline-flex items-center justify-center gap-2 self-center px-3.5 py-2 rounded-full font-[650] text-[.88rem] text-muted", name && "text-accent! bg-[rgb(var(--glow)/.14)]")} onClick={openDevicePicker}>
       <Icon name="devices" size={18} />{name ? `Playing on ${name}` : "This device"}
     </button>
   );

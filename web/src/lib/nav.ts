@@ -1,4 +1,4 @@
-// The places the tab bar and the sidebar can lead to. Which ones show, and in what order, is the user's choice.
+// The places the tab bar and the top bar can lead to. Which ones show, and in what order, is the user's choice.
 import type { IconName } from "../components/Icon";
 
 export interface Place {

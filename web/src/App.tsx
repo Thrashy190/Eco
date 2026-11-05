@@ -1,4 +1,4 @@
-// The sign-in gate, the shell (screen + tabs + player, or panels on a big screen) and the routes.
+// The sign-in gate, the shell (screen + tabs + player on a phone; page + top bar + deck on a big screen) and the routes.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useLayoutEffect } from "react";
 import { HashRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router";
@@ -7,9 +7,8 @@ import { useWide } from "./lib/media";
 import { activePlace, tabsFrom } from "./lib/nav";
 import { queryClient } from "./lib/query";
 import { Icon } from "./components/Icon";
-import { Player } from "./components/Player";
+import { Ambient, Player } from "./components/Player";
 import { SheetHost, ToastHost } from "./components/Sheet";
-import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { ME_KEY } from "./stores/admin";
 import { startConnect } from "./stores/connect";
@@ -35,10 +34,11 @@ function Tabs() {
   const tabs = tabsFrom(chosen);
   const active = activePlace(tabs, pathname);
   return (
-    <nav className="tabs" aria-label="Main">
+    <nav className="fixed z-30 inset-x-0 bottom-0 flex justify-center pb-(--safe-bottom) bg-glass border-t border-line backdrop-blur-[22px] backdrop-saturate-[1.6]" aria-label="Main">
       {tabs.map((place) => (
-        <NavLink key={place.id} to={place.to} end className={place.id === active ? "active" : ""}>
-          <Icon name={place.icon} size={24} /><span>{place.label}</span>
+        <NavLink key={place.id} to={place.to} end data-on={place.id === active || undefined}
+          className="group/tab flex-1 max-w-40 h-(--tabs-h) grid place-items-center content-center gap-0.5 text-muted text-[.7rem] font-semibold tracking-[.02em] transition-colors duration-150 data-on:text-accent">
+          <span className="inline-flex transition-transform duration-250 ease-spring group-data-on/tab:-translate-y-0.5 group-data-on/tab:scale-[1.12]"><Icon name={place.icon} size={24} /></span><span>{place.label}</span>
         </NavLink>
       ))}
     </nav>
@@ -72,11 +72,16 @@ function Shell() {
   }, [screen]);
 
   return (
-    <div className="shell">
-      {wide && <TopBar />}
-      {wide && <Sidebar />}
-      {/* Keyed by address, so a new page also starts scrolled to the top where the page itself is what scrolls */}
-      <main id="view" className="enter" key={pathname}><Outlet /></main>
+    <div className="wide:fixed wide:inset-0 wide:grid wide:grid-cols-[minmax(0,1fr)_auto] wide:gap-3 wide:p-3 wide:pt-[calc(var(--safe-top)+12px)] wide:pb-[calc(var(--safe-bottom)+12px)]">
+      {wide && <Ambient />}
+      <div className="wide:relative wide:min-w-0 wide:min-h-0">
+        {wide && <TopBar />}
+        {/* Keyed by address, so a new page also starts scrolled to the top where the page itself is what scrolls */}
+        <main id="view" key={pathname}
+          className="max-w-205 mx-auto min-h-screen pt-[calc(var(--safe-top)+6px)] pb-[calc(var(--tabs-h)+var(--safe-bottom)+24px)] animate-view-in in-[.has-player]:pb-[calc(var(--tabs-h)+var(--mini-h)+var(--safe-bottom)+32px)] wide:@container wide:max-w-none wide:min-h-0 wide:h-full wide:overflow-y-auto wide:scroll-pt-22 wide:pt-19 wide:pb-10 wide:in-[.has-player]:pb-10 wide:in-[.has-capsule]:pb-28 wide:[scrollbar-width:thin] wide:[scrollbar-color:var(--surface-3)_transparent]">
+          <div className="wide:max-w-[1400px] wide:mx-auto"><Outlet /></div>
+        </main>
+      </div>
       {!wide && <Tabs />}
       <Player />
     </div>

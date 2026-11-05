@@ -5,6 +5,7 @@ import { clock } from "../lib/format";
 import { toSong } from "../lib/api";
 import { queryClient } from "../lib/query";
 import type { ExternalSong, LibraryEntry, LibraryState, Song } from "../lib/types";
+import { cx, ui } from "../lib/ui";
 import { liveJob, requestSong, useJobs } from "../stores/downloads";
 import { deleteSongForEveryone, isAdmin } from "../stores/admin";
 import { useIsCurrent } from "../stores/connect";
@@ -44,8 +45,8 @@ export function songMenu(song: Song, navigate: NavigateFunction): void {
 export function SavedStatus({ id }: { id: string }) {
   offline.useOfflineVersion();
   const saving = useSaving((s) => s.songs[id]);
-  if (saving !== undefined) return <span className="status"><Ring percent={saving} /></span>;
-  if (offline.isSaved(id)) return <span className="status" title="Saved on this device"><span className="saved"><Icon name="offline" size={16} /></span></span>;
+  if (saving !== undefined) return <span className={ui.status}><Ring percent={saving} /></span>;
+  if (offline.isSaved(id)) return <span className={ui.status} title="Saved on this device"><span className="inline-flex"><Icon name="offline" size={16} /></span></span>;
   return null;
 }
 
@@ -63,13 +64,13 @@ export function SongRow({ song, list, index, numbered, hideAlbum, from }: SongRo
   const navigate = useNavigate();
   const { current, playing } = useIsCurrent(song.id);
   return (
-    <li className={`row${current ? " current" : ""}${playing ? " playing" : ""}`} data-id={song.id} onClick={() => player.play(list, index, from)}>
-      {numbered ? <span className="num">{index + 1}</span> : <SongCover song={song} />}
-      <div className="text"><b>{song.title}</b><span>{song.artist}{!hideAlbum && song.album && <span className="in-line-album">{` · ${song.album}`}</span>}</span></div>
-      {!hideAlbum && <span className="col-album">{song.album}</span>}
+    <li className={ui.row} data-current={current || undefined} data-playing={playing || undefined} data-id={song.id} onClick={() => player.play(list, index, from)}>
+      {numbered ? <span className={ui.num}>{index + 1}</span> : <SongCover song={song} />}
+      <div className={ui.text}><b>{song.title}</b><span>{song.artist}{!hideAlbum && song.album && <span className={ui.inLineAlbum}>{` · ${song.album}`}</span>}</span></div>
+      {!hideAlbum && <span className={ui.colAlbum}>{song.album}</span>}
       <SavedStatus id={song.id} />
-      <span className="time">{song.duration ? clock(song.duration) : ""}</span>
-      <button className="icon-button" aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate); }}><Icon name="more" size={20} /></button>
+      <span className={ui.time}>{song.duration ? clock(song.duration) : ""}</span>
+      <button className={ui.rowMore} aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate); }}><Icon name="more" size={20} /></button>
     </li>
   );
 }
@@ -78,7 +79,7 @@ export function SongList({ songs, numbered, hideAlbum, from }: { songs: Song[]; 
   const { visible, sentinel } = useIncremental(songs);
   return (
     <>
-      <ul className="rows">
+      <ul className={ui.rows}>
         {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} hideAlbum={hideAlbum} from={from} />)}
       </ul>
       {sentinel}
@@ -89,9 +90,9 @@ export function SongList({ songs, numbered, hideAlbum, from }: { songs: Song[]; 
 /** Play and Shuffle for a list of songs, plus anything else that belongs next to them. */
 export function PlayButtons({ songs, from, children }: { songs: Song[]; from?: LibraryEntry; children?: React.ReactNode }) {
   return (
-    <div className="actions">
-      <button className="primary" onClick={() => player.play(songs, 0, from)}><Icon name="play" size={20} />Play</button>
-      <button className="pill" onClick={() => player.playShuffled(songs, from)}><Icon name="shuffle" size={16} />Shuffle</button>
+    <div className={ui.actions}>
+      <button className={ui.primary} onClick={() => player.play(songs, 0, from)}><Icon name="play" size={20} />Play</button>
+      <button className={ui.pill} onClick={() => player.playShuffled(songs, from)}><Icon name="shuffle" size={16} />Shuffle</button>
       {children}
     </div>
   );
@@ -111,13 +112,13 @@ export function ExternalRow({ ext }: { ext: ExternalSong }) {
   const ownedId = job?.state === "ready" ? job.library_id : undefined;
   const asSong = (id: string): Song => toSong({ id, title: ext.title, artist: ext.artist, album: ext.album, duration: ext.duration, cover: id });
   return (
-    <li className={`row external${ownedId ? " owned" : ""}`} onClick={ownedId ? () => player.play([asSong(ownedId)], 0) : undefined}>
+    <li className={cx(ui.row, !ownedId && "[&>[data-art]]:opacity-[.92]")} onClick={ownedId ? () => player.play([asSong(ownedId)], 0) : undefined}>
       <Picture src={ext.cover_url} external />
-      <div className="text"><b>{ext.title}</b><span>{[ext.artist, ext.album].filter(Boolean).join(" · ")}</span></div>
-      <span className="download">
-        {!job && <button className="get" aria-label={`Download ${ext.title}`} onClick={(e) => { e.stopPropagation(); void startDownload(ext.id); }}><Icon name="download" size={18} />Get</button>}
-        {job?.state === "error" && <button className="get retry" title={job.error} onClick={(e) => { e.stopPropagation(); toast(job.error ?? "Download failed"); void startDownload(ext.id); }}>Retry</button>}
-        {job?.state === "ready" && <span className="done"><Icon name="check" size={18} /></span>}
+      <div className={ui.text}><b>{ext.title}</b><span>{[ext.artist, ext.album].filter(Boolean).join(" · ")}</span></div>
+      <span className={ui.download}>
+        {!job && <button className={ui.get} aria-label={`Download ${ext.title}`} onClick={(e) => { e.stopPropagation(); void startDownload(ext.id); }}><Icon name="download" size={18} />Get</button>}
+        {job?.state === "error" && <button className={ui.getRetry} title={job.error} onClick={(e) => { e.stopPropagation(); toast(job.error ?? "Download failed"); void startDownload(ext.id); }}>Retry</button>}
+        {job?.state === "ready" && <span className={ui.done}><Icon name="check" size={18} /></span>}
         {job && job.state !== "error" && job.state !== "ready" && <JobProgress state={job.state} progress={job.progress} />}
       </span>
     </li>
@@ -129,7 +130,7 @@ export function JobProgress({ state, progress }: { state: keyof typeof JOB_LABEL
   return (
     <>
       <Ring percent={state === "downloading" && progress > 0 ? progress : -1} />
-      <span className="label">{state === "downloading" ? `${Math.round(progress)}%` : JOB_LABEL[state]}</span>
+      <span className={ui.downloadLabel}>{state === "downloading" ? `${Math.round(progress)}%` : JOB_LABEL[state]}</span>
     </>
   );
 }
@@ -137,7 +138,7 @@ export function JobProgress({ state, progress }: { state: keyof typeof JOB_LABEL
 /** A "Get all" button for a list of external songs. */
 export function GetAllButton({ externals }: { externals: ExternalSong[] }) {
   return (
-    <button className="pill" onClick={async (e) => {
+    <button className={ui.pill} onClick={async (e) => {
       const { jobs } = useJobs.getState();
       const todo = externals.filter((ext) => !liveJob(jobs[ext.id]));
       if (!todo.length) { toast("Everything here is already on its way"); return; }

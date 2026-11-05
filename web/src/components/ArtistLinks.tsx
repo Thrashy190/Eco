@@ -35,7 +35,7 @@ export function ArtistLinks({ name, id, className }: { name: string; id?: string
       {parts.map((part, i) => (
         <Fragment key={part}>
           {i > 0 && ", "}
-          <Link className="artist-name" to={artistPath(part, parts.length === 1 ? id : undefined)} onClick={(e) => e.stopPropagation()}>{part}</Link>
+          <Link className="text-inherit hover:underline focus-visible:underline" to={artistPath(part, parts.length === 1 ? id : undefined)} onClick={(e) => e.stopPropagation()}>{part}</Link>
         </Fragment>
       ))}
     </span>

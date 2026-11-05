@@ -6,7 +6,7 @@ import { DEFAULT_TABS } from "../lib/nav";
 export interface Settings {
   theme: "system" | "dark" | "light" | "black";
   accent: string;
-  tint: boolean; // tint the full-screen player with the cover's colour
+  tint: boolean; // tint the player, and the page on a big screen, with the cover's colour
   density: "comfortable" | "compact";
   corners: "soft" | "sharp";
   motion: "full" | "reduced" | "off";
@@ -16,9 +16,9 @@ export interface Settings {
   textSize: "small" | "normal" | "large";
   homeOrder: string[]; // the sections of Home, in the chosen order (see lib/nav.ts)
   homeHidden: string[];
-  tabs: string[]; // the tabs on a phone, and the first items of the sidebar elsewhere (see lib/nav.ts)
+  tabs: string[]; // the tabs on a phone, and the places in the top bar elsewhere (see lib/nav.ts)
   libraryView: "grid" | "list"; // how albums and artists are listed
-  nowPanel: boolean; // on a big screen, what is playing stays beside the page
+  nowPanel: boolean; // on a big screen, the deck (what is playing and your library) stays beside the page
 }
 
 export const DEFAULTS: Settings = {

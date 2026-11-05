@@ -7,6 +7,7 @@ import * as api from "../lib/api";
 import { clock } from "../lib/format";
 import { queryClient } from "../lib/query";
 import type { MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
+import { cx, ui } from "../lib/ui";
 import { Empty, Skeleton, Welcome } from "../components/common";
 import { SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
@@ -18,6 +19,9 @@ import { saveOffline } from "../stores/saving";
 import { useOnline } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 
+const IMPORT = "grid gap-3 px-4 pt-2 pb-6 wide:px-8 wide:max-w-190";
+const DONE = "flex items-center gap-2.5 font-[650] text-accent";
+
 const CATEGORY_HINT: Record<MediaKind, string> = {
   podcast: "Remembers where you stopped and can play faster",
   audiobook: "Remembers your place and plays at your speed",
@@ -28,9 +32,9 @@ const CATEGORY_HINT: Record<MediaKind, string> = {
 
 export function ImportPanel({ link }: { link: string }) {
   const { data, error, isPending } = useQuery({ queryKey: ["media-preview", link], queryFn: () => api.mediaPreview(link), retry: false, staleTime: 60_000 });
-  if (isPending) return <div className="import"><Skeleton rows={2} /></div>;
-  if (error) return <div className="import"><Welcome title="Could not read that link"><p>{error.message}</p></Welcome></div>;
-  return <div className="import"><PreviewCard link={link} preview={data} /></div>;
+  if (isPending) return <div className={IMPORT}><Skeleton rows={2} /></div>;
+  if (error) return <div className={IMPORT}><Welcome title="Could not read that link"><p>{error.message}</p></Welcome></div>;
+  return <div className={IMPORT}><PreviewCard link={link} preview={data} /></div>;
 }
 
 function PreviewCard({ link, preview }: { link: string; preview: MediaPreview }) {
@@ -51,12 +55,12 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
   });
 
   const head = (
-    <div className="import-head">
-      <div className="import-thumb">
-        {preview.thumbnail ? <img src={preview.thumbnail} alt="" referrerPolicy="no-referrer" /> : <Icon name="play" size={28} />}
-        {preview.duration > 0 && <span className="badge">{clock(preview.duration)}</span>}
+    <div className="flex gap-3.5 items-center">
+      <div className="relative flex-none w-[46%] max-w-55 aspect-video rounded-card overflow-hidden bg-surface-2 grid place-items-center">
+        {preview.thumbnail ? <img className="size-full object-cover" src={preview.thumbnail} alt="" referrerPolicy="no-referrer" /> : <Icon name="play" size={28} />}
+        {preview.duration > 0 && <span className="absolute right-1.5 bottom-1.5 px-1.75 py-0.5 rounded-md bg-black/70 text-white text-[.75rem] tabular-nums">{clock(preview.duration)}</span>}
       </div>
-      <div className="import-info"><b>{preview.title}</b><span>{preview.channel}</span></div>
+      <div className="grid gap-0.75 min-w-0 [&>b]:wrap-anywhere [&>span]:text-muted [&>span]:text-[.88rem]"><b>{preview.title}</b><span>{preview.channel}</span></div>
     </div>
   );
 
@@ -65,40 +69,40 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
     return (
       <>
         {head}
-        <p className="note">{`Already in your library as ${where}.`}</p>
-        <button className="primary" onClick={() => navigate(`/library/${preview.existing!.kind}`)}>{`Open ${where}`}</button>
+        <p className={ui.note}>{`Already in your library as ${where}.`}</p>
+        <button className={ui.primary} onClick={() => navigate(`/library/${preview.existing!.kind}`)}>{`Open ${where}`}</button>
       </>
     );
   }
-  if (preview.live) return <>{head}<p className="note">This is a live stream, which cannot be imported.</p></>;
+  if (preview.live) return <>{head}<p className={ui.note}>This is a live stream, which cannot be imported.</p></>;
 
   let action;
   if (current?.state === "error") {
-    action = <><p className="note error-note">{current.error}</p><button className="pill" onClick={() => start.mutate()}>Try again</button></>;
+    action = <><p className={cx(ui.note, "text-danger!")}>{current.error}</p><button className={ui.pill} onClick={() => start.mutate()}>Try again</button></>;
   } else if (current?.state === "ready") {
     const label = api.kindLabel(current.kind ?? kind);
     action = (
       <>
-        <div className="done-row"><Icon name="check" />{`Added to ${label}`}</div>
-        <button className="primary" onClick={() => navigate(`/library/${current.kind ?? kind}`)}>{`Open ${label}`}</button>
+        <div className={DONE}><Icon name="check" />{`Added to ${label}`}</div>
+        <button className={ui.primary} onClick={() => navigate(`/library/${current.kind ?? kind}`)}>{`Open ${label}`}</button>
       </>
     );
   } else if (current) {
     const downloading = current.state === "downloading";
-    action = <div className="done-row"><Ring percent={downloading && current.progress > 0 ? current.progress : -1} size={26} />{downloading ? `Downloading ${Math.round(current.progress)}%` : "Getting ready…"}</div>;
+    action = <div className={DONE}><Ring percent={downloading && current.progress > 0 ? current.progress : -1} size={26} />{downloading ? `Downloading ${Math.round(current.progress)}%` : "Getting ready…"}</div>;
   } else {
-    action = <button className="primary" type="button" disabled={start.isPending} onClick={() => start.mutate()}><Icon name="download" size={20} />Add audio to library</button>;
+    action = <button className={ui.primary} type="button" disabled={start.isPending} onClick={() => start.mutate()}><Icon name="download" size={20} />Add audio to library</button>;
   }
 
   return (
     <>
       {head}
-      <div className="group-title">What is it?</div>
-      <div className="chips" role="group" aria-label="What is it?">
-        {api.KINDS.map(([value, label]) => <button key={value} type="button" className="chip" aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
+      <div className={ui.groupTitle}>What is it?</div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="What is it?">
+        {api.KINDS.map(([value, label]) => <button key={value} type="button" className={ui.chip} aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
       </div>
-      <p className="note">{`${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
-      <div className="import-action">{action}</div>
+      <p className={ui.note}>{`${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
+      <div className="grid gap-2.5 justify-items-start mt-1.5">{action}</div>
     </>
   );
 }
@@ -150,17 +154,17 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
   } else {
     const songs = items.map(api.mediaSong);
     body = (
-      <ul className="rows">
+      <ul className={ui.rows}>
         {items.map((item, i) => {
           const percent = savedPercent(item);
           return (
-            <li className="row" key={item.id} data-id={songs[i].id} onClick={() => player.play(songs, i)}>
+            <li className={ui.row} key={item.id} data-id={songs[i].id} onClick={() => player.play(songs, i)}>
               <SongCover song={songs[i]} />
-              <div className="text">
+              <div className={ui.text}>
                 <b>{item.title}</b>
                 <span>{[item.channel, item.duration ? clock(item.duration) : "", percent ? `${percent}% played` : ""].filter(Boolean).join(" · ")}</span>
               </div>
-              <button className="icon-button" aria-label="More" onClick={(e) => { e.stopPropagation(); itemMenu(item, songs[i]); }}><Icon name="more" size={20} /></button>
+              <button className={ui.rowMore} aria-label="More" onClick={(e) => { e.stopPropagation(); itemMenu(item, songs[i]); }}><Icon name="more" size={20} /></button>
             </li>
           );
         })}
@@ -169,7 +173,7 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
   }
   return (
     <>
-      <div className="media-head"><button className="pill" onClick={() => navigate("/search")}><Icon name="plus" size={16} />Add from YouTube link</button></div>
+      <div className="px-4 pt-1 pb-1.5 wide:px-8"><button className={ui.pill} onClick={() => navigate("/search")}><Icon name="plus" size={16} />Add from YouTube link</button></div>
       {body}
     </>
   );

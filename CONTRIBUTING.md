@@ -18,7 +18,7 @@ You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (wh
 
 - **Code, comments, commit messages and docs are in English.** So is the interface.
 - **Keep the matching logic honest.** `internal/match` decides whether a video is the right song, and a wrong song in someone's library is worse than a failed download. Every fix there needs a test (`internal/match/match_test.go`) that names the real case it came from.
-- **Keep the web app light.** `web/src` is React and TypeScript with `react-query` and `zustand`; avoid adding UI kits or CSS frameworks. Let React escape text: never use `dangerouslySetInnerHTML`.
+- **Keep the web app light.** `web/src` is React and TypeScript with `react-query`, `zustand` and Tailwind; avoid adding UI kits. Let React escape text: never use `dangerouslySetInnerHTML`.
 - **Never run network-touching code in tests.** Tests must pass offline.
 - **Do not commit secrets or personal data.** `.env`, `secrets/` and `data/` are git-ignored.
 - Keep changes small and say *why* in the description, not only what.

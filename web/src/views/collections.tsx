@@ -7,9 +7,10 @@ import { coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, looku
 import { plural } from "../lib/format";
 import { pictureToCover } from "../lib/image";
 import type { CollectionSpec, LibraryEntry, Song } from "../lib/types";
+import { cx, ui } from "../lib/ui";
 import { ArtistLinks } from "../components/ArtistLinks";
 import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../components/cards";
-import { BackButton, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
+import { BackButton, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { ExternalRow, GetAllButton, PlayButtons, SongList } from "../components/songs";
@@ -45,13 +46,15 @@ function CollectionPage({ art, title, subtitle, songs, spec, entry, numbered, fr
   return (
     <>
       {fromDevice && <OfflineBanner />}
-      <header className="detail">{art}<div className="info"><h1>{title}</h1><p>{subtitle}</p></div></header>
-      <PlayButtons songs={songs} from={fromDevice ? undefined : entry}>
-        {!fromDevice && <DownloadToggle spec={spec} songs={songs} />}
-        {!fromDevice && <PinButton entry={entry} />}
-        {extra}
-      </PlayButtons>
-      <SongList songs={songs} numbered={numbered} hideAlbum={numbered} from={fromDevice ? undefined : entry} />
+      <DetailPage art={art} info={<><h1>{title}</h1><p>{subtitle}</p></>} actions={(
+        <PlayButtons songs={songs} from={fromDevice ? undefined : entry}>
+          {!fromDevice && <DownloadToggle spec={spec} songs={songs} />}
+          {!fromDevice && <PinButton entry={entry} />}
+          {extra}
+        </PlayButtons>
+      )}>
+        <SongList songs={songs} numbered={numbered} hideAlbum={numbered} from={fromDevice ? undefined : entry} />
+      </DetailPage>
     </>
   );
 }
@@ -81,17 +84,17 @@ export function AlbumView() {
   let body;
   if (album && whole) {
     const page = { ...whole, album: { ...whole.album, year: album.year ?? whole.album.year } };
-    body = <AlbumPage art={<Picture src={coverUrl(album.cover, 400)} className="cover huge" />} page={page} artistId={album.artistId} entry={entry!} extra={extra} onWaiting={setWaiting} />;
+    body = <AlbumPage art={<Picture src={coverUrl(album.cover, 400)} className={ui.coverHuge} />} page={page} artistId={album.artistId} entry={entry!} extra={extra} onWaiting={setWaiting} />;
   } else if (album) {
     const spec: CollectionSpec = { id: key, kind: "album", title: album.name, subtitle: album.artist };
     body = (
       <>
-        <CollectionPage art={<Picture src={coverUrl(album.cover, 400)} className="cover huge" />} title={album.name}
+        <CollectionPage art={<Picture src={coverUrl(album.cover, 400)} className={ui.coverHuge} />} title={album.name}
           subtitle={<><ArtistLinks name={album.artist} id={album.artistId} />{album.year ? ` · ${album.year}` : ""}</>}
           songs={album.songs} spec={spec} entry={entry!} numbered />
-        {online && matching && fetchStatus === "fetching" && <p className="note album-more"><Ring percent={-1} size={16} />Looking for the rest of this album…</p>}
+        {online && matching && fetchStatus === "fetching" && <p className={cx(ui.note, "flex flex-wrap items-center gap-2")}><Ring percent={-1} size={16} />Looking for the rest of this album…</p>}
         {online && noMatch && !whole && (
-          <p className="note album-more">The catalogue is not answering, so this only shows what you have. <button type="button" className="link" onClick={() => void refetch()}>Try again</button></p>
+          <p className={cx(ui.note, "flex flex-wrap items-center gap-2")}>The catalogue is not answering, so this only shows what you have. <button type="button" className={ui.link} onClick={() => void refetch()}>Try again</button></p>
         )}
       </>
     );
@@ -100,7 +103,7 @@ export function AlbumView() {
   } else {
     const saved = offline.collection(key);
     body = saved && offline.hasCollectionSongs(key)
-      ? <CollectionPage art={<CollectionCover id={key} className="cover huge" />} title={saved.title} subtitle={saved.subtitle} songs={offline.collectionSongs(key)} spec={saved} entry={{ type: "album", id, name: saved.title }} numbered fromDevice />
+      ? <CollectionPage art={<CollectionCover id={key} className={ui.coverHuge} />} title={saved.title} subtitle={saved.subtitle} songs={offline.collectionSongs(key)} spec={saved} entry={{ type: "album", id, name: saved.title }} numbered fromDevice />
       : <Empty>{online && error ? error.message : "This album is not downloaded."}</Empty>;
   }
   return <><BackButton />{body}</>;
@@ -124,11 +127,11 @@ function EditableCover({ id, cover, enabled }: { id: string; cover?: string; ena
     }
   }
   const pick = () => input.current?.click();
-  const art = <PlaylistArt id={id} cover={cover} size={400} className="cover huge" />;
+  const art = <PlaylistArt id={id} cover={cover} size={400} className={ui.coverHuge} />;
   if (!enabled) return art;
   return (
-    <div className="cover-edit">
-      <button type="button" aria-label="Change cover" onClick={() => {
+    <div className="relative flex-none leading-none @4xl:w-full">
+      <button type="button" className="group/edit relative block w-full rounded-big" aria-label="Change cover" onClick={() => {
         if (!hasCustom) { pick(); return; }
         openSheet("Playlist cover", undefined, [
           { icon: "image", label: "Choose another picture", run: pick },
@@ -136,7 +139,7 @@ function EditableCover({ id, cover, enabled }: { id: string; cover?: string; ena
         ]);
       }}>
         {art}
-        <span className="cover-edit-badge"><Icon name="pencil" size={16} /></span>
+        <span className="absolute right-2 bottom-2 size-8.5 grid place-items-center rounded-full bg-black/60 text-white can-hover:opacity-70 can-hover:group-hover/edit:opacity-100 transition-opacity"><Icon name="pencil" size={16} /></span>
       </button>
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
@@ -155,24 +158,19 @@ function FavoritesPlaylist() {
 
   if (songs) {
     return (
-      <>
-        <header className="detail">
-          <EditableCover id={FAVORITES_ID} enabled />
-          <div className="info"><h1>Favorites</h1><p>{`Playlist · ${plural(songs.length, "song")}, most recent first`}</p></div>
-        </header>
+      <DetailPage art={<EditableCover id={FAVORITES_ID} enabled />}
+        info={<><h1>Favorites</h1><p>{`Playlist · ${plural(songs.length, "song")}, most recent first`}</p></>}
+        actions={songs.length > 0 ? <PlayButtons songs={songs} from={entry}><DownloadToggle spec={FAVORITES_SPEC} songs={songs} /></PlayButtons> : null}>
         {songs.length > 0
-          ? <>
-              <PlayButtons songs={songs} from={entry}><DownloadToggle spec={FAVORITES_SPEC} songs={songs} /></PlayButtons>
-              <SongList songs={songs} from={entry} />
-            </>
+          ? <SongList songs={songs} from={entry} />
           : <Welcome title="No favorites yet"><p>Open the ⋯ menu on a song, or tap the heart in the player, to add it here.</p></Welcome>}
-      </>
+      </DetailPage>
     );
   }
   if (online && isPending) return <Skeleton />;
   const saved = offline.collectionSongs(FAVORITES_ID);
   if (saved.length) {
-    return <CollectionPage art={<PlaylistArt id={FAVORITES_ID} className="cover huge" />} title="Favorites" subtitle={`${plural(saved.length, "favorite")} saved on this device`} songs={saved} spec={FAVORITES_SPEC} entry={favoritesEntry(saved.length)} fromDevice />;
+    return <CollectionPage art={<PlaylistArt id={FAVORITES_ID} className={ui.coverHuge} />} title="Favorites" subtitle={`${plural(saved.length, "favorite")} saved on this device`} songs={saved} spec={FAVORITES_SPEC} entry={favoritesEntry(saved.length)} fromDevice />;
   }
   if (online && error) return <Empty>{error.message}</Empty>;
   return <><OfflineBanner /><Welcome title="Favorites are not downloaded"><p>Open this playlist while online and tap Download to keep your favorites without a connection.</p></Welcome></>;
@@ -197,7 +195,7 @@ function RegularPlaylist({ id }: { id: string }) {
   const saved = offline.collection(key);
   if (saved && offline.hasCollectionSongs(key)) {
     const here = offline.collectionSongs(key);
-    return <CollectionPage art={<CollectionCover id={key} className="cover huge" />} title={saved.title} subtitle={plural(here.length, "song")} songs={here} spec={saved} entry={{ type: "playlist", id, name: saved.title }} fromDevice />;
+    return <CollectionPage art={<CollectionCover id={key} className={ui.coverHuge} />} title={saved.title} subtitle={plural(here.length, "song")} songs={here} spec={saved} entry={{ type: "playlist", id, name: saved.title }} fromDevice />;
   }
   return <Empty>{online && error ? error.message : "This playlist is not downloaded."}</Empty>;
 }
@@ -221,11 +219,11 @@ function Discover({ artist }: { artist: string }) {
       <Section title="Not in your library yet">
         {external.length > 0
           ? <>
-              <div className="actions"><GetAllButton externals={external} /></div>
-              <ul className="rows">{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
+              <div className={ui.actions}><GetAllButton externals={external} /></div>
+              <ul className={ui.rows}>{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
             </>
           : <Empty>{warning ?? "Nothing else to suggest right now."}</Empty>}
-        {external.length > 0 && warning && <p className="note">{warning}</p>}
+        {external.length > 0 && warning && <p className={ui.note}>{warning}</p>}
       </Section>
     </>
   );
@@ -243,11 +241,9 @@ export function ArtistByName() {
   return (
     <>
       <BackButton />
-      <header className="detail">
-        <ArtistAvatar name={name} size={300} className="avatar big" />
-        <div className="info"><h1>{name}</h1><p>Nothing in your library yet</p></div>
-      </header>
-      <Discover artist={name} />
+      <DetailPage art={<ArtistAvatar name={name} size={300} className={ui.avatarBig} />} info={<><h1>{name}</h1><p>Nothing in your library yet</p></>} actions={null}>
+        <Discover artist={name} />
+      </DetailPage>
     </>
   );
 }
@@ -270,16 +266,15 @@ export function ArtistView() {
   return (
     <>
       <BackButton />
-      <header className="detail">
-        <ArtistAvatar name={artist.name} cover={artist.cover} size={300} className="avatar big" />
-        <div className="info"><h1>{artist.name}</h1><p>{`${plural(artist.albums.length, "album")} in your library`}</p></div>
-      </header>
-      {songs && songs.length > 0
-        ? <PlayButtons songs={songs} from={entry!}><PinButton entry={entry!} /></PlayButtons>
-        : <div className="actions"><PinButton entry={entry!} /></div>}
-      {artist.albums.length > 0 && <Section title="Albums"><Shelf>{artist.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></Section>}
-      {songs && songs.length > 0 && <Section title={`Songs (${songs.length})`}><SongList songs={songs} /></Section>}
-      <Discover artist={artist.name} />
+      <DetailPage art={<ArtistAvatar name={artist.name} cover={artist.cover} size={300} className={ui.avatarBig} />}
+        info={<><h1>{artist.name}</h1><p>{`${plural(artist.albums.length, "album")} in your library`}</p></>}
+        actions={songs && songs.length > 0
+          ? <PlayButtons songs={songs} from={entry!}><PinButton entry={entry!} /></PlayButtons>
+          : <div className={ui.actions}><PinButton entry={entry!} /></div>}>
+        {artist.albums.length > 0 && <Section title="Albums"><Shelf>{artist.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></Section>}
+        {songs && songs.length > 0 && <Section title={`Songs (${songs.length})`}><SongList songs={songs} /></Section>}
+        <Discover artist={artist.name} />
+      </DetailPage>
     </>
   );
 }

@@ -7,13 +7,13 @@ const ICONS = {
   home: <path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
   search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.8-3.8" /></>,
   library: <path d="M4 5v14M9 5v14M14.5 6.5l4.5 12.5" />,
-  play: <path className="fill" d="M7 4.6v14.8L19.6 12z" />,
-  pause: <path className="fill" d="M6.5 4h3.8v16H6.5zM13.7 4h3.8v16h-3.8z" />,
-  next: <path className="fill" d="M5 5.2v13.6L15 12zM17 5h2.2v14H17z" />,
-  prev: <path className="fill" d="M19 5.2v13.6L9 12zM7 5H4.8v14H7z" />,
+  play: <path className="fill-current stroke-none" d="M7 4.6v14.8L19.6 12z" />,
+  pause: <path className="fill-current stroke-none" d="M6.5 4h3.8v16H6.5zM13.7 4h3.8v16h-3.8z" />,
+  next: <path className="fill-current stroke-none" d="M5 5.2v13.6L15 12zM17 5h2.2v14H17z" />,
+  prev: <path className="fill-current stroke-none" d="M19 5.2v13.6L9 12zM7 5H4.8v14H7z" />,
   download: <path d="M12 4v11m0 0 4.2-4.2M12 15l-4.2-4.2M5 20h14" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
-  more: <><circle className="fill" cx="5" cy="12" r="1.7" /><circle className="fill" cx="12" cy="12" r="1.7" /><circle className="fill" cx="19" cy="12" r="1.7" /></>,
+  more: <><circle className="fill-current stroke-none" cx="5" cy="12" r="1.7" /><circle className="fill-current stroke-none" cx="12" cy="12" r="1.7" /><circle className="fill-current stroke-none" cx="19" cy="12" r="1.7" /></>,
   down: <path d="m6 9 6 6 6-6" />,
   back: <path d="m15 6-6 6 6 6" />,
   offline: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5v8m0 0-3-3m3 3 3-3" /></>,
@@ -24,15 +24,15 @@ const ICONS = {
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M5 7h14M10 7V4h4v3m-8 0 1 13h10l1-13" />,
   heart: <path d={HEART} />,
-  "heart-fill": <path className="fill" d={HEART} />,
+  "heart-fill": <path className="fill-current stroke-none" d={HEART} />,
   sliders: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
-  wifi: <><path d="M2 9a15 15 0 0 1 20 0M5.5 12.7a10 10 0 0 1 13 0M9 16.4a5 5 0 0 1 6 0" /><circle className="fill" cx="12" cy="20" r="1" /></>,
+  wifi: <><path d="M2 9a15 15 0 0 1 20 0M5.5 12.7a10 10 0 0 1 13 0M9 16.4a5 5 0 0 1 6 0" /><circle className="fill-current stroke-none" cx="12" cy="20" r="1" /></>,
   pin: <path d={PIN} />,
-  "pin-fill": <><path className="fill" d="M9 3h6l-.8 6.4 3.3 3.6v2H6.5v-2l3.3-3.6z" /><path d="M12 15v6" /></>,
+  "pin-fill": <><path className="fill-current stroke-none" d="M9 3h6l-.8 6.4 3.3 3.6v2H6.5v-2l3.3-3.6z" /><path d="M12 15v6" /></>,
   pencil: <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17zM14.5 7.5l3 3" />,
   image: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><circle cx="9" cy="10" r="1.6" /><path d="m4 17 5-4 3.5 2.8L16 13l4 3.5" /></>,
-  volume: <><path className="fill" d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" /></>,
-  "volume-off": <><path className="fill" d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" /><path d="m16 9.5 5 5m0-5-5 5" /></>,
+  volume: <><path className="fill-current stroke-none" d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" /><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" /></>,
+  "volume-off": <><path className="fill-current stroke-none" d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z" /><path d="m16 9.5 5 5m0-5-5 5" /></>,
   devices: <><rect x="3" y="5" width="12" height="9" rx="1.5" /><path d="M6 18h6M9 14v4" /><rect x="17" y="8" width="4.5" height="11" rx="1" /></>,
   upload: <path d="M12 16V5m0 0L7.8 9.2M12 5l4.2 4.2M5 20h14" />,
   grid: <><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>,
@@ -48,7 +48,7 @@ export type IconName = keyof typeof ICONS;
 /** An inline SVG icon that inherits the current text colour. */
 export function Icon({ name, size = 22 }: { name: IconName; size?: number }) {
   return (
-    <span className={`icon icon-${name}`}>
+    <span className="inline-flex leading-[0]">
       <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {ICONS[name]}
       </svg>
@@ -61,10 +61,10 @@ export function Ring({ percent, size = 30 }: { percent: number; size?: number })
   const r = 11;
   const c = 2 * Math.PI * r;
   return (
-    <span className={`ring${percent < 0 ? " spin" : ""}`}>
-      <svg viewBox="0 0 28 28" width={size} height={size} aria-hidden="true">
-        <circle className="track" cx="14" cy="14" r={r} />
-        <circle className="bar" cx="14" cy="14" r={r} strokeDasharray={c} strokeDashoffset={percent < 0 ? c * 0.72 : c * (1 - percent / 100)} />
+    <span className="inline-flex">
+      <svg viewBox="0 0 28 28" width={size} height={size} aria-hidden="true" className={percent < 0 ? "-rotate-90 animate-turn" : "-rotate-90"}>
+        <circle className="fill-none stroke-surface-3 stroke-3" cx="14" cy="14" r={r} />
+        <circle className="fill-none stroke-accent stroke-3 [stroke-linecap:round] transition-[stroke-dashoffset] duration-350 ease-in-out" cx="14" cy="14" r={r} strokeDasharray={c} strokeDashoffset={percent < 0 ? c * 0.72 : c * (1 - percent / 100)} />
       </svg>
     </span>
   );

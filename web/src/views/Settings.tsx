@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { getSongs, signOut, username, whoAmI } from "../lib/api";
 import { initials, plural } from "../lib/format";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
+import { cx, ui } from "../lib/ui";
 import { Credit } from "../components/common";
 import { Icon, Ring } from "../components/Icon";
 import { openDevicePicker } from "../components/Devices";
@@ -17,7 +18,7 @@ import { toast } from "../stores/ui";
 function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
   const value = useSettings((s) => s[name]);
   return (
-    <div className="seg" role="group">
+    <div className={SEG} role="group">
       {options.map(([option, label]) => (
         <button key={option} type="button" aria-pressed={value === option} onClick={() => setSettings({ [name]: option } as Partial<SettingValues>)}>{label}</button>
       ))}
@@ -25,34 +26,38 @@ function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font"
   );
 }
 
+const SEG = "flex p-0.75 gap-0.5 rounded-full bg-surface-2 [&>button]:flex-1 [&>button]:px-3 [&>button]:py-1.75 [&>button]:rounded-full [&>button]:font-[650] [&>button]:text-[.85rem] [&>button]:text-muted [&>button]:whitespace-nowrap [&>button[aria-pressed=true]]:bg-accent [&>button[aria-pressed=true]]:text-accent-ink [&>button[aria-pressed=true]]:shadow-[0_2px_10px_rgb(var(--glow)/.35)]";
+const SWATCH = "relative size-9.5 rounded-full bg-(--c) shadow-[inset_0_0_0_2px_rgb(255_255_255/.18)] transition-transform duration-200 ease-spring active:scale-[.88] aria-pressed:scale-[1.12] aria-pressed:shadow-[0_0_0_3px_var(--bg),0_0_0_5px_var(--c)]";
+const REORDER_BUTTON = "tap size-9 grid place-items-center rounded-full text-muted flex-none disabled:opacity-25! hover:text-text";
+
 function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" }) {
   const on = useSettings((s) => s[name]);
-  return <button type="button" className="toggle-switch" role="switch" aria-checked={on} onClick={() => setSettings({ [name]: !on })} />;
+  return <button type="button" className={ui.toggle} role="switch" aria-checked={on} onClick={() => setSettings({ [name]: !on })} />;
 }
 
 function Setting({ title, description, stack, children }: { title: string; description?: string; stack?: boolean; children: ReactNode }) {
   return (
-    <div className={`setting${stack ? " stack" : ""}`}>
-      <div className="label"><b>{title}</b>{description && <span>{description}</span>}</div>
+    <div className={stack ? ui.settingStack : ui.setting}>
+      <div className={ui.settingLabel}><b>{title}</b>{description && <span>{description}</span>}</div>
       {children}
     </div>
   );
 }
 
 const Group = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section><div className="group-title">{title}</div><div className="group">{children}</div></section>
+  <section><div className={ui.groupTitle}>{title}</div><div className={ui.group}>{children}</div></section>
 );
 
 function Swatches() {
   const accent = useSettings((s) => s.accent).toLowerCase();
   const isPreset = ACCENTS.some(([, color]) => color === accent);
   return (
-    <div className="swatches">
+    <div className="flex flex-wrap gap-3 items-center">
       {ACCENTS.map(([name, color]) => (
-        <button key={color} type="button" className="swatch" style={{ "--c": color } as React.CSSProperties} aria-label={name} title={name} aria-pressed={color === accent} onClick={() => setSettings({ accent: color })} />
+        <button key={color} type="button" className={SWATCH} style={{ "--c": color } as React.CSSProperties} aria-label={name} title={name} aria-pressed={color === accent} onClick={() => setSettings({ accent: color })} />
       ))}
-      <span className="swatch custom" title="Pick any colour" aria-pressed={!isPreset}>
-        <input type="color" aria-label="Custom colour" value={accent} onChange={(e) => setSettings({ accent: e.target.value })} />
+      <span className={cx(SWATCH, "bg-[conic-gradient(#ff6b6b,#ffb84d,#b5e853,#7cf0c0,#6aa8ff,#b18cff,#ff7eb6,#ff6b6b)] overflow-hidden")} style={{ "--c": "transparent" } as React.CSSProperties} title="Pick any colour" aria-pressed={!isPreset}>
+        <input type="color" className="absolute -inset-2 size-15 opacity-0 cursor-pointer" aria-label="Custom colour" value={accent} onChange={(e) => setSettings({ accent: e.target.value })} />
       </span>
     </div>
   );
@@ -60,11 +65,11 @@ function Swatches() {
 
 /** A tiny sample so you can see what a choice does without leaving the screen. */
 const Preview = () => (
-  <div className="preview" aria-hidden="true">
-    <div className="cover no-cover"><Icon name="play" size={20} /></div>
-    <div className="text preview-text"><b>Sample song</b><span>Sample artist · Album</span></div>
+  <div className="flex items-center gap-3 px-4 py-3 bg-surface-2" aria-hidden="true">
+    <div className={cx(ui.cover, "grid place-items-center text-muted bg-[linear-gradient(135deg,var(--accent),rgb(var(--glow)/.35))]")}><Icon name="play" size={20} /></div>
+    <div className="flex-1 min-w-0 grid [&>span]:text-muted [&>span]:text-[.85rem]"><b>Sample song</b><span>Sample artist · Album</span></div>
     <Ring percent={65} size={28} />
-    <span className="get"><Icon name="download" size={16} />Get</span>
+    <span className={ui.get}><Icon name="download" size={16} />Get</span>
   </div>
 );
 
@@ -77,15 +82,15 @@ function Reorder({ items, onMove, isOn, onToggle, locked }: {
   locked?: string;
 }) {
   return (
-    <ul className="reorder">
+    <ul className="grid gap-0.5 -mx-1.5 mt-1 -mb-1">
       {items.map(([id, label], i) => (
-        <li key={id} className={isOn(id) ? "" : "off"}>
-          <span className="reorder-label">{label}</span>
-          <button type="button" className="icon-button" aria-label={`Move ${label} up`} disabled={i === 0} onClick={() => onMove(i, -1)}><Icon name="up" size={18} /></button>
-          <button type="button" className="icon-button" aria-label={`Move ${label} down`} disabled={i === items.length - 1} onClick={() => onMove(i, 1)}><Icon name="down" size={18} /></button>
+        <li key={id} className="flex items-center gap-0.5 min-h-11 pl-1.5 rounded-[10px]">
+          <span className={cx("flex-1 min-w-0 font-semibold", !isOn(id) && "text-muted")}>{label}</span>
+          <button type="button" className={REORDER_BUTTON} aria-label={`Move ${label} up`} disabled={i === 0} onClick={() => onMove(i, -1)}><Icon name="up" size={18} /></button>
+          <button type="button" className={REORDER_BUTTON} aria-label={`Move ${label} down`} disabled={i === items.length - 1} onClick={() => onMove(i, 1)}><Icon name="down" size={18} /></button>
           {id !== locked
-            ? <button type="button" className="toggle-switch" role="switch" aria-label={`Show ${label}`} aria-checked={isOn(id)} onClick={() => onToggle(id)} />
-            : <span className="toggle-placeholder" title="Always here, so you can come back to Settings" />}
+            ? <button type="button" className={cx(ui.toggle, "ml-2")} role="switch" aria-label={`Show ${label}`} aria-checked={isOn(id)} onClick={() => onToggle(id)} />
+            : <span className="w-12.5 ml-2 flex-none" title="Always here, so you can come back to Settings" />}
         </li>
       ))}
     </ul>
@@ -112,7 +117,7 @@ function TabSettings() {
   const all = [...shown, ...PLACES.map((p) => p.id).filter((id) => !shown.includes(id))];
   const items = all.map((id): [string, string] => [id, PLACES.find((p) => p.id === id)!.label]);
   return (
-    <Setting title="Tabs" description={`Up to ${MAX_TABS} on a phone. On a computer they lead the sidebar.`} stack>
+    <Setting title="Tabs" description={`Up to ${MAX_TABS} on a phone. On a bigger screen they sit in the top bar.`} stack>
       <Reorder items={items} locked={REQUIRED_PLACE} isOn={(id) => shown.includes(id)}
         onMove={(i, by) => { const next = moved(all, i, by).filter((id) => shown.includes(id)); setSettings({ tabs: next }); }}
         onToggle={(id) => {
@@ -130,11 +135,11 @@ function DeviceSettings() {
   return (
     <Group title="This device">
       <Setting title="Name" description="How your other devices see this one" stack>
-        <input className="device-name" value={name} maxLength={60} aria-label="Device name" onChange={(e) => setName(e.target.value)}
+        <input className={ui.input} value={name} maxLength={60} aria-label="Device name" onChange={(e) => setName(e.target.value)}
           onBlur={() => { if (name.trim() !== myDeviceName()) renameDevice(name); }} />
       </Setting>
       <Setting title="Where music plays" description={`${plural(devices.length, "device")} signed in to your account right now`}>
-        <button type="button" className="pill" onClick={openDevicePicker}><Icon name="devices" size={16} />Choose</button>
+        <button type="button" className={ui.pill} onClick={openDevicePicker}><Icon name="devices" size={16} />Choose</button>
       </Setting>
     </Group>
   );
@@ -154,10 +159,10 @@ export function Settings() {
 
   return (
     <>
-      <header className="hero compact"><h1>Settings</h1></header>
-      <div className="settings">
-        <div className="profile-card">
-          <div className="avatar letters">{initials(user)}</div>
+      <header className={ui.heroCompact}><h1>Settings</h1></header>
+      <div className="grid gap-5.5 px-4 pb-2 wide:px-8 @4xl:block @4xl:columns-2 @4xl:gap-6 @4xl:*:mb-6 @4xl:*:break-inside-avoid">
+        <div className="flex items-center gap-4 p-4.5 rounded-[calc(var(--radius)+6px)] bg-[linear-gradient(135deg,rgb(var(--glow)/.22),var(--surface)_70%)] shadow-[inset_0_0_0_1px_var(--line)] [&_h2]:text-[1.3rem] [&_h2]:font-extrabold [&_h2]:tracking-[-.02em] [&_p]:text-muted [&_p]:text-[.88rem] [&_p]:mt-0.5">
+          <div className="size-16 flex-none grid place-items-center rounded-full font-extrabold text-[1.4rem] text-accent-ink bg-[linear-gradient(135deg,var(--accent),rgb(var(--glow)/.5))]">{initials(user)}</div>
           <div><h2>{user}</h2><p>Your settings are saved on this device for this account.</p></div>
         </div>
 
@@ -169,7 +174,7 @@ export function Settings() {
           <Preview />
           <Setting title="Corners"><Segmented name="corners" options={[["soft", "Soft"], ["sharp", "Sharp"]]} /></Setting>
           <Setting title="List size" description="Compact fits more songs on screen"><Segmented name="density" options={[["comfortable", "Comfy"], ["compact", "Compact"]]} /></Setting>
-          <Setting title="Colour the player" description="Tint the full-screen player with the cover's colour"><Toggle name="tint" /></Setting>
+          <Setting title="Colour the player" description="Tint the player with the cover's colour and, on a big screen, the whole page"><Toggle name="tint" /></Setting>
           <Setting title="Animations" description="Reduced only fades; Off keeps everything still" stack>
             <Segmented name="motion" options={[["full", "Full"], ["reduced", "Less"], ["off", "Off"]]} />
           </Setting>
@@ -196,7 +201,7 @@ export function Settings() {
           <Setting title="Offline mode" description="Use only what is saved on this device, even with a connection"><Toggle name="offlineMode" /></Setting>
           <Setting title="Saved on this device"><span>{usage}</span></Setting>
           <Setting title="Remove all saved songs" description="Frees the space they use">
-            <button type="button" className="pill" onClick={async () => {
+            <button type="button" className={ui.pill} onClick={async () => {
               const saved = offline.list();
               if (!saved.length) { toast("Nothing is saved on this device"); return; }
               if (!confirm(`Remove ${plural(saved.length, "saved song")} from this device?`)) return;
@@ -208,27 +213,27 @@ export function Settings() {
 
         <Group title="Your music">
           <Setting title="Import a playlist" description="Make playlists from a file exported from Spotify or anywhere else">
-            <Link className="pill" to="/import"><Icon name="upload" size={16} />Import</Link>
+            <Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import</Link>
           </Setting>
           {me?.admin && (
             <Setting title="Library clean-up" description="Songs you have twice, and artists that are really several people">
-              <Link className="pill" to="/cleanup"><Icon name="sparkle" size={16} />Review</Link>
+              <Link className={ui.pill} to="/cleanup"><Icon name="sparkle" size={16} />Review</Link>
             </Setting>
           )}
         </Group>
 
         <Group title="About">
           <Setting title="Library" description="Songs in your library"><span>{library.data ? plural(library.data.total, "song") : library.error ? "—" : "…"}</span></Setting>
-          <Setting title="Server"><span className="muted">{location.host}</span></Setting>
-          {me?.catalog && <Setting title="Song information" description={me.catalog.startsWith("MusicBrainz") ? "From MusicBrainz and the Cover Art Archive, made by volunteers, and iTunes for what they cannot answer" : undefined}><span className="muted">{me.catalog}</span></Setting>}
+          <Setting title="Server"><span className="text-muted">{location.host}</span></Setting>
+          {me?.catalog && <Setting title="Song information" description={me.catalog.startsWith("MusicBrainz") ? "From MusicBrainz and the Cover Art Archive, made by volunteers, and iTunes for what they cannot answer" : undefined}><span className="text-muted">{me.catalog}</span></Setting>}
         </Group>
 
         <Group title="Account">
           <Setting title="Reset appearance" description="Back to the original look">
-            <button type="button" className="pill" onClick={() => { resetSettings(); toast("Settings reset"); }}>Reset</button>
+            <button type="button" className={ui.pill} onClick={() => { resetSettings(); toast("Settings reset"); }}>Reset</button>
           </Setting>
           <Setting title="Sign out" description={`Signed in as ${user}`}>
-            <button type="button" className="pill" onClick={signOut}>Sign out</button>
+            <button type="button" className={ui.pill} onClick={signOut}>Sign out</button>
           </Setting>
         </Group>
 
