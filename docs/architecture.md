@@ -108,7 +108,7 @@ Styles are Tailwind utilities in the components, with the ones several screens s
 
 ## Who can see and change what
 
-Songs, podcasts and audiobooks are one shared library. Everything personal stays with its account: recents, pins, playlist covers, the download queue (`jobs.List(user)`) and connected devices. Deleting from the shared library needs a Navidrome administrator, which the server asks Navidrome on every request rather than trusting the app or a remembered sign-in.
+Songs, podcasts and audiobooks are one shared library. Everything personal stays with its account: recents, pins, playlist covers, the profile picture, the download queue (`jobs.List(user)`) and connected devices. Deleting from the shared library needs a Navidrome administrator, which the server asks Navidrome on every request rather than trusting the app or a remembered sign-in.
 
 Deleting a song has to find its file, and Navidrome's `path` is synthetic. `library.FindSongFile` looks for the exact size in bytes and extension, then confirms the title in the file's tags. Anything other than exactly one match refuses to delete. It is logged, the empty folders left behind are removed, the song leaves everyone's pins and recents, and a Navidrome scan runs.
 

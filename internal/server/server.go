@@ -38,9 +38,10 @@ type Server struct {
 	jobs *jobs.Manager
 	web  fs.FS
 
-	media media.Store
-	users *userdata.Store
-	hub   *connect.Hub
+	media  media.Store
+	users  *userdata.Store
+	admins adminSessions
+	hub    *connect.Hub
 
 	proxy *httputil.ReverseProxy
 
@@ -111,6 +112,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/covers/playlists/{id}", s.authed(s.playlistCover))
 	mux.HandleFunc("PUT /api/covers/playlists/{id}", s.authed(s.setPlaylistCover))
 	mux.HandleFunc("DELETE /api/covers/playlists/{id}", s.authed(s.deletePlaylistCover))
+	mux.HandleFunc("GET /api/me/avatar", s.authed(s.myAvatar))
+	mux.HandleFunc("PUT /api/me/avatar", s.authed(s.setMyAvatar))
+	mux.HandleFunc("DELETE /api/me/avatar", s.authed(s.deleteMyAvatar))
+	mux.HandleFunc("GET /api/admin/users", s.authed(s.adminOnly(s.listUsers)))
+	mux.HandleFunc("POST /api/admin/users", s.authed(s.adminOnly(s.createUser)))
+	mux.HandleFunc("POST /api/admin/users/unlock", s.authed(s.adminOnly(s.unlockUsers)))
+	mux.HandleFunc("GET /api/admin/users/{name}/avatar", s.authed(s.adminOnly(s.userAvatar)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	static := http.FileServerFS(s.web)
 	_, statErr := fs.Stat(s.web, "index.html")

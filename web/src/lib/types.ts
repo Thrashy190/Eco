@@ -215,6 +215,8 @@ export interface LibraryState {
   pins: LibraryEntry[];
   /** Playlist ID → when its picture was set. */
   covers: Record<string, number>;
+  /** When the profile picture was set; none if there is no picture. */
+  avatar?: number;
 }
 
 export type CollectionKind = "favorites" | "playlist" | "album";

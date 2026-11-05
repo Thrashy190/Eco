@@ -79,7 +79,8 @@ func (e Entry) Validate() error {
 type State struct {
 	Recents []Entry          `json:"recents"`
 	Pins    []Entry          `json:"pins"`
-	Covers  map[string]int64 `json:"covers"` // playlist ID → when its picture was set, used to refresh cached images
+	Avatar  int64            `json:"avatar,omitempty"` // when the profile picture was set, so its address changes with it
+	Covers  map[string]int64 `json:"covers"`           // playlist ID → when its picture was set, used to refresh cached images
 }
 
 // Store keeps every user's state under a root folder.
@@ -250,26 +251,58 @@ func (s *Store) CoverPath(user, playlistID string) string {
 // SetCover stores a playlist's picture. Only real JPEG files of a sensible size are kept: the web app converts
 // whatever the user picks, and refusing anything else means eco never serves an uploaded file it cannot vouch for.
 func (s *Store) SetCover(user, playlistID string, image []byte) (State, error) {
-	if len(image) > MaxCoverBytes {
-		return State{}, errors.New("the picture is too large")
-	}
-	cfg, err := jpeg.DecodeConfig(bytes.NewReader(image))
-	if err != nil || cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 4096 || cfg.Height > 4096 {
-		return State{}, errors.New("the picture must be a JPEG of at most 4096×4096 pixels")
-	}
-	path := s.CoverPath(user, playlistID)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return State{}, err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, image, 0o644); err != nil {
-		return State{}, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+	if err := saveJPEG(s.CoverPath(user, playlistID), image); err != nil {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Covers[playlistID] = time.Now().UnixMilli() })
+}
+
+func saveJPEG(path string, image []byte) error {
+	if len(image) > MaxCoverBytes {
+		return errors.New("the picture is too large")
+	}
+	cfg, err := jpeg.DecodeConfig(bytes.NewReader(image))
+	if err != nil || cfg.Width < 1 || cfg.Height < 1 || cfg.Width > 4096 || cfg.Height > 4096 {
+		return errors.New("the picture must be a JPEG of at most 4096×4096 pixels")
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, image, 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// AvatarPath is where a user's profile picture is stored. The username is hashed, so any name is safe here.
+func (s *Store) AvatarPath(user string) string { return filepath.Join(s.dir(user), "avatar.jpg") }
+
+// SetAvatar stores a user's profile picture, under the same rules as a playlist's.
+func (s *Store) SetAvatar(user string, image []byte) (State, error) {
+	if err := saveJPEG(s.AvatarPath(user), image); err != nil {
+		return State{}, err
+	}
+	return s.update(user, func(st *State) { st.Avatar = time.Now().UnixMilli() })
+}
+
+// RemoveAvatar deletes a user's profile picture.
+func (s *Store) RemoveAvatar(user string) (State, error) {
+	if err := os.Remove(s.AvatarPath(user)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return State{}, err
+	}
+	return s.update(user, func(st *State) { st.Avatar = 0 })
+}
+
+// AvatarVersion says when a user's picture was set, 0 if there is none.
+func (s *Store) AvatarVersion(user string) int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.read(user).Avatar
 }
 
 // RemoveCover deletes a playlist's picture.

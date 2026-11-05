@@ -61,7 +61,7 @@ export function Shelf({ children }: { children: ReactNode }) {
 export function DetailPage({ art, info, actions, children }: { art: ReactNode; info: ReactNode; actions: ReactNode; children: ReactNode }) {
   return (
     <div className="@4xl:grid @4xl:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] @4xl:items-start @4xl:gap-x-8 @4xl:px-8 @4xl:pt-2">
-      <div className="@4xl:sticky @4xl:top-0 @4xl:max-h-[calc(100dvh-110px)] @4xl:overflow-y-auto @4xl:no-scrollbar">
+      <div className="@4xl:sticky @4xl:top-0 @4xl:max-h-[calc(100dvh-110px)] @4xl:overflow-y-auto @4xl:no-scrollbar @4xl:-mx-6 @4xl:px-6 @4xl:pb-10">
         <header className={detail.header}>{art}<div className={detail.info}>{info}</div></header>
         <div className="@4xl:*:px-0">{actions}</div>
       </div>

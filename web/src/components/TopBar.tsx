@@ -2,14 +2,13 @@
 // always there, and your account. There is no sidebar: the page gets the width.
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
-import { username } from "../lib/api";
-import { initials } from "../lib/format";
 import { useRoomy } from "../lib/media";
 import { activePlace, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx } from "../lib/ui";
 import { useShown } from "../stores/connect";
 import { setSettings, useSettings } from "../stores/settings";
 import { useSearchText } from "../stores/ui";
+import { UserAvatar } from "./Cover";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
 
@@ -69,7 +68,7 @@ export function TopBar() {
           <Icon name="panel" size={20} />
         </button>
       )}
-      <Link to="/settings" title="Settings" aria-label="Settings" className="tap flex-none size-10 grid place-items-center rounded-full bg-ghost font-extrabold text-[.75rem] hover:bg-surface-3">{initials(username())}</Link>
+      <Link to="/settings" title="Settings" aria-label="Settings" className="tap flex-none size-10 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.75rem] hover:bg-surface-3"><UserAvatar /></Link>
     </header>
   );
 }

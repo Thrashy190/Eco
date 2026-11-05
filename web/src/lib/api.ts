@@ -116,6 +116,11 @@ export const sendJson = (path: string, extra: Record<string, string>, body: unkn
 
 // ---- Administrators ----
 export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string }>("me");
+export interface Account { username: string; name?: string; admin: boolean; last_seen?: string; avatar?: number }
+export const listUsers = () => eco<{ locked?: boolean; users?: Account[] }>("admin/users");
+export const unlockUsers = (password: string) => send<{ unlocked: boolean }>("admin/users/unlock", JSON.stringify({ password }));
+export const userAvatarUrl = (name: string, version: number) => `/api/admin/users/${part(name)}/avatar?${params({ v: version })}`;
+export const createUser = (username: string, name: string, password: string) => send<{ username: string }>("admin/users", JSON.stringify({ username, name, password }));
 export const getCleanup = () => eco<CleanupReport>("admin/cleanup");
 export const removeDuplicate = (keep: string, remove: string[]) => send<{ deleted: string[] }>("admin/cleanup/duplicates", JSON.stringify({ keep, remove }));
 export const separateArtists = (names: string[]) => send<CleanupReport["task"]>("admin/cleanup/artists", JSON.stringify({ names }));
@@ -215,6 +220,9 @@ export const forgetRecent = (entry: LibraryEntry) => eco<LibraryState>(`me/recen
 export const addPin = (entry: LibraryEntry) => send<LibraryState>("me/pins", JSON.stringify(entry));
 export const removePin = (entry: LibraryEntry) => eco<LibraryState>(`me/pins/${entry.type}/${part(entry.id)}`, undefined, "DELETE");
 export const uploadPlaylistCover = (id: string, picture: Blob) => send<LibraryState>(`covers/playlists/${part(id)}`, picture, "PUT", "image/jpeg");
+export const avatarUrl = (version: number) => `/api/me/avatar?${params({ v: version })}`;
+export const uploadAvatar = (picture: Blob) => send<LibraryState>("me/avatar", picture, "PUT", "image/jpeg");
+export const deleteAvatar = () => eco<LibraryState>("me/avatar", undefined, "DELETE");
 export const deletePlaylistCover = (id: string) => eco<LibraryState>(`covers/playlists/${part(id)}`, undefined, "DELETE");
 
 // ---- Lists of songs imported from a file ----

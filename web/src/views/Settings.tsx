@@ -1,18 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { getSongs, signOut, username, whoAmI } from "../lib/api";
-import { initials, plural } from "../lib/format";
+import { plural } from "../lib/format";
+import { pictureToCover } from "../lib/image";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx, ui } from "../lib/ui";
 import { Credit } from "../components/common";
+import { UserAvatar } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { openDevicePicker } from "../components/Devices";
 import { ME_KEY } from "../stores/admin";
+import { removeAvatar, setAvatar, useLibraryState } from "../stores/library";
 import { myDeviceName, renameDevice, useConnect } from "../stores/connect";
 import * as offline from "../stores/offline";
 import { ACCENTS, resetSettings, setSettings, useSettings, type Settings as SettingValues } from "../stores/settings";
-import { toast } from "../stores/ui";
+import { openSheet, toast } from "../stores/ui";
 
 /** A pill-shaped choice between a few options. */
 function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
@@ -29,6 +32,36 @@ function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font"
 const SEG = "flex p-0.75 gap-0.5 rounded-full bg-surface-2 [&>button]:flex-1 [&>button]:px-3 [&>button]:py-1.75 [&>button]:rounded-full [&>button]:font-[650] [&>button]:text-[.85rem] [&>button]:text-muted [&>button]:whitespace-nowrap [&>button[aria-pressed=true]]:bg-accent [&>button[aria-pressed=true]]:text-accent-ink [&>button[aria-pressed=true]]:shadow-[0_2px_10px_rgb(var(--glow)/.35)]";
 const SWATCH = "relative size-9.5 rounded-full bg-(--c) shadow-[inset_0_0_0_2px_rgb(255_255_255/.18)] transition-transform duration-200 ease-spring active:scale-[.88] aria-pressed:scale-[1.12] aria-pressed:shadow-[0_0_0_3px_var(--bg),0_0_0_5px_var(--c)]";
 const REORDER_BUTTON = "tap size-9 grid place-items-center rounded-full text-muted flex-none disabled:opacity-25! hover:text-text";
+
+/** Your picture. Tapping it changes it. It stays on this server, and only an administrator can see someone else's. */
+function ProfilePicture() {
+  const { avatar } = useLibraryState();
+  const input = useRef<HTMLInputElement>(null);
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    try {
+      await setAvatar(await pictureToCover(file));
+      toast("Picture updated");
+    } catch (e) { toast((e as Error).message); }
+  }
+  const pick = () => input.current?.click();
+  return (
+    <div className="relative flex-none">
+      <button type="button" aria-label="Change your picture" className="group/edit relative block size-16 rounded-full"
+        onClick={() => {
+          if (!avatar) { pick(); return; }
+          openSheet("Your picture", undefined, [
+            { icon: "image", label: "Choose another picture", run: pick },
+            { icon: "trash", label: "Remove this picture", danger: true, run: () => void removeAvatar().then(() => toast("Picture removed")).catch((e: Error) => toast(e.message)) },
+          ]);
+        }}>
+        <span className="size-full grid place-items-center rounded-full overflow-hidden font-extrabold text-[1.4rem] text-accent-ink bg-[linear-gradient(135deg,var(--accent),rgb(var(--glow)/.5))]"><UserAvatar /></span>
+        <span className="absolute -right-0.5 -bottom-0.5 size-6.5 grid place-items-center rounded-full bg-text text-bg"><Icon name="pencil" size={13} /></span>
+      </button>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
+    </div>
+  );
+}
 
 function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" | "dynamicAccent" }) {
   const on = useSettings((s) => s[name]);
@@ -163,8 +196,8 @@ export function Settings() {
       <header className={ui.heroCompact}><h1>Settings</h1></header>
       <div className="grid gap-5.5 px-4 pb-2 wide:px-8 @4xl:block @4xl:columns-2 @4xl:gap-6 @4xl:*:mb-6 @4xl:*:break-inside-avoid">
         <div className="flex items-center gap-4 p-4.5 rounded-[calc(var(--radius)+6px)] bg-[linear-gradient(135deg,rgb(var(--glow)/.22),var(--surface)_70%)] shadow-[inset_0_0_0_1px_var(--line)] [&_h2]:text-[1.3rem] [&_h2]:font-extrabold [&_h2]:tracking-[-.02em] [&_p]:text-muted [&_p]:text-[.88rem] [&_p]:mt-0.5">
-          <div className="size-16 flex-none grid place-items-center rounded-full font-extrabold text-[1.4rem] text-accent-ink bg-[linear-gradient(135deg,var(--accent),rgb(var(--glow)/.5))]">{initials(user)}</div>
-          <div><h2>{user}</h2><p>Your settings are saved on this device for this account.</p></div>
+          <ProfilePicture />
+          <div><h2>{user}</h2><p>Your look is saved on this device. Your picture follows you to every device.</p></div>
         </div>
 
         <Group title="Appearance">
@@ -217,6 +250,11 @@ export function Settings() {
           <Setting title="Import a playlist" description="Make playlists from a file exported from Spotify or anywhere else">
             <Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import</Link>
           </Setting>
+          {me?.admin && (
+            <Setting title="Users" description="See who has an account and add someone">
+              <Link className={ui.pill} to="/users"><Icon name="user" size={16} />Manage</Link>
+            </Setting>
+          )}
           {me?.admin && (
             <Setting title="Library clean-up" description="Songs you have twice, and artists that are really several people">
               <Link className={ui.pill} to="/cleanup"><Icon name="sparkle" size={16} />Review</Link>

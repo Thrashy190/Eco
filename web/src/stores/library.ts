@@ -95,6 +95,14 @@ export async function removePlaylistCover(id: string): Promise<void> {
   patch({ covers: state.covers });
 }
 
+export async function setAvatar(picture: Blob): Promise<void> {
+  patch({ avatar: (await api.uploadAvatar(picture)).avatar });
+}
+
+export async function removeAvatar(): Promise<void> {
+  patch({ avatar: (await api.deleteAvatar()).avatar });
+}
+
 // ---- Building entries ----
 
 export const favoritesEntry = (count?: number): LibraryEntry => ({

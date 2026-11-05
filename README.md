@@ -66,6 +66,8 @@
 
 - Themes, any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list.
 - Pin songs, albums, playlists and artists, and give playlists their own cover.
+- Choose a picture for your profile, and let the colours follow the album playing.
+- Administrators can see and add accounts from Eco.
 - Administrators can delete songs for everyone and review songs held twice and artists that are really several people.
 - Your files, your server. [Navidrome](https://www.navidrome.org) is underneath, so any Subsonic app also works.
 

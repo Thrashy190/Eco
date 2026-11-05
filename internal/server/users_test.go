@@ -54,8 +54,8 @@ func TestAvatarMustBeAJPEG(t *testing.T) {
 	}
 }
 
-// fakeNavidromeUsers adds what creating an account needs to a Navidrome where the administrator's password is "right".
-func fakeNavidromeUsers(t *testing.T, created *[]map[string]any) http.Handler {
+// fakeNavidromeUsers adds what managing accounts needs to a Navidrome where the administrator's password is "right".
+func fakeNavidromeUsers(t *testing.T, created *[]map[string]any, sessionOver *bool) http.Handler {
 	t.Helper()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -68,8 +68,12 @@ func fakeNavidromeUsers(t *testing.T, created *[]map[string]any) http.Handler {
 			}
 			json.NewEncoder(w).Encode(map[string]string{"token": "session"})
 		case r.URL.Path == "/api/user":
-			if r.Header.Get("x-nd-authorization") != "Bearer session" {
+			if r.Header.Get("x-nd-authorization") != "Bearer session" || *sessionOver {
 				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			if r.Method == http.MethodGet {
+				w.Write([]byte(`[{"userName":"admin","name":"Admin","isAdmin":true},{"userName":"ana","name":"Ana","isAdmin":false}]`))
 				return
 			}
 			var user map[string]any
@@ -81,8 +85,6 @@ func fakeNavidromeUsers(t *testing.T, created *[]map[string]any) http.Handler {
 			}
 			*created = append(*created, user)
 			w.Write([]byte(`{"id":"new"}`))
-		case strings.HasSuffix(r.URL.Path, "/getUsers"):
-			json.NewEncoder(w).Encode(map[string]any{"subsonic-response": map[string]any{"status": "ok", "users": map[string]any{"user": []map[string]any{{"username": "admin", "adminRole": true}, {"username": "ana"}}}}})
 		case strings.HasSuffix(r.URL.Path, "/getUser"):
 			json.NewEncoder(w).Encode(map[string]any{"subsonic-response": map[string]any{"status": "ok", "user": map[string]any{"adminRole": r.URL.Query().Get("u") == "admin"}}})
 		default:
@@ -91,65 +93,104 @@ func fakeNavidromeUsers(t *testing.T, created *[]map[string]any) http.Handler {
 	})
 }
 
-func TestAccountsAreForAdministrators(t *testing.T) {
+func usersServer(t *testing.T) (http.Handler, *[]map[string]any, *bool) {
+	t.Helper()
 	s, h := accountsServer(t)
-	var created []map[string]any
-	nd := httptest.NewServer(fakeNavidromeUsers(t, &created))
+	created := &[]map[string]any{}
+	over := new(bool)
+	nd := httptest.NewServer(fakeNavidromeUsers(t, created, over))
 	t.Cleanup(nd.Close)
 	s.nd.BaseURL = nd.URL
+	return h, created, over
+}
 
-	if rec := as(t, h, "ana", "GET", "/api/admin/users", ""); rec.Code != http.StatusForbidden {
-		t.Errorf("a regular user listed the accounts: %d", rec.Code)
-	}
-	body := `{"username":"new","password":"long enough","admin_password":"right"}`
-	if rec := as(t, h, "ana", "POST", "/api/admin/users", body); rec.Code != http.StatusForbidden {
-		t.Errorf("a regular user created an account: %d", rec.Code)
-	}
-	if len(created) != 0 {
-		t.Fatalf("Navidrome was asked anyway: %v", created)
-	}
+const newAccount = `{"username":"new","password":"long enough"}`
 
-	rec := as(t, h, "admin", "GET", "/api/admin/users", "")
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"username":"ana"`) {
-		t.Errorf("listing: %d %s", rec.Code, rec.Body)
+func TestAccountsAreForAdministrators(t *testing.T) {
+	h, created, _ := usersServer(t)
+	for _, c := range []struct{ method, path, body string }{
+		{"GET", "/api/admin/users", ""},
+		{"POST", "/api/admin/users", newAccount},
+		{"POST", "/api/admin/users/unlock", `{"password":"right"}`},
+	} {
+		if rec := as(t, h, "ana", c.method, c.path, c.body); rec.Code != http.StatusForbidden {
+			t.Errorf("a regular user got through %s %s: %d", c.method, c.path, rec.Code)
+		}
+	}
+	if len(*created) != 0 {
+		t.Fatalf("Navidrome was asked anyway: %v", *created)
+	}
+}
+
+// Navidrome's Subsonic getUsers answers with only yourself, so the list has to come from its own API
+func TestAccountListNeedsThePassword(t *testing.T) {
+	h, _, _ := usersServer(t)
+	if rec := as(t, h, "admin", "GET", "/api/admin/users", ""); !strings.Contains(rec.Body.String(), `"locked":true`) || strings.Contains(rec.Body.String(), "ana") {
+		t.Errorf("listed before confirming: %s", rec.Body)
+	}
+	// A 401 here would sign the administrator out of the app for mistyping a password
+	if rec := as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"wrong"}`); rec.Code != http.StatusForbidden {
+		t.Errorf("wrong password: %d", rec.Code)
+	}
+	if rec := as(t, h, "admin", "GET", "/api/admin/users", ""); !strings.Contains(rec.Body.String(), `"locked":true`) {
+		t.Errorf("a wrong password unlocked it: %s", rec.Body)
+	}
+	rec := as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
+	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "session") {
+		t.Errorf("unlocking: %d %s", rec.Code, rec.Body)
+	}
+	rec = as(t, h, "admin", "GET", "/api/admin/users", "")
+	if !strings.Contains(rec.Body.String(), `"username":"ana"`) {
+		t.Errorf("listing: %s", rec.Body)
+	}
+}
+
+func TestSessionThatEndsLocksAgain(t *testing.T) {
+	h, created, over := usersServer(t)
+	as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
+	*over = true
+	if rec := as(t, h, "admin", "POST", "/api/admin/users", newAccount); rec.Code != http.StatusLocked {
+		t.Errorf("creating with an old session: %d", rec.Code)
+	}
+	*over = false
+	if rec := as(t, h, "admin", "GET", "/api/admin/users", ""); !strings.Contains(rec.Body.String(), `"locked":true`) {
+		t.Errorf("still unlocked: %s", rec.Body)
+	}
+	if len(*created) != 0 {
+		t.Errorf("created anyway: %v", *created)
 	}
 }
 
 func TestCreatingAnAccount(t *testing.T) {
-	s, h := accountsServer(t)
-	var created []map[string]any
-	nd := httptest.NewServer(fakeNavidromeUsers(t, &created))
-	t.Cleanup(nd.Close)
-	s.nd.BaseURL = nd.URL
-
+	h, created, _ := usersServer(t)
+	if rec := as(t, h, "admin", "POST", "/api/admin/users", newAccount); rec.Code != http.StatusLocked {
+		t.Errorf("creating before confirming: %d", rec.Code)
+	}
+	as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
 	cases := []struct {
 		name, body string
 		want       int
 	}{
-		// A 401 here would sign the administrator out of the app for mistyping a password
-		{"wrong own password", `{"username":"new","password":"long enough","admin_password":"wrong"}`, http.StatusForbidden},
-		{"no own password", `{"username":"new","password":"long enough"}`, http.StatusBadRequest},
-		{"short password", `{"username":"new","password":"short","admin_password":"right"}`, http.StatusBadRequest},
-		{"odd username", `{"username":"a b/c","password":"long enough","admin_password":"right"}`, http.StatusBadRequest},
-		{"taken", `{"username":"taken","password":"long enough","admin_password":"right"}`, http.StatusConflict},
+		{"short password", `{"username":"new","password":"short"}`, http.StatusBadRequest},
+		{"odd username", `{"username":"a b/c","password":"long enough"}`, http.StatusBadRequest},
+		{"taken", `{"username":"taken","password":"long enough"}`, http.StatusConflict},
 	}
 	for _, c := range cases {
 		if rec := as(t, h, "admin", "POST", "/api/admin/users", c.body); rec.Code != c.want {
 			t.Errorf("%s: got %d, want %d (%s)", c.name, rec.Code, c.want, rec.Body)
 		}
 	}
-	if len(created) != 0 {
-		t.Fatalf("an account was created by a refused request: %v", created)
+	if len(*created) != 0 {
+		t.Fatalf("an account was created by a refused request: %v", *created)
 	}
-
-	rec := as(t, h, "admin", "POST", "/api/admin/users", `{"username":" María.2 ","password":"long enough","admin_password":"right"}`)
+	rec := as(t, h, "admin", "POST", "/api/admin/users", `{"username":" María.2 ","password":"long enough"}`)
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("creating: %d %s", rec.Code, rec.Body)
 	}
-	if strings.Contains(rec.Body.String(), "long enough") || strings.Contains(rec.Body.String(), "right") {
+	if strings.Contains(rec.Body.String(), "long enough") {
 		t.Errorf("a password came back: %s", rec.Body)
 	}
-	if len(created) != 1 || created[0]["userName"] != "María.2" || created[0]["name"] != "María.2" || created[0]["isAdmin"] != false {
-		t.Errorf("created: %v", created)
+	if len(*created) != 1 || (*created)[0]["userName"] != "María.2" || (*created)[0]["name"] != "María.2" || (*created)[0]["isAdmin"] != false {
+		t.Errorf("created: %v", *created)
 	}
 }

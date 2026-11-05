@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { coverUrl, playlistCoverUrl, songCover } from "../lib/api";
+import { avatarUrl, coverUrl, playlistCoverUrl, songCover, username } from "../lib/api";
 import { hue, initials } from "../lib/format";
 import type { Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
@@ -48,6 +48,13 @@ export function PlaylistArt({ id, cover, size = 300, className = ui.cover }: { i
   if (version) return <Picture src={playlistCoverUrl(id, version)} className={className} />;
   if (id === FAVORITES_ID) return <div data-art="" className={cx(className, ui.favCover)}><Icon name="heart-fill" size={className === ui.coverHuge ? 72 : className === ui.coverBig ? 48 : 22} /></div>;
   return <Picture src={coverUrl(cover, size)} className={className} />;
+}
+
+/** Who is signed in: the picture they chose, or their initials. */
+export function UserAvatar({ className }: { className?: string }) {
+  const { avatar } = useLibraryState();
+  if (avatar) return <img className={cx("size-full object-cover", className)} src={avatarUrl(avatar)} alt="" draggable={false} />;
+  return <span className={className}>{initials(username())}</span>;
 }
 
 export function ArtistAvatar({ name, cover, size = 200, className = ui.avatar }: { name: string; cover?: string; size?: number; className?: string }) {

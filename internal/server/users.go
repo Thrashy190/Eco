@@ -8,6 +8,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Thrashy190/eco/internal/subsonic"
@@ -62,21 +64,95 @@ func (s *Server) userAvatar(w http.ResponseWriter, r *http.Request, _ subsonic.C
 	serveJPEG(w, r, s.users.AvatarPath(r.PathValue("name")))
 }
 
+// adminSessions remembers Navidrome sessions in memory, for as long as a page of accounts stays useful. Only the session is
+// kept, never the password, and it is lost when the server restarts. Every request still passes adminOnly.
+type adminSessions struct {
+	mu   sync.Mutex
+	open map[string]adminSession
+}
+
+type adminSession struct {
+	token string
+	until time.Time
+}
+
+const adminSessionLife = 15 * time.Minute
+
+func (a *adminSessions) get(user string) (string, bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	session, ok := a.open[strings.ToLower(user)]
+	if !ok || time.Now().After(session.until) {
+		delete(a.open, strings.ToLower(user))
+		return "", false
+	}
+	return session.token, true
+}
+
+func (a *adminSessions) set(user, token string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.open == nil {
+		a.open = map[string]adminSession{}
+	}
+	a.open[strings.ToLower(user)] = adminSession{token, time.Now().Add(adminSessionLife)}
+}
+
+func (a *adminSessions) forget(user string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	delete(a.open, strings.ToLower(user))
+}
+
+// unlockUsers has the administrator confirm their password, which opens the session and is then forgotten.
+func (s *Server) unlockUsers(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	var in struct {
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&in); err != nil || in.Password == "" {
+		fail(w, http.StatusBadRequest, "Enter your password")
+		return
+	}
+	token, err := s.nd.OpenSession(r.Context(), cred.User, in.Password)
+	switch {
+	case errors.Is(err, subsonic.ErrWrongPassword):
+		// Not a 401: the app takes that as an expired session and signs the administrator out
+		fail(w, http.StatusForbidden, "That is not your password")
+	case err != nil:
+		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
+	default:
+		s.admins.set(cred.User, token)
+		respond(w, http.StatusOK, map[string]any{"unlocked": true})
+	}
+}
+
 type userOut struct {
 	Username string `json:"username"`
+	Name     string `json:"name,omitempty"`
 	Admin    bool   `json:"admin"`
+	LastSeen string `json:"last_seen,omitempty"`
 	Avatar   int64  `json:"avatar,omitempty"`
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
-	users, err := s.nd.Users(r.Context(), cred)
+	session, ok := s.admins.get(cred.User)
+	if !ok {
+		respond(w, http.StatusOK, map[string]any{"locked": true})
+		return
+	}
+	accounts, err := s.nd.Accounts(r.Context(), session)
+	if errors.Is(err, subsonic.ErrSessionOver) {
+		s.admins.forget(cred.User)
+		respond(w, http.StatusOK, map[string]any{"locked": true})
+		return
+	}
 	if err != nil {
 		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
 		return
 	}
-	out := make([]userOut, len(users))
-	for i, u := range users {
-		out[i] = userOut{Username: u.Username, Admin: u.AdminRole, Avatar: s.users.AvatarVersion(u.Username)}
+	out := make([]userOut, len(accounts))
+	for i, a := range accounts {
+		out[i] = userOut{Username: a.UserName, Name: a.Name, Admin: a.IsAdmin, LastSeen: a.LastAccessAt, Avatar: s.users.AvatarVersion(a.UserName)}
 	}
 	respond(w, http.StatusOK, map[string]any{"users": out})
 }
@@ -86,14 +162,12 @@ var usernamePattern = regexp.MustCompile(`^[\p{L}\p{N}._-]{1,64}$`)
 // MinPassword is the shortest password accepted for a new account.
 const MinPassword = 8
 
-// createUser adds a regular account. The password of the administrator asking is used for this one call (see
-// subsonic.CreateUser), and neither password is stored or written to any log.
+// createUser adds a regular account. The new password goes to Navidrome and is neither stored nor written to any log.
 func (s *Server) createUser(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	var in struct {
-		Username      string `json:"username"`
-		Name          string `json:"name"`
-		Password      string `json:"password"`
-		AdminPassword string `json:"admin_password"`
+		Username string `json:"username"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&in); err != nil {
 		fail(w, http.StatusBadRequest, "invalid body")
@@ -111,15 +185,17 @@ func (s *Server) createUser(w http.ResponseWriter, r *http.Request, cred subsoni
 	case utf8.RuneCountInString(in.Password) < MinPassword:
 		fail(w, http.StatusBadRequest, "The password needs at least 8 characters")
 		return
-	case in.AdminPassword == "":
-		fail(w, http.StatusBadRequest, "Enter your own password to confirm")
+	}
+	session, ok := s.admins.get(cred.User)
+	if !ok {
+		fail(w, http.StatusLocked, "Confirm your password again")
 		return
 	}
-	err := s.nd.CreateUser(r.Context(), cred.User, in.AdminPassword, username, name, in.Password)
+	err := s.nd.CreateAccount(r.Context(), session, username, name, in.Password)
 	switch {
-	case errors.Is(err, subsonic.ErrWrongPassword):
-		// Not a 401: the app takes that as an expired session and signs the administrator out
-		fail(w, http.StatusForbidden, "That is not your password")
+	case errors.Is(err, subsonic.ErrSessionOver):
+		s.admins.forget(cred.User)
+		fail(w, http.StatusLocked, "Confirm your password again")
 	case errors.Is(err, subsonic.ErrUserExists):
 		fail(w, http.StatusConflict, "That username is taken")
 	case err != nil:

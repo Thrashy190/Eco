@@ -7,78 +7,108 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 )
 
-// User is an account in Navidrome.
-type User struct {
-	Username  string `json:"username"`
-	AdminRole bool   `json:"adminRole"`
+// Accounts. Subsonic is no help here: in Navidrome getUsers answers with only yourself and createUser is not implemented.
+// Its own API can do both, but only takes a session opened with a password, which Eco never keeps. So an administrator
+// confirms their password to open a session, and the rest uses that. Errors here never contain a password.
+
+// Account is a user in Navidrome.
+type Account struct {
+	UserName     string `json:"userName"`
+	Name         string `json:"name"`
+	IsAdmin      bool   `json:"isAdmin"`
+	LastAccessAt string `json:"lastAccessAt"`
 }
 
-// Users lists the accounts. Navidrome only answers an administrator.
-func (c *Client) Users(ctx context.Context, cred Cred) ([]User, error) {
-	r, err := c.call(ctx, cred, "getUsers", url.Values{})
-	if err != nil {
-		return nil, err
+var (
+	// ErrWrongPassword means the password was not accepted.
+	ErrWrongPassword = errors.New("wrong password")
+	// ErrUserExists means that username is already taken.
+	ErrUserExists = errors.New("username taken")
+	// ErrSessionOver means Navidrome no longer accepts the session.
+	ErrSessionOver = errors.New("session over")
+)
+
+func (c *Client) native(ctx context.Context, method, path, session string, body any) (*http.Response, error) {
+	var payload bytes.Buffer
+	if body != nil {
+		if err := json.NewEncoder(&payload).Encode(body); err != nil {
+			return nil, err
+		}
 	}
-	return r.Body.Users.List, nil
-}
-
-// ErrWrongPassword means the administrator's own password was not accepted.
-var ErrWrongPassword = errors.New("wrong password")
-
-// ErrUserExists means that username is already taken.
-var ErrUserExists = errors.New("username taken")
-
-func (c *Client) postJSON(ctx context.Context, path, bearer string, body any) (*http.Response, error) {
-	data, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+path, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, &payload)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if bearer != "" {
-		req.Header.Set("x-nd-authorization", "Bearer "+bearer)
+	if session != "" {
+		req.Header.Set("x-nd-authorization", "Bearer "+session)
 	}
-	return c.HTTP.Do(req)
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, errors.New("could not reach Navidrome")
+	}
+	return resp, nil
 }
 
-// CreateUser adds a regular account. Subsonic's createUser is not implemented in Navidrome, and its own API only takes a
-// session opened with a password, which Eco never keeps. So the administrator's password comes with each request, opens
-// a session for this one call and is forgotten, along with the session. Errors never contain a password.
-func (c *Client) CreateUser(ctx context.Context, admin, adminPassword, username, name, password string) error {
-	resp, err := c.postJSON(ctx, "/auth/login", "", map[string]string{"username": admin, "password": adminPassword})
+// OpenSession signs in to Navidrome's own API and returns the session.
+func (c *Client) OpenSession(ctx context.Context, user, password string) (string, error) {
+	resp, err := c.native(ctx, http.MethodPost, "/auth/login", "", map[string]string{"username": user, "password": password})
 	if err != nil {
-		return errors.New("could not reach Navidrome")
+		return "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusUnauthorized {
-		return ErrWrongPassword
+		return "", ErrWrongPassword
 	}
-	var session struct {
+	var opened struct {
 		Token string `json:"token"`
 	}
-	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&session) != nil || session.Token == "" {
-		return fmt.Errorf("could not sign in to Navidrome (HTTP %d)", resp.StatusCode)
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&opened) != nil || opened.Token == "" {
+		return "", fmt.Errorf("could not sign in to Navidrome (HTTP %d)", resp.StatusCode)
 	}
+	return opened.Token, nil
+}
 
-	created, err := c.postJSON(ctx, "/api/user", session.Token, map[string]any{"userName": username, "name": name, "email": "", "password": password, "isAdmin": false})
+// Accounts lists every account.
+func (c *Client) Accounts(ctx context.Context, session string) ([]Account, error) {
+	resp, err := c.native(ctx, http.MethodGet, "/api/user", session, nil)
 	if err != nil {
-		return errors.New("could not reach Navidrome")
+		return nil, err
 	}
-	defer created.Body.Close()
-	if created.StatusCode < 300 {
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, ErrSessionOver
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("could not list the accounts (HTTP %d)", resp.StatusCode)
+	}
+	var out []Account
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, errors.New("could not read the accounts")
+	}
+	return out, nil
+}
+
+// CreateAccount adds a regular account.
+func (c *Client) CreateAccount(ctx context.Context, session, username, name, password string) error {
+	resp, err := c.native(ctx, http.MethodPost, "/api/user", session, map[string]any{"userName": username, "name": name, "email": "", "password": password, "isAdmin": false})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return ErrSessionOver
+	}
+	if resp.StatusCode < 300 {
 		return nil
 	}
 	var refusal struct {
 		Errors map[string]string `json:"errors"`
 	}
-	if json.NewDecoder(created.Body).Decode(&refusal) == nil && refusal.Errors["userName"] == "ra.validation.unique" {
+	if json.NewDecoder(resp.Body).Decode(&refusal) == nil && refusal.Errors["userName"] == "ra.validation.unique" {
 		return ErrUserExists
 	}
-	return fmt.Errorf("could not create the account (HTTP %d)", created.StatusCode)
+	return fmt.Errorf("could not create the account (HTTP %d)", resp.StatusCode)
 }

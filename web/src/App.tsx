@@ -28,6 +28,7 @@ import { Login } from "./views/Login";
 import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
+import { Users } from "./views/Users";
 
 function Tabs() {
   const { pathname } = useLocation();
@@ -132,6 +133,7 @@ function SignedIn({ user }: { user: string }) {
           <Route path="import/:id" element={<ImportDetailView />} />
           <Route path="cleanup" element={<Cleanup />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="users" element={<Users />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>

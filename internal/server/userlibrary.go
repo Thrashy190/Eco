@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/Thrashy190/eco/internal/subsonic"
 	"github.com/Thrashy190/eco/internal/userdata"
@@ -119,20 +118,7 @@ func (s *Server) playlistCover(w http.ResponseWriter, r *http.Request, cred subs
 		http.NotFound(w, r)
 		return
 	}
-	f, err := os.Open(s.users.CoverPath(cred.User, id))
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "image/jpeg")
-	w.Header().Set("Cache-Control", "private, max-age=31536000, immutable") // the URL changes with the picture
-	http.ServeContent(w, r, "", st.ModTime(), f)
+	serveJPEG(w, r, s.users.CoverPath(cred.User, id))
 }
 
 func (s *Server) setPlaylistCover(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
