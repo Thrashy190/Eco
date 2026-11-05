@@ -264,7 +264,7 @@ func nonNil(j []jobs.Job) []jobs.Job {
 	return j
 }
 
-// songs lists the whole library alphabetically, a page at a time.
+// songs lists the whole library, the most recently added first, a page at a time.
 func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	lib, err := s.library(r.Context(), cred)
 	if err != nil {
@@ -276,9 +276,9 @@ func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cre
 	if limit <= 0 || limit > 300 {
 		limit = 100
 	}
-	offset = min(max(offset, 0), len(lib.songs))
-	end := min(offset+limit, len(lib.songs))
-	respond(w, http.StatusOK, map[string]any{"songs": songsOut(lib.songs[offset:end]), "total": len(lib.songs), "has_more": end < len(lib.songs)})
+	offset = min(max(offset, 0), len(lib.newest))
+	end := min(offset+limit, len(lib.newest))
+	respond(w, http.StatusOK, map[string]any{"songs": songsOut(lib.newest[offset:end]), "total": len(lib.newest), "has_more": end < len(lib.newest)})
 }
 
 func (s *Server) download(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {

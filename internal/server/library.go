@@ -16,6 +16,7 @@ const snapshotTTL = 30 * time.Second
 type snapshot struct {
 	at      time.Time
 	songs   []subsonic.Song            // sorted by title
+	newest  []subsonic.Song            // the same songs, the most recently added first
 	byTitle map[string][]subsonic.Song // normalised title → songs with that title
 }
 
@@ -83,7 +84,7 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		}
 		return songs[i].Artist < songs[j].Artist
 	})
-	sn := &snapshot{at: time.Now(), songs: songs, byTitle: map[string][]subsonic.Song{}}
+	sn := &snapshot{at: time.Now(), songs: songs, newest: newestFirst(songs), byTitle: map[string][]subsonic.Song{}}
 	for _, song := range songs {
 		t := match.Norm(song.Title)
 		sn.byTitle[t] = append(sn.byTitle[t], song)
@@ -92,6 +93,22 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 	s.lib = sn
 	s.mu.Unlock()
 	return sn, nil
+}
+
+// newestFirst orders songs by when they joined the library. Songs with the same date keep the order they came in, and
+// songs with no date go last. The dates are parsed because their fractions of a second vary in length, so comparing
+// them as text puts "19.3Z" after "19.31Z". With ND_RECENTLYADDEDBYMODTIME on, Navidrome reports the last change to the
+// file here, so a song whose tags are rewritten moves up; Subsonic offers no other date.
+func newestFirst(songs []subsonic.Song) []subsonic.Song {
+	added := make(map[string]time.Time, len(songs))
+	for _, song := range songs {
+		if when, err := time.Parse(time.RFC3339Nano, song.Created); err == nil {
+			added[song.ID] = when
+		}
+	}
+	out := append([]subsonic.Song(nil), songs...)
+	sort.SliceStable(out, func(i, j int) bool { return added[out[i].ID].After(added[out[j].ID]) })
+	return out
 }
 
 // forgetLibrary drops the cache, e.g. after a download finished.
