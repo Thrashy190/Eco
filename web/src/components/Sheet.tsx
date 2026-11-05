@@ -83,7 +83,8 @@ export function ToastHost() {
     <div id="toast" role="status" className={cx(
       "fixed z-90 left-1/2 top-[calc(var(--safe-top)+12px)] w-max max-w-[min(92vw,460px)] px-4.5 py-2.75 rounded-full bg-text text-bg font-semibold text-[.9rem] shadow-[0_8px_24px_rgb(0_0_0/.35)] pointer-events-none -translate-x-1/2 transition-[transform,opacity] duration-250 ease-snap",
       "wide:top-auto wide:bottom-[calc(var(--safe-bottom)+104px)]",
-      visible ? "translate-y-0 wide:opacity-100" : "-translate-y-[160%] wide:translate-y-3 wide:opacity-0",
+      // Hidden means out past the notch too: it starts below the safe area, and a fixed percentage left it showing there
+      visible ? "translate-y-0 opacity-100" : "-translate-y-[calc(100%+var(--safe-top)+24px)] opacity-0 wide:translate-y-3",
     )}>{message}</div>
   );
 }
