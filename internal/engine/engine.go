@@ -121,6 +121,7 @@ func (e *Engine) Fetch(ctx context.Context, link string, m catalog.Meta, destDir
 			progress(s, p)
 		}
 	}
+	m = library.JoinAlbum(m, destDir)
 	final := library.DestPath(m, Codec, destDir)
 	if err := os.MkdirAll(destDir, 0o755); err != nil {
 		return "", err
