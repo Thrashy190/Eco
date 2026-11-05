@@ -38,7 +38,7 @@ function VolumeSlider({ volume, className }: { volume: number; className?: strin
   return (
     <label className={cx("flex items-center gap-2.5 text-muted", className)}>
       <Icon name={volume === 0 ? "volume-off" : "volume"} size={20} />
-      <input type="range" className="range flex-1 min-w-0" min="0" max="100" value={Math.round(volume * 100)} aria-label="Volume" onChange={(e) => player.setVolume(Number(e.target.value) / 100)} />
+      <input type="range" className="range flex-1 min-w-0" style={{ "--fill": volume } as React.CSSProperties} min="0" max="100" value={Math.round(volume * 100)} aria-label="Volume" onChange={(e) => player.setVolume(Number(e.target.value) / 100)} />
     </label>
   );
 }
@@ -55,7 +55,7 @@ function SeekBar({ inline }: { inline?: boolean }) {
   const shown = dragging ?? (length ? (position / length) * 1000 : 0);
   const finish = () => { if (dragging !== null) { player.seek((dragging / 1000) * length); setDragging(null); } };
   const at = clock(dragging !== null ? (dragging / 1000) * length : position);
-  const slider = <input type="range" className={cx("range", inline && "flex-1 min-w-0")} min="0" max="1000" value={Math.round(shown)} aria-label="Position" onChange={(e) => setDragging(Number(e.target.value))} onPointerUp={finish} onKeyUp={finish} />;
+  const slider = <input type="range" className={cx("range", inline && "flex-1 min-w-0")} style={{ "--fill": shown / 1000 } as React.CSSProperties} min="0" max="1000" value={Math.round(shown)} aria-label="Position" onChange={(e) => setDragging(Number(e.target.value))} onPointerUp={finish} onKeyUp={finish} />;
   const time = "text-muted text-[.75rem] tabular-nums min-w-[2.6em]";
   if (inline) return <div className="flex items-center gap-2 flex-1 min-w-0"><span className={cx(time, "text-right")}>{at}</span>{slider}<span className={time}>{clock(length)}</span></div>;
   return (

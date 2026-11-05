@@ -150,12 +150,15 @@
 /* What every control does when pressed or hovered */
 @utility tap { transition: transform .16s var(--ease-snap), background-color .16s, color .16s, box-shadow .2s, opacity .2s; }
 
-/* A range input has no utilities for its parts, and each browser names them differently */
+/* A range input has no utilities for its parts, and each browser names them differently. --fill says how far along it is,
+   from 0 to 1; the colour ends at the middle of the thumb, which travels 14px less than the track is long. */
 @utility range {
   width: 100%; height: 28px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer;
-  &::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: var(--slider); }
+  --filled: calc(7px + (100% - 14px) * var(--fill, 0));
+  &::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--accent) var(--filled), var(--slider) var(--filled)); }
   &::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 50%; background: var(--text); }
   &::-moz-range-track { height: 4px; border-radius: 4px; background: var(--slider); }
+  &::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--accent); }
   &::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--text); }
 }
 @utility no-scrollbar { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
