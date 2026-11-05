@@ -1,5 +1,5 @@
 // On a computer or a tablet: one bar floating over the page with going back, the places you chose, a search box that is
-// always there, and your account. There is no sidebar: the page gets the width, and your library lives in the deck.
+// always there, and your account. There is no sidebar: the page gets the width.
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { username } from "../lib/api";
@@ -7,6 +7,7 @@ import { initials } from "../lib/format";
 import { useRoomy } from "../lib/media";
 import { activePlace, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx } from "../lib/ui";
+import { useShown } from "../stores/connect";
 import { setSettings, useSettings } from "../stores/settings";
 import { useSearchText } from "../stores/ui";
 import { Icon } from "./Icon";
@@ -20,6 +21,7 @@ export function TopBar() {
   const chosen = useSettings((s) => s.tabs);
   const deck = useSettings((s) => s.nowPanel);
   const roomy = useRoomy();
+  const { song } = useShown();
   const input = useRef<HTMLInputElement>(null);
   const tabs = tabsFrom(chosen);
   const active = activePlace(tabs, pathname);
@@ -61,8 +63,8 @@ export function TopBar() {
           onChange={(e) => { useSearchText.setState({ text: e.target.value }); if (pathname !== "/search") navigate("/search"); }} />
         <kbd className="absolute right-3 hidden can-hover:block peer-focus:hidden font-sans text-[.75rem] font-semibold text-muted px-1.5 rounded-md shadow-[inset_0_0_0_1px_var(--line)]">/</kbd>
       </label>
-      {roomy && (
-        <button type="button" className={cx(plainButton, deck && "text-accent")} aria-label="Show or hide the deck" title="Now playing and your library" aria-pressed={deck} onClick={() => setSettings({ nowPanel: !deck })}>
+      {roomy && song && (
+        <button type="button" className={cx(plainButton, deck && "text-accent")} aria-label="Show or hide the deck" title="Now playing" aria-pressed={deck} onClick={() => setSettings({ nowPanel: !deck })}>
           <Icon name="panel" size={20} />
         </button>
       )}

@@ -1,6 +1,6 @@
 // On a phone, the mini player above the tab bar and the full-screen player that opens from it. On a tablet, a capsule
 // floating over the page that opens the same full-screen player. On a computer, the deck: a column of its own with what
-// is playing, what comes next and your library. All of them show this device or, when another is being controlled, that
+// is playing and what comes next. All of them show this device or, when another is being controlled, that
 // one; the controls go wherever the music is (see stores/connect.ts).
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
@@ -20,7 +20,6 @@ import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
 import { DeviceButton, openDevicePicker } from "./Devices";
 import { Icon, Ring } from "./Icon";
-import { LibraryPanel } from "./LibraryPanel";
 import { songMenu } from "./songs";
 
 const NEUTRAL = "60 60 70";
@@ -236,22 +235,15 @@ function DeckNow({ song }: { song: Song }) {
   );
 }
 
-/** A column of its own beside the page, on a screen with room. With nothing playing yet it is simply your library. */
-function Deck({ onClose }: { onClose: () => void }) {
-  const { song } = useShown();
-  const [tab, setTab] = useState<"now" | "library">("now");
-  const showing = song ? tab : "library";
-  const option = "tap flex-1 h-9 rounded-full font-semibold text-[.88rem] text-muted hover:text-text aria-pressed:bg-text aria-pressed:text-bg";
+/** A column of its own beside the page, on a screen with room, while something is playing. */
+function Deck({ song, onClose }: { song: Song; onClose: () => void }) {
   return (
-    <aside aria-label="Deck" className={cx("relative z-10 flex flex-col w-[clamp(320px,27vw,392px)] min-h-0 rounded-[28px] overflow-hidden", glass)}>
-      <header className="flex-none flex items-center gap-1.5 p-2.5">
-        <div className="flex-1 flex p-0.75 rounded-full bg-ghost" role="group" aria-label="Show">
-          {song && <button type="button" className={option} aria-pressed={showing === "now"} onClick={() => setTab("now")}>Playing</button>}
-          <button type="button" className={option} aria-pressed={showing === "library"} onClick={() => setTab("library")}>Your library</button>
-        </div>
+    <aside aria-label="Now playing" className={cx("relative z-10 flex flex-col w-[clamp(320px,27vw,392px)] min-h-0 rounded-[28px] overflow-hidden", glass)}>
+      <header className="flex-none flex items-center gap-1.5 pl-5 pr-2 pt-2 pb-1">
+        <b className="flex-1 min-w-0 truncate font-semibold text-[.88rem] text-muted" title={song.album}>{song.album || "Now playing"}</b>
         <button type="button" className={ui.iconButton} aria-label="Hide the deck" onClick={onClose}><span className="inline-flex -rotate-90"><Icon name="down" size={20} /></span></button>
       </header>
-      {showing === "now" && song ? <DeckNow song={song} /> : <LibraryPanel />}
+      <DeckNow song={song} />
     </aside>
   );
 }
@@ -264,7 +256,7 @@ export function Player() {
   const roomy = useRoomy();
   const panel = useSettings((s) => s.nowPanel);
   const [open, setOpen] = useState(false);
-  const deck = wide && roomy && panel;
+  const deck = wide && roomy && panel && Boolean(song);
   const capsule = wide && !deck && Boolean(song);
 
   // Any navigation (Go to artist, Go to album, a link) means the player must get out of the way
@@ -279,7 +271,7 @@ export function Player() {
   if (wide) {
     return (
       <>
-        {deck && <Deck onClose={() => setSettings({ nowPanel: false })} />}
+        {deck && song && <Deck song={song} onClose={() => setSettings({ nowPanel: false })} />}
         {capsule && <Capsule expanded={roomy} onOpen={roomy ? () => setSettings({ nowPanel: true }) : () => setOpen(true)} />}
         {!roomy && <NowPlaying open={open} onClose={() => setOpen(false)} />}
       </>

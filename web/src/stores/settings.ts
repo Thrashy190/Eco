@@ -18,7 +18,7 @@ export interface Settings {
   homeHidden: string[];
   tabs: string[]; // the tabs on a phone, and the places in the top bar elsewhere (see lib/nav.ts)
   libraryView: "grid" | "list"; // how albums and artists are listed
-  nowPanel: boolean; // on a big screen, the deck (what is playing and your library) stays beside the page
+  nowPanel: boolean; // on a big screen, the deck (what is playing) stays beside the page
 }
 
 export const DEFAULTS: Settings = {
