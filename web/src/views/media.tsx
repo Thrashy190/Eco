@@ -9,6 +9,7 @@ import { queryClient } from "../lib/query";
 import type { MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { Empty, Skeleton, Welcome } from "../components/common";
+import { Tile } from "../components/cards";
 import { SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { isAdmin } from "../stores/admin";
@@ -16,7 +17,7 @@ import { isActive, requestMedia, useJobs } from "../stores/downloads";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { saveOffline } from "../stores/saving";
-import { useOnline } from "../stores/settings";
+import { useOnline, useSettings } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 
 const IMPORT = "grid gap-3 px-4 pt-2 pb-6 wide:px-8 wide:max-w-190";
@@ -141,6 +142,7 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
   const items: MediaItem[] | undefined = online ? data
     : offline.list().filter((s) => s.kind === kind && s.mediaId).map((s) => ({ id: s.mediaId!, kind, title: s.title, channel: s.artist, duration: s.duration ?? 0, size: s.size }));
   const label = api.kindLabel(kind);
+  const view = useSettings((s) => s.libraryView);
 
   let body;
   if (online && isPending) body = <Skeleton rows={2} />;
@@ -153,7 +155,15 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
     );
   } else {
     const songs = items.map(api.mediaSong);
-    body = (
+    body = view === "grid" ? (
+      <div className={ui.grid}>
+        {items.map((item, i) => {
+          const percent = savedPercent(item);
+          return <Tile key={item.id} art={<SongCover song={songs[i]} size={300} className={cx(ui.coverBig, ui.cardCover)} />} title={item.title}
+            subtitle={[item.channel, percent ? `${percent}% played` : ""].filter(Boolean).join(" · ")} onOpen={() => player.play(songs, i)} onMenu={() => itemMenu(item, songs[i])} />;
+        })}
+      </div>
+    ) : (
       <ul className={ui.rows}>
         {items.map((item, i) => {
           const percent = savedPercent(item);

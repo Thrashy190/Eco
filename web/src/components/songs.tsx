@@ -14,9 +14,10 @@ import { isPinned, songEntry, togglePin } from "../stores/library";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline, useSaving } from "../stores/saving";
-import { isOnline } from "../stores/settings";
+import { isOnline, useSettings } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 import { artistTargets } from "./ArtistLinks";
+import { Tile } from "./cards";
 import { Picture, SongCover } from "./Cover";
 import { Icon, Ring } from "./Icon";
 import { useIncremental } from "./common";
@@ -82,6 +83,28 @@ export function SongList({ songs, numbered, hideAlbum, from }: { songs: Song[]; 
       <ul className={ui.rows}>
         {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} hideAlbum={hideAlbum} from={from} />)}
       </ul>
+      {sentinel}
+    </>
+  );
+}
+
+function SongTile({ song, list, index }: { song: Song; list: Song[]; index: number }) {
+  const navigate = useNavigate();
+  const { current } = useIsCurrent(song.id);
+  return (
+    <Tile art={<SongCover song={song} size={300} className={cx(ui.coverBig, ui.cardCover)} />} title={song.title} subtitle={song.artist} current={current}
+      onOpen={() => player.play(list, index)} onMenu={() => songMenu(song, navigate)} />
+  );
+}
+
+/** Songs in a section of the library, as the person chose to see the library: cards or rows. */
+export function LibrarySongs({ songs }: { songs: Song[] }) {
+  const view = useSettings((s) => s.libraryView);
+  const { visible, sentinel } = useIncremental(songs);
+  if (view === "list") return <SongList songs={songs} />;
+  return (
+    <>
+      <div className={ui.grid}>{visible.map((song, i) => <SongTile key={`${song.id}-${i}`} song={song} list={songs} index={i} />)}</div>
       {sentinel}
     </>
   );

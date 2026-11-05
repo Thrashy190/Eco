@@ -188,7 +188,7 @@ export function Settings() {
         <Group title="Layout">
           <HomeSettings />
           <TabSettings />
-          <Setting title="Albums and artists" description="How the library lists them"><Segmented name="libraryView" options={[["grid", "Grid"], ["list", "List"]]} /></Setting>
+          <Setting title="Library view" description="Cards or rows, in every section of the library"><Segmented name="libraryView" options={[["grid", "Grid"], ["list", "List"]]} /></Setting>
         </Group>
 
         <Group title="Playback">

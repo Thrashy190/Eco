@@ -51,6 +51,32 @@ export const SavedCard = ({ to, art, title, subtitle }: { to: string; art: React
   <Link className={ui.card} to={to}>{art}<b>{title}</b><span>{subtitle}</span></Link>
 );
 
+/** Anything in the library as a card: it opens or plays when tapped, and its menu sits on the picture. */
+export function Tile({ art, title, subtitle, onOpen, onMenu, menuLabel, current, round }: {
+  art: React.ReactNode;
+  title: string;
+  subtitle?: React.ReactNode;
+  onOpen: () => void;
+  onMenu?: () => void;
+  menuLabel?: string;
+  current?: boolean;
+  round?: boolean;
+}) {
+  return (
+    <div className={cx(round ? ui.cardArtist : ui.card, "cursor-pointer")} data-current={current || undefined} onClick={onOpen}>
+      <span className={ui.cardArt}>
+        {art}
+        {onMenu && (
+          <button type="button" className="tap absolute right-1.5 top-1.5 size-8 grid place-items-center rounded-full bg-glass-strong text-text backdrop-blur-xl can-hover:opacity-0 can-hover:group-hover/card:opacity-100 focus-visible:opacity-100"
+            aria-label={menuLabel ?? "More"} onClick={(e) => { e.stopPropagation(); onMenu(); }}><Icon name="more" size={18} /></button>
+        )}
+      </span>
+      <b className={current ? "text-accent" : undefined}>{title}</b>
+      <span>{subtitle}</span>
+    </div>
+  );
+}
+
 /** Pin or unpin what this page shows. */
 export function PinButton({ entry }: { entry: LibraryEntry }) {
   const { pins } = useLibraryState();
