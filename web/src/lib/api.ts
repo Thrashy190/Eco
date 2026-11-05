@@ -151,9 +151,17 @@ export async function getArtists(): Promise<Artist[]> {
   return (list.index ?? []).flatMap((group) => group.artist ?? []).map((a) => ({ id: a.id, name: a.name, cover: a.coverArt, albumCount: a.albumCount }));
 }
 
+/** The most Navidrome hands over at once. A library can hold far more albums, so they are asked for until none are left. */
+const ALBUMS_AT_ONCE = 500;
+
 export async function getAlbums(): Promise<Album[]> {
-  const list = (await subsonic("getAlbumList2", { type: "alphabeticalByName", size: 500 })).albumList2 as { album?: RawAlbum[] };
-  return (list.album ?? []).map(toAlbum);
+  const albums: Album[] = [];
+  for (let offset = 0; ; offset += ALBUMS_AT_ONCE) {
+    const list = (await subsonic("getAlbumList2", { type: "alphabeticalByName", size: ALBUMS_AT_ONCE, offset })).albumList2 as { album?: RawAlbum[] };
+    const page = list.album ?? [];
+    albums.push(...page.map(toAlbum));
+    if (page.length < ALBUMS_AT_ONCE) return albums;
+  }
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
