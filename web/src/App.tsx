@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect } from "react";
 import { HashRouter, NavLink, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router";
 import { useSession, whoAmI } from "./lib/api";
 import { useWide } from "./lib/media";
-import { activePlace, tabsFrom } from "./lib/nav";
+import { activePlace, pageKey, tabsFrom } from "./lib/nav";
 import { queryClient } from "./lib/query";
 import { Icon } from "./components/Icon";
 import { Ambient, Player } from "./components/Player";
@@ -67,7 +67,8 @@ function Shell() {
   const wide = useWide();
   useKeyboard(wide);
 
-  useLayoutEffect(() => { window.scrollTo(0, 0); }, [pathname]);
+  // A phone scrolls the window and a big screen the page itself; a section of the library keeps the same page
+  useLayoutEffect(() => { window.scrollTo(0, 0); document.getElementById("view")?.scrollTo(0, 0); }, [pathname]);
   useEffect(() => { closeSheet(); }, [pathname]);
   useEffect(() => {
     document.title = screen === "home" ? "Eco" : `${screen[0].toUpperCase()}${screen.slice(1).replace("-", " ")} · Eco`;
@@ -79,8 +80,8 @@ function Shell() {
       {/* The bar has its own row, so the page's scrollbar starts below it instead of running underneath */}
       <div className="wide:relative wide:flex wide:flex-col wide:gap-1 wide:min-w-0 wide:min-h-0">
         {wide && <TopBar />}
-        {/* Keyed by address, so a new page also starts scrolled to the top where the page itself is what scrolls */}
-        <main id="view" key={pathname}
+        {/* Keyed by page, so only a new page animates in, not a section of the same one */}
+        <main id="view" key={pageKey(pathname)}
           className="relative @container max-w-205 mx-auto min-h-screen pt-[calc(var(--safe-top)+6px)] pb-[calc(var(--tabs-h)+var(--safe-bottom)+24px)] animate-view-in in-[.has-player]:pb-[calc(var(--tabs-h)+var(--mini-h)+var(--safe-bottom)+32px)] wide:w-full wide:max-w-none wide:min-h-0 wide:flex-1 wide:overflow-y-auto wide:scroll-pt-3 wide:pt-3 wide:pb-10 wide:mask-[linear-gradient(to_bottom,transparent,black_12px)] wide:in-[.has-player]:pb-10 wide:in-[.has-capsule]:pb-28 wide:[scrollbar-width:thin] wide:[scrollbar-color:var(--surface-3)_transparent]">
           <div className="wide:max-w-[1400px] wide:mx-auto"><Outlet /></div>
         </main>

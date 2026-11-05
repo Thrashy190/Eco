@@ -36,6 +36,9 @@ export function tabsFrom(chosen: readonly string[] | undefined): Place[] {
   return fitting.map((id) => PLACES.find((p) => p.id === id)!);
 }
 
+/** Which page an address shows. The sections of the library are one page, so changing section leaves the title and chips alone. */
+export const pageKey = (pathname: string) => (pathname === "/library" || pathname.startsWith("/library/") ? "/library" : pathname);
+
 const LIBRARY_SCREENS = new Set(["library", "artist", "album", "catalog-album", "album-lookup", "playlist", "import"]);
 
 /** Which of the tabs stays lit on a screen: the one that leads exactly here, else Library for anything inside it. */

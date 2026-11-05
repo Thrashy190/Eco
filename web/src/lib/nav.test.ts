@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activePlace, homeOrder, moved, tabsFrom } from "./nav";
+import { activePlace, homeOrder, moved, pageKey, tabsFrom } from "./nav";
 
 describe("tabsFrom", () => {
   const ids = (chosen?: string[]) => tabsFrom(chosen).map((p) => p.id);
@@ -12,6 +12,17 @@ describe("tabsFrom", () => {
   it("fits a phone and ignores what no longer exists", () => {
     expect(ids(["home", "search", "gone", "library", "albums", "artists", "songs"])).toEqual(["home", "search", "library", "albums", "settings"]);
     expect(ids(["home", "home"])).toEqual(["home", "settings"]);
+  });
+});
+
+describe("pageKey", () => {
+  it("keeps the library on screen when changing section", () => {
+    expect(pageKey("/library/albums")).toBe(pageKey("/library"));
+    expect(pageKey("/library/songs")).toBe(pageKey("/library/albums"));
+  });
+  it("tells other pages apart", () => {
+    expect(pageKey("/album/1")).not.toBe(pageKey("/album/2"));
+    expect(pageKey("/library-old")).toBe("/library-old");
   });
 });
 
