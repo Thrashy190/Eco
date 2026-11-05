@@ -44,7 +44,7 @@
 **Listen**
 
 - A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
-- On a computer or a tablet the whole page takes the colour of the music, with a deck beside it for the song and what plays next.
+- The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
 - Make playlists from the songs you have, and add to them from any song's menu.
 - Paste a YouTube link to keep its audio as a podcast or an audiobook. Those remember where you stopped and play at your speed.

@@ -11,7 +11,7 @@ if (typeof window !== "undefined") {
   window.addEventListener("keydown", () => { lastPress = null; }, true); // opened from the keyboard: the middle of the screen
 }
 
-/** A menu: a sheet from below on a phone, a window in the middle on a tablet, and beside the pointer under a mouse. */
+/** A menu: a floating sheet from below on a phone, a window in the middle on a tablet, and beside the pointer under a mouse. */
 export function SheetHost() {
   const sheet = useSheet((s) => s.sheet);
   const [shown, setShown] = useState<SheetContent | null>(null);
@@ -54,10 +54,10 @@ export function SheetHost() {
       onClick={(e) => { if (e.target === e.currentTarget) closeSheet(); }}>
       <div ref={panel} role="dialog" aria-label={shown.title} style={at ?? undefined}
         className={cx(
-          "w-full max-w-130 px-2 pt-2 pb-[calc(var(--safe-bottom)+12px)] rounded-t-[22px] bg-surface transition-[transform,opacity] duration-200 ease-snap",
-          "wide:w-[min(100%-32px,340px)] wide:max-h-[80vh] wide:overflow-y-auto wide:p-1.5 wide:rounded-[18px] wide:shadow-[0_24px_60px_rgb(0_0_0/.5),inset_0_0_0_1px_var(--line)]",
+          "w-[calc(100%-16px)] max-w-130 max-h-[85dvh] overflow-y-auto mb-[calc(var(--safe-bottom)+8px)] p-2 rounded-[26px] bg-surface shadow-[0_24px_60px_rgb(0_0_0/.5),inset_0_0_0_1px_var(--line)] transition-[transform,opacity] duration-200 ease-snap",
+          "wide:w-[min(100%-32px,340px)] wide:max-h-[80vh] wide:mb-0 wide:p-1.5 wide:rounded-[18px]",
           at && "fixed",
-          open ? "translate-y-0 wide:opacity-100 wide:scale-100" : "translate-y-full wide:translate-y-2 wide:scale-[.98] wide:opacity-0",
+          open ? "translate-y-0 wide:opacity-100 wide:scale-100" : "translate-y-[110%] wide:translate-y-2 wide:scale-[.98] wide:opacity-0",
         )}>
         <div className="grid px-4 pt-3.5 pb-3 mb-1 border-b border-line [&>span]:text-muted [&>span]:text-[.88rem] wide:px-3 wide:py-2.5 [&>*]:truncate">
           <b>{shown.title}</b>{shown.subtitle && <span>{shown.subtitle}</span>}

@@ -46,7 +46,7 @@ export function PlaylistArt({ id, cover, size = 300, className = ui.cover }: { i
   const { covers } = useLibraryState();
   const version = covers[id];
   if (version) return <Picture src={playlistCoverUrl(id, version)} className={className} />;
-  if (id === FAVORITES_ID) return <div data-art="" className={cx(className, ui.favCover)}><Icon name="heart-fill" size={className === ui.coverHuge ? 72 : className === ui.coverBig ? 48 : 22} /></div>;
+  if (id === FAVORITES_ID) return <div data-art="" className={cx(className, ui.favCover)}><Icon name="heart-fill" size={className === ui.coverHuge ? 72 : className.startsWith(ui.coverBig) ? 48 : 22} /></div>;
   return <Picture src={coverUrl(cover, size)} className={className} />;
 }
 

@@ -29,7 +29,7 @@ function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font"
   );
 }
 
-const SEG = "flex p-0.75 gap-0.5 rounded-full bg-surface-2 [&>button]:flex-1 [&>button]:px-3 [&>button]:py-1.75 [&>button]:rounded-full [&>button]:font-[650] [&>button]:text-[.85rem] [&>button]:text-muted [&>button]:whitespace-nowrap [&>button[aria-pressed=true]]:bg-accent [&>button[aria-pressed=true]]:text-accent-ink [&>button[aria-pressed=true]]:shadow-[0_2px_10px_rgb(var(--glow)/.35)]";
+const SEG = "flex p-0.75 gap-0.5 rounded-full bg-ghost [&>button]:flex-1 [&>button]:px-3 [&>button]:py-1.75 [&>button]:rounded-full [&>button]:font-[650] [&>button]:text-[.85rem] [&>button]:text-muted [&>button]:whitespace-nowrap [&>button[aria-pressed=true]]:bg-accent [&>button[aria-pressed=true]]:text-accent-ink [&>button[aria-pressed=true]]:shadow-[0_2px_10px_rgb(var(--glow)/.35)]";
 const SWATCH = "relative size-9.5 rounded-full bg-(--c) shadow-[inset_0_0_0_2px_rgb(255_255_255/.18)] transition-transform duration-200 ease-spring active:scale-[.88] aria-pressed:scale-[1.12] aria-pressed:shadow-[0_0_0_3px_var(--bg),0_0_0_5px_var(--c)]";
 const REORDER_BUTTON = "tap size-9 grid place-items-center rounded-full text-muted flex-none disabled:opacity-25! hover:text-text";
 

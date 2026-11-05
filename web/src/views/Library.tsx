@@ -187,7 +187,7 @@ function FavoritesRow({ count }: { count?: number }) {
   const navigate = useNavigate();
   const view = useSettings((s) => s.libraryView);
   if (view === "grid") {
-    return <Tile art={<PlaylistArt id={FAVORITES_ID} className={ui.coverBig} />} title="Favorites" subtitle={count === undefined ? "Your favorite songs" : plural(count, "song")} onOpen={() => navigate(`/playlist/${FAVORITES_ID}`)} />;
+    return <Tile art={<PlaylistArt id={FAVORITES_ID} className={BIG} />} title="Favorites" subtitle={count === undefined ? "Your favorite songs" : plural(count, "song")} onOpen={() => navigate(`/playlist/${FAVORITES_ID}`)} />;
   }
   return (
     <li className={ui.row} onClick={() => navigate(`/playlist/${FAVORITES_ID}`)}>

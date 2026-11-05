@@ -87,7 +87,7 @@ export function OfflineBanner() {
 
 export function BackButton() {
   const navigate = useNavigate();
-  return <button className={ui.back} aria-label="Back" onClick={() => navigate(-1)}><Icon name="back" />Back</button>;
+  return <button className={ui.back} aria-label="Back" onClick={() => navigate(-1)}><Icon name="back" /></button>;
 }
 
 export const Pill = ({ icon, children, onClick }: { icon?: Parameters<typeof Icon>[0]["name"]; children: ReactNode; onClick?: () => void }) => (

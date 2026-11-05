@@ -111,9 +111,9 @@ export function Search() {
 
   return (
     <>
-      <div className="sticky top-0 z-10 flex items-center gap-2.5 px-4 py-3 bg-[linear-gradient(var(--page)_78%,transparent)] text-muted wide:hidden">
-        <span className="absolute left-8 pointer-events-none inline-flex"><Icon name="search" size={20} /></span>
-        <input type="search" className="flex-1 min-w-0 pl-11 pr-4 py-3.25 rounded-card border border-transparent bg-surface-2 text-text outline-none focus:border-accent" placeholder="Songs, artists, albums, or a YouTube link…" autoComplete="off" enterKeyHint="search" aria-label="Search"
+      <div className="sticky top-[calc(var(--safe-top)+8px)] z-10 flex items-center mx-3 my-2 text-muted wide:hidden">
+        <span className="absolute left-4 pointer-events-none inline-flex"><Icon name="search" size={20} /></span>
+        <input type="search" className="flex-1 min-w-0 pl-11 pr-4 py-3.25 rounded-full border border-transparent bg-glass-strong backdrop-blur-xl text-text outline-none shadow-[inset_0_0_0_1px_var(--line)] focus:border-accent" placeholder="Songs, artists, albums, or a YouTube link…" autoComplete="off" enterKeyHint="search" aria-label="Search"
           value={text} autoFocus={!opening && !isWide()} onChange={(e) => useSearchText.setState({ text: e.target.value })} />
       </div>
       <div className="wide:pt-2">{body}</div>

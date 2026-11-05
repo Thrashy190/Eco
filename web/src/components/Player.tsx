@@ -45,7 +45,7 @@ function VolumeSlider({ volume, className }: { volume: number; className?: strin
 
 function Hairline() {
   const ratio = player.useTime((t) => (t.length ? Math.min(t.position / t.length, 1) : 0));
-  return <i className="absolute inset-x-0 bottom-0 h-0.5 bg-accent origin-left" style={{ transform: `scaleX(${ratio})` }} />;
+  return <i className="absolute inset-x-5 bottom-0.5 h-0.5 rounded-full bg-accent origin-left" style={{ transform: `scaleX(${ratio})` }} />;
 }
 
 function SeekBar({ inline }: { inline?: boolean }) {
@@ -126,7 +126,7 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <section role="dialog" aria-label="Now playing" style={{ "--tint": tintOn ? tint : NEUTRAL } as React.CSSProperties}
       className={cx(
-        "fixed inset-0 z-50 flex flex-col items-center gap-4.5 overflow-y-auto px-6 pt-[calc(var(--safe-top)+10px)] pb-[calc(var(--safe-bottom)+28px)] [background:linear-gradient(180deg,rgb(var(--tint)/.6)_0%,transparent_62%),var(--bg)] transition-transform duration-240 ease-snap",
+        "fixed inset-0 z-50 flex flex-col items-center gap-4.5 overflow-y-auto px-6 pt-[calc(var(--safe-top)+10px)] pb-[calc(var(--safe-bottom)+28px)] [background:radial-gradient(130%_75%_at_50%_12%,rgb(var(--tint)/.8),transparent_72%),var(--bg)] transition-transform duration-240 ease-snap",
         "wide:grid wide:grid-cols-[minmax(0,440px)_minmax(0,400px)] wide:grid-rows-[auto_minmax(0,1fr)] wide:justify-center wide:items-start wide:gap-x-12 wide:gap-y-3 wide:overflow-hidden wide:pt-10 wide:[background:radial-gradient(90%_80%_at_20%_30%,rgb(var(--tint)/.75),transparent_70%),var(--bg)]",
         raised ? "translate-y-0" : "translate-y-full",
       )}>
@@ -136,14 +136,14 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
           ? <img key={art} src={art} alt="" className="w-[min(82vw,44vh,420px)] aspect-square rounded-big object-cover bg-surface-2 mx-auto mt-1 flex-none animate-art-in shadow-[0_24px_60px_rgb(var(--tint)/.55),0_4px_16px_rgb(0_0_0/.4)] wide:w-[min(40vw,54vh,420px)]" />
           : <div className="invisible w-[min(82vw,44vh,420px)] aspect-square mx-auto flex-none" />}
         <div className={cx("grid gap-0.5", column)}>
-          <h2 className="text-[1.45rem] font-extrabold tracking-[-.02em] leading-[1.15] wrap-anywhere wide:font-title wide:text-[2rem] wide:font-bold">{song.title}</h2>
+          <h2 className="font-title text-[1.7rem] font-bold tracking-[-.03em] leading-[1.1] wrap-anywhere wide:text-[2rem]">{song.title}</h2>
           <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
         </div>
         <div className={column}><SeekBar /></div>
         <div className={cx("flex items-center justify-between", column)}>
           <button className={ghost} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" /></button>
           <button className={ghost} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={30} /></button>
-          <button className="tap size-19 grid place-items-center rounded-full bg-text text-bg shadow-[0_8px_24px_rgb(0_0_0/.35)] active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={24} /> : <Icon name={playing ? "pause" : "play"} size={24} />}</button>
+          <button className="tap size-19 grid place-items-center rounded-full bg-accent text-accent-ink shadow-[0_12px_32px_rgb(var(--glow)/.35)] active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={24} /> : <Icon name={playing ? "pause" : "play"} size={24} />}</button>
           <button className={ghost} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={30} /></button>
           <button className={ghost} data-on={repeat !== "off" || undefined} data-mode={repeat} aria-label="Repeat" onClick={player.cycleRepeat}><Icon name="repeat" /></button>
         </div>
@@ -281,14 +281,14 @@ export function Player() {
   const button = "tap size-10 grid place-items-center rounded-full flex-none text-text active:bg-surface-2";
   return (
     <>
-      <div data-open-player="" className={cx("fixed z-25 inset-x-2 bottom-[calc(var(--tabs-h)+var(--safe-bottom)+8px)] max-w-201 mx-auto h-(--mini-h) flex items-center gap-3 pt-2.25 pr-2 pb-2.25 pl-2.25 overflow-hidden cursor-pointer rounded-[calc(var(--radius)+2px)] bg-glass-strong backdrop-blur-[22px] animate-slide-up", isRemote ? "shadow-[0_10px_30px_rgb(0_0_0/.4),inset_0_0_0_1.5px_var(--accent)]" : "shadow-[0_10px_30px_rgb(0_0_0/.4),inset_0_0_0_1px_var(--line)]")} onClick={() => setOpen(true)}>
-        <SongCover song={song} size={96} />
+      <div data-open-player="" className={cx("fixed z-25 inset-x-3 bottom-[calc(var(--tabs-h)+var(--safe-bottom)+6px)] max-w-140 mx-auto h-(--mini-h) flex items-center gap-3 py-2 pr-2 pl-2 overflow-hidden cursor-pointer rounded-[24px] bg-glass-strong backdrop-blur-2xl backdrop-saturate-150 animate-slide-up", isRemote ? "shadow-[0_12px_32px_rgb(0_0_0/.35),inset_0_0_0_1.5px_var(--accent)]" : "shadow-[0_12px_32px_rgb(0_0_0/.35),inset_0_0_0_1px_var(--line)]")} onClick={() => setOpen(true)}>
+        <SongCover song={song} size={96} className="size-12 rounded-2xl object-cover bg-surface-2 flex-none" />
         <div className={cx(lines, "flex-1")}>
           <b>{song.title}</b>
           {isRemote ? <span className={onDevice}>{`Playing on ${deviceName}`}</span> : <span>{song.artist}</span>}
         </div>
         <button className={cx(button, isRemote && "text-accent")} aria-label="Choose a device" onClick={(e) => { e.stopPropagation(); openDevicePicker(); }}><Icon name="devices" /></button>
-        <button className={button} aria-label={playing ? "Pause" : "Play"} onClick={(e) => { e.stopPropagation(); player.toggle(); }}>{loading ? <Ring percent={-1} size={24} /> : <Icon name={playing ? "pause" : "play"} size={24} />}</button>
+        <button className="tap size-11 grid place-items-center rounded-full flex-none bg-text text-bg active:scale-[.94]" aria-label={playing ? "Pause" : "Play"} onClick={(e) => { e.stopPropagation(); player.toggle(); }}>{loading ? <Ring percent={-1} size={24} /> : <Icon name={playing ? "pause" : "play"} size={20} />}</button>
         <button className={button} aria-label="Next" onClick={(e) => { e.stopPropagation(); player.next(); }}><Icon name="next" /></button>
         <Hairline />
       </div>
@@ -298,13 +298,12 @@ export function Player() {
 }
 
 /**
- * The room takes the colour of the music: on a big screen, a slow wash of the cover's colour behind everything. It reads
+ * The room takes the colour of the music: a slow wash of the cover's colour behind everything. It reads
  * the small cover the player has already fetched, and with "Colour the player" off only the accent colour shows. The same
- * colour feeds the accent when it is set to follow the album, which is why this also runs on a phone.
+ * colour feeds the accent when it is set to follow the album.
  */
 export function Ambient() {
   const { song } = useShown();
-  const wide = useWide();
   const tintOn = useSettings((s) => s.tint);
   const dynamic = useSettings((s) => s.dynamicAccent);
   const art = song && hasCover(song) ? songCover(song, 96) : "";
@@ -316,9 +315,8 @@ export function Ambient() {
   }, [known, tintOn]);
   useEffect(() => () => setCoverColor(null), []); // signed out: nothing is playing
   const wash = "absolute transition-colors duration-[1400ms] rounded-full";
-  if (!wide) return null;
   return (
-    <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none">
       <i className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />
       <i className={cx(wash, "-right-[20%] -bottom-[45%] size-[70vmax] opacity-[calc(var(--ambient)*.35)] bg-[rgb(var(--glow))] mask-[radial-gradient(closest-side,black,transparent)]")} />
     </div>
