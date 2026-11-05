@@ -63,6 +63,8 @@ type Song struct {
 	Size     int64  `json:"size"`    // of the file, in bytes
 	Suffix   string `json:"suffix"`  // the file's extension
 	Created  string `json:"created"` // when it joined the library; see newestFirst
+	Track    int    `json:"track"`
+	Disc     int    `json:"discNumber"`
 	// AlbumArtist is the artist of the album the song is on (an OpenSubsonic field).
 	AlbumArtist string `json:"displayAlbumArtist"`
 }

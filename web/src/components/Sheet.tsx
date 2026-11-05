@@ -69,7 +69,7 @@ export function SheetHost() {
         {shown.items.map((item, i) => (
           <button key={i} className={cx("tap flex items-center gap-3.5 w-full px-4 py-3.75 rounded-xl font-semibold text-left active:bg-surface-2 hover:bg-surface-2 wide:px-3 wide:py-2.5 wide:text-[.94rem]", item.danger && "text-danger")}
             onClick={() => { closeSheet(); item.run(); }}>
-            <Icon name={item.icon} size={20} />{item.label}
+            {item.icon ? <Icon name={item.icon} size={20} /> : <span className="size-5 flex-none" />}{item.label}
           </button>
         ))}
       </div>

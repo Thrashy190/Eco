@@ -6,6 +6,7 @@ import { useNavigate } from "react-router";
 import * as api from "../lib/api";
 import { clock } from "../lib/format";
 import { queryClient } from "../lib/query";
+import { sorted } from "../lib/sorting";
 import type { MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { Empty, Skeleton, Welcome } from "../components/common";
@@ -17,7 +18,7 @@ import { isActive, requestMedia, useJobs } from "../stores/downloads";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { saveOffline } from "../stores/saving";
-import { useOnline, useSettings } from "../stores/settings";
+import { useOnline, useSettings, useSort } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 
 const IMPORT = "grid gap-3 px-4 pt-2 pb-6 wide:px-8 wide:max-w-190";
@@ -138,9 +139,11 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
   const online = useOnline();
   offline.useOfflineVersion();
   const navigate = useNavigate();
+  const sort = useSort(kind);
   const { data, error, isPending } = useQuery({ queryKey: ["media", kind], queryFn: () => api.listMedia(kind), enabled: online });
-  const items: MediaItem[] | undefined = online ? data
+  const found: MediaItem[] | undefined = online ? data
     : offline.list().filter((s) => s.kind === kind && s.mediaId).map((s) => ({ id: s.mediaId!, kind, title: s.title, channel: s.artist, duration: s.duration ?? 0, size: s.size }));
+  const items = found && sorted(found, sort, (item) => ({ name: item.title, artist: item.channel, when: item.added_at, length: item.duration }));
   const label = api.kindLabel(kind);
   const view = useSettings((s) => s.libraryView);
 

@@ -133,7 +133,7 @@ export const toSong = (s: RawSong): Song => ({
 });
 export const toAlbum = (a: RawAlbum): Album => ({
   id: a.id, name: a.name, artist: readableArtists(a.artist), artistId: a.artistId ?? a.artist_id,
-  cover: a.coverArt ?? a.cover, songCount: a.songCount ?? a.song_count, year: a.year,
+  cover: a.coverArt ?? a.cover, songCount: a.songCount ?? a.song_count, year: a.year, added: a.created ? Date.parse(a.created) : undefined,
 });
 
 export async function getAlbum(id: string): Promise<AlbumDetail> {
@@ -165,8 +165,8 @@ export async function getAlbums(): Promise<Album[]> {
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
-  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string; readonly?: boolean }[] };
-  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt, readonly: p.readonly }));
+  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string; readonly?: boolean; changed?: string }[] };
+  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt, readonly: p.readonly, changed: p.changed ? Date.parse(p.changed) : undefined }));
 }
 
 export async function getPlaylist(id: string): Promise<PlaylistDetail> {
@@ -207,7 +207,7 @@ export const unstar = (id: string) => subsonic("unstar", { id });
 export const search = (q: string, signal?: AbortSignal) => eco<LibrarySearch>("search", { q }, "GET", signal);
 export const searchExternal = (q: string, signal?: AbortSignal) => eco<ExternalSearch>("search/external", { q }, "GET", signal);
 export const getHome = () => eco<HomeResponse>("home");
-export const getSongs = (offset: number, limit: number) => eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit });
+export const getSongs = (offset: number, limit: number, sort = "added") => eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit, sort });
 export const discover = (artist: string) => eco<DiscoverResponse>("discover", { artist });
 export const lookupArtist = (name: string) => eco<{ id: string; name: string }>("artists/lookup", { name });
 export const requestDownload = (id: string) => eco<Job>("download", { id }, "POST");

@@ -12,6 +12,7 @@ const ICONS = {
   next: <path className="fill-current stroke-none" d="M5 5.2v13.6L15 12zM17 5h2.2v14H17z" />,
   prev: <path className="fill-current stroke-none" d="M19 5.2v13.6L9 12zM7 5H4.8v14H7z" />,
   download: <path d="M12 4v11m0 0 4.2-4.2M12 15l-4.2-4.2M5 20h14" />,
+  sort: <path d="M4 7h16M7 12h10M10 17h4" />,
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   more: <><circle className="fill-current stroke-none" cx="5" cy="12" r="1.7" /><circle className="fill-current stroke-none" cx="12" cy="12" r="1.7" /><circle className="fill-current stroke-none" cx="19" cy="12" r="1.7" /></>,
   down: <path d="m6 9 6 6 6-6" />,

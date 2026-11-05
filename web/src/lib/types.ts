@@ -41,6 +41,7 @@ export interface Album {
   cover?: string;
   songCount?: number;
   year?: number;
+  added?: number; // milliseconds; missing where Navidrome was not asked
 }
 
 export interface RawAlbum {
@@ -54,6 +55,7 @@ export interface RawAlbum {
   songCount?: number;
   song_count?: number;
   year?: number;
+  created?: string;
 }
 
 export interface AlbumDetail extends Album {
@@ -81,6 +83,7 @@ export interface Playlist {
   songCount: number;
   cover?: string;
   readonly?: boolean; // its songs cannot be changed, see openAddToPlaylist
+  changed?: number; // milliseconds
 }
 
 export interface PlaylistDetail {
@@ -181,6 +184,7 @@ export interface MediaItem {
   channel: string;
   duration: number;
   size?: number;
+  added_at?: number;
 }
 
 export interface MediaPreview {

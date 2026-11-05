@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { accentFromCover, luminance, type Rgb } from "../lib/color";
 import { DEFAULT_TABS } from "../lib/nav";
+import { sortOption } from "../lib/sorting";
 
 export interface Settings {
   theme: "system" | "dark" | "light" | "black";
@@ -20,12 +21,13 @@ export interface Settings {
   homeHidden: string[];
   tabs: string[]; // the tabs on a phone, and the places in the top bar elsewhere (see lib/nav.ts)
   libraryView: "grid" | "list"; // how albums and artists are listed
+  librarySort: Record<string, string>; // the chosen order of each section of the library (see lib/sorting.ts)
   nowPanel: boolean; // on a big screen, the deck (what is playing) stays beside the page
 }
 
 export const DEFAULTS: Settings = {
   theme: "system", accent: "#7cf0c0", dynamicAccent: false, tint: true, density: "comfortable", corners: "soft", motion: "full", scrobble: true, offlineMode: false,
-  font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", nowPanel: true,
+  font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, nowPanel: true,
 };
 
 export const ACCENTS: [string, string][] = [
@@ -56,6 +58,9 @@ export function setSettings(patch: Partial<Settings>): void {
   write(keyFor(user), settings());
   apply();
 }
+
+/** The order chosen for a section of the library. */
+export const useSort = (section: string) => sortOption(section, useSettings((s) => s.librarySort)[section]);
 
 /** Back to the original look and layout. Offline mode and whether plays are counted are not about looks. */
 export const resetSettings = () => setSettings({ ...DEFAULTS, scrobble: settings().scrobble, offlineMode: settings().offlineMode });

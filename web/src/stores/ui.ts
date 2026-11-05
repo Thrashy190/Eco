@@ -16,7 +16,7 @@ export function toast(message: string): void {
 }
 
 export interface SheetItem {
-  icon: IconName;
+  icon?: IconName; // without one the label still lines up with the others
   label: string;
   danger?: boolean;
   run: () => void;

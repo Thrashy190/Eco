@@ -16,7 +16,7 @@ const snapshotTTL = 30 * time.Second
 type snapshot struct {
 	at      time.Time
 	songs   []subsonic.Song            // sorted by title
-	newest  []subsonic.Song            // the same songs, the most recently added first
+	orders  map[string][]subsonic.Song // the same songs in each order /api/songs offers
 	byTitle map[string][]subsonic.Song // normalised title → songs with that title
 }
 
@@ -84,7 +84,7 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		}
 		return songs[i].Artist < songs[j].Artist
 	})
-	sn := &snapshot{at: time.Now(), songs: songs, newest: newestFirst(songs), byTitle: map[string][]subsonic.Song{}}
+	sn := &snapshot{at: time.Now(), songs: songs, orders: orderSongs(songs), byTitle: map[string][]subsonic.Song{}}
 	for _, song := range songs {
 		t := match.Norm(song.Title)
 		sn.byTitle[t] = append(sn.byTitle[t], song)
@@ -93,6 +93,55 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 	s.lib = sn
 	s.mu.Unlock()
 	return sn, nil
+}
+
+// defaultSongOrder is what /api/songs uses when asked for nothing, or for an order it does not know.
+const defaultSongOrder = "added"
+
+// orderSongs prepares every order /api/songs offers. The names are the ones in web/src/lib/sorting.ts. Songs must come
+// sorted by title, which is also the last resort of the other orders. Within an album, songs keep the album's order.
+func orderSongs(songs []subsonic.Song) map[string][]subsonic.Song {
+	type words struct{ artist, album string }
+	norm := make(map[string]words, len(songs))
+	for _, song := range songs {
+		norm[song.ID] = words{match.Norm(song.Artist), match.Norm(song.Album)}
+	}
+	sorted := func(less func(a, b subsonic.Song) bool) []subsonic.Song {
+		out := append([]subsonic.Song(nil), songs...)
+		sort.SliceStable(out, func(i, j int) bool { return less(out[i], out[j]) })
+		return out
+	}
+	inAlbum := func(a, b subsonic.Song) bool {
+		if a.Disc != b.Disc {
+			return a.Disc < b.Disc
+		}
+		return a.Track < b.Track
+	}
+	return map[string][]subsonic.Song{
+		defaultSongOrder: newestFirst(songs),
+		"title":          songs,
+		"artist": sorted(func(a, b subsonic.Song) bool {
+			x, y := norm[a.ID], norm[b.ID]
+			if x.artist != y.artist {
+				return x.artist < y.artist
+			}
+			if x.album != y.album {
+				return x.album < y.album
+			}
+			return inAlbum(a, b)
+		}),
+		"album": sorted(func(a, b subsonic.Song) bool {
+			x, y := norm[a.ID], norm[b.ID]
+			if x.album != y.album {
+				return x.album < y.album
+			}
+			if a.AlbumID != b.AlbumID { // two albums with one name stay apart
+				return a.AlbumID < b.AlbumID
+			}
+			return inAlbum(a, b)
+		}),
+		"length": sorted(func(a, b subsonic.Song) bool { return a.Duration > b.Duration }),
+	}
 }
 
 // newestFirst orders songs by when they joined the library. Songs with the same date keep the order they came in, and

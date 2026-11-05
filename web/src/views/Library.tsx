@@ -1,14 +1,15 @@
 // The library. It opens on Recent, as Spotify does: Favorites first, then what you pinned, then what you opened or
 // played lately, whatever it is. The chips filter down to one kind of thing.
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, Navigate, useNavigate, useParams } from "react-router";
 import { getAlbums, getArtists, getPlaylists, getSongs, getStarred, toSong } from "../lib/api";
 import { plural } from "../lib/format";
 import { scrollRoot } from "../lib/media";
-import type { Album, CollectionRecord, LibraryEntry, MediaKind, Playlist } from "../lib/types";
+import { SORTS, sorted, type SortKeys } from "../lib/sorting";
+import type { Album, Artist, CollectionRecord, LibraryEntry, MediaKind, Playlist, Song } from "../lib/types";
 import { AlbumCard, ArtistCard, SavedCard, Tile } from "../components/cards";
-import { Empty, OfflineBanner, Pill, Section, Skeleton, Welcome } from "../components/common";
+import { Empty, OfflineBanner, Pill, Section, Skeleton, useIncremental, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { LibrarySongs, SavedStatus } from "../components/songs";
@@ -21,7 +22,7 @@ import {
 } from "../stores/library";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
-import { setSettings, useOnline, useSettings } from "../stores/settings";
+import { setSettings, settings, useOnline, useSettings, useSort } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 import { CollectionCover } from "./Home";
 import { MediaLibrary } from "./media";
@@ -45,7 +46,10 @@ export function Library() {
     <>
       <header className={cx(ui.heroCompact, "flex items-center justify-between gap-3")}>
         <h1>Library</h1>
-        <ViewToggle />
+        <div className="flex items-center gap-2 min-w-0">
+          {active in SORTS && <SortButton section={active} />}
+          <ViewToggle />
+        </div>
       </header>
       {!online && <OfflineBanner />}
       <nav className={ui.segments} aria-label="Library sections">
@@ -65,6 +69,21 @@ export function Library() {
         {active === "offline" && <DownloadsTab />}
       </div>
     </>
+  );
+}
+
+/** Each section remembers its own order. In the header, so the page below does not move when it comes and goes. */
+function SortButton({ section }: { section: string }) {
+  const option = useSort(section);
+  const choose = () => openSheet("Sort by", undefined, SORTS[section].map((one) => ({
+    icon: one.id === option.id ? ("check" as const) : undefined,
+    label: one.label,
+    run: () => setSettings({ librarySort: { ...settings().librarySort, [section]: one.id } }),
+  })));
+  return (
+    <button type="button" className={cx(ui.pill, "min-w-0")} aria-label={`Sort by: ${option.label}`} title="Sort by" onClick={choose}>
+      <Icon name="sort" size={16} /><span className="truncate">{option.label}</span>
+    </button>
   );
 }
 
@@ -218,12 +237,18 @@ function Listing({ children }: { children: ReactNode }) {
   return view === "grid" ? <div className={ui.grid}>{children}</div> : <ul className={ui.rows}>{children}</ul>;
 }
 
+const savedKeys = (c: CollectionRecord): SortKeys => ({ name: c.title, artist: c.subtitle, when: c.savedAt, count: c.songIds.length });
+const playlistKeys = (p: Playlist): SortKeys => ({ name: p.name, when: p.changed, count: p.songCount });
+const albumKeys = (a: Album): SortKeys => ({ name: a.name, artist: a.artist, when: a.added, year: a.year || undefined, count: a.songCount });
+const artistKeys = (a: Artist): SortKeys => ({ name: a.name, count: a.albumCount });
+
 function PlaylistsTab() {
   const online = useOnline();
+  const sort = useSort("playlists");
   const lists = useQuery({ queryKey: ["playlists"], queryFn: getPlaylists, enabled: online });
   const favorites = useQuery({ queryKey: ["favorites"], queryFn: getStarred, enabled: online });
   if (!online) {
-    const saved = offline.collectionList("playlist").filter((c) => c.complete);
+    const saved = sorted(offline.collectionList("playlist").filter((c) => c.complete), sort, savedKeys);
     return (
       <Listing>
         <FavoritesRow count={offline.collection(FAVORITES_ID)?.songIds.length} />
@@ -236,7 +261,7 @@ function PlaylistsTab() {
       <div className={ui.actions}><Link className={ui.pill} data-on="" to="/playlist/new"><Icon name="plus" size={16} />New playlist</Link><Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import a playlist</Link></div>
       <Listing>
         <FavoritesRow count={favorites.data?.length} />
-        {lists.data?.map((p) => <PlaylistRow key={p.id} playlist={p} />)}
+        {lists.data && sorted(lists.data, sort, playlistKeys).map((p) => <PlaylistRow key={p.id} playlist={p} />)}
       </Listing>
       {lists.isPending && <Skeleton rows={3} />}
       {lists.error && <Empty>{lists.error.message}</Empty>}
@@ -249,9 +274,12 @@ function PlaylistsTab() {
 function AlbumsTab() {
   const online = useOnline();
   const view = useSettings((s) => s.libraryView);
+  const sort = useSort("albums");
   const { data, error, isPending } = useQuery<Album[]>({ queryKey: ["albums"], queryFn: getAlbums, enabled: online });
+  const albums = useMemo(() => sorted(data ?? [], sort, albumKeys), [data, sort]);
+  const { visible, sentinel } = useIncremental(albums); // a library can hold thousands
   if (!online) {
-    const saved = offline.collectionList("album").filter((c) => c.complete);
+    const saved = sorted(offline.collectionList("album").filter((c) => c.complete), sort, savedKeys);
     if (!saved.length) return <Empty>No albums are downloaded.</Empty>;
     return <div className={ui.grid}>{saved.map((c) => <SavedCard key={c.id} to={offline.collectionRoute(c.id)} art={<CollectionCover id={c.id} className={cx(ui.coverBig, ui.cardCover)} />} title={c.title} subtitle={c.subtitle} />)}</div>;
   }
@@ -260,21 +288,26 @@ function AlbumsTab() {
   if (!data.length) return <Empty>No albums yet.</Empty>;
   if (view === "list") {
     return (
-      <ul className={ui.rows}>
-        {data.map((a) => (
-          <li key={a.id} className={ui.row}><Link className={ui.rowLink} to={`/album/${a.id}`}>
-            <Picture src={coverUrl(a.cover, 96)} />
-            <div className={ui.text}><b>{a.name}</b><span>{[a.artist, a.year].filter(Boolean).join(" · ")}</span></div>
-          </Link></li>
-        ))}
-      </ul>
+      <>
+        <ul className={ui.rows}>
+          {visible.map((a) => (
+            <li key={a.id} className={ui.row}><Link className={ui.rowLink} to={`/album/${a.id}`}>
+              <Picture src={coverUrl(a.cover, 96)} />
+              <div className={ui.text}><b>{a.name}</b><span>{[a.artist, a.year].filter(Boolean).join(" · ")}</span></div>
+            </Link></li>
+          ))}
+        </ul>
+        {sentinel}
+      </>
     );
   }
-  return <div className={ui.grid}>{data.map((a) => <AlbumCard key={a.id} album={a} />)}</div>;
+  return <><div className={ui.grid}>{visible.map((a) => <AlbumCard key={a.id} album={a} />)}</div>{sentinel}</>;
 }
 
 function ArtistsTab() {
-  const { data, error, isPending } = useQuery({ queryKey: ["artists"], queryFn: async () => (await getArtists()).sort((a, b) => a.name.localeCompare(b.name)) });
+  const sort = useSort("artists");
+  const { data, error, isPending } = useQuery({ queryKey: ["artists"], queryFn: getArtists });
+  const artists = useMemo(() => sorted(data ?? [], sort, artistKeys), [data, sort]);
   const [filter, setFilter] = useState("");
   const view = useSettings((s) => s.libraryView);
   if (isPending) return <Skeleton />;
@@ -287,7 +320,7 @@ function ArtistsTab() {
       {view === "list"
         ? (
           <ul className={ui.rows}>
-            {data.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => (
+            {artists.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => (
               <li key={a.id} className={ui.row}><Link className={ui.rowLink} to={`/artist/${a.id}`}>
                 <ArtistAvatar name={a.name} cover={a.cover} size={96} className={ui.avatarSmall} />
                 <div className={ui.text}><b>{a.name}</b><span>{a.albumCount !== undefined ? plural(a.albumCount, "album") : "Artist"}</span></div>
@@ -295,7 +328,7 @@ function ArtistsTab() {
             ))}
           </ul>
         )
-        : <div className={ui.grid}>{data.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>}
+        : <div className={ui.grid}>{artists.filter((a) => a.name.toLowerCase().includes(needle)).map((a) => <ArtistCard key={a.id} artist={a} />)}</div>}
     </>
   );
 }
@@ -303,9 +336,12 @@ function ArtistsTab() {
 const PAGE = 100;
 
 function SongsTab() {
+  const sort = useSort("songs");
+  // The library is too big to send whole, so the server sorts it. The list stays on screen until the new order arrives.
   const { data, error, isPending, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["songs"],
-    queryFn: ({ pageParam }) => getSongs(pageParam, PAGE),
+    queryKey: ["songs", sort.id],
+    queryFn: ({ pageParam }) => getSongs(pageParam, PAGE, sort.id),
+    placeholderData: keepPreviousData,
     initialPageParam: 0,
     getNextPageParam: (last, _pages, lastParam) => (last.has_more ? lastParam + PAGE : undefined),
   });
@@ -332,11 +368,13 @@ function SongsTab() {
 
 function DownloadsTab() {
   const version = offline.useOfflineVersion();
+  const sort = useSort("offline");
   const [space, setSpace] = useState<{ used: number; quota: number } | null>(null);
   useEffect(() => { void offline.usage().then(setSpace); }, [version]);
-  const collections = offline.collectionList().filter((c) => c.complete);
-  const saved = offline.list().filter((s) => !s.kind);
-  const spoken = offline.list().filter((s) => s.kind);
+  const songKeys = (s: Song): SortKeys => ({ name: s.title, artist: s.artist });
+  const collections = sorted(offline.collectionList().filter((c) => c.complete), sort, savedKeys);
+  const saved = sorted(offline.list().filter((s) => !s.kind), sort, songKeys);
+  const spoken = sorted(offline.list().filter((s) => s.kind), sort, songKeys);
   if (!collections.length && !saved.length && !spoken.length) {
     return (
       <Welcome title="Nothing downloaded yet">

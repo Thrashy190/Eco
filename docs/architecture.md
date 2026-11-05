@@ -61,7 +61,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET`, `PUT`, `DELETE /api/covers/playlists/{id}` | the picture you chose for a playlist (or `favorites`). `PUT` takes a JPEG of at most 2 MB |
 | `GET /api/discover?artist=` | songs by that artist that are not in your library |
 | `GET /api/home` | newest, recently played and most played albums, random songs, recent downloads |
-| `GET /api/songs?offset=&limit=` | the whole library, the most recently added first, paged |
+| `GET /api/songs?offset=&limit=&sort=` | the whole library, paged. `sort` is `added` (the default), `title`, `artist`, `album` or `length` |
 | `POST /api/download?id=` | queue a download; repeated calls for the same song return the same job |
 | `POST /api/imports/parse?name=` | read a file (the body) and say which lists it holds, saving nothing |
 | `POST /api/imports` · `GET /api/imports`, `/api/imports/{id}` | make or update a playlist from a list (JSON: `name`, `rows`); list them; one, with each song and whether you have it |
