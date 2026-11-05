@@ -31,7 +31,7 @@ function Spotlight({ list }: { list: RawAlbum[] }) {
   const start = () => void getAlbum(first.id).then((whole) => player.play(whole.songs, 0, albumEntry(whole))).catch((e: Error) => toast(e.message));
   return (
     <section className={cx(ui.block, "mt-2! mt-0! px-4 grid gap-3.5 wide:px-8 wide:gap-5 @4xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]")}>
-      <div className="relative isolate overflow-hidden flex items-end gap-4 min-h-52 p-4 rounded-[28px] wide:gap-5 wide:min-h-64 wide:p-5 bg-surface-2 shadow-[inset_0_0_0_1px_var(--line)]">
+      <div className="relative isolate overflow-hidden flex items-center gap-4 p-4 rounded-[28px] wide:items-end wide:gap-5 wide:min-h-64 wide:p-5 bg-surface-2 shadow-[inset_0_0_0_1px_var(--line)]">
         <Picture src={coverUrl(first.cover, 96)} className="absolute inset-0 -z-10 size-full object-cover scale-125 blur-2xl saturate-150 opacity-60" />
         <Link to={`/album/${first.id}`} className="flex-none w-[clamp(112px,36%,200px)]" aria-label={first.name}>
           <Picture src={coverUrl(first.cover, 400)} className="w-full h-auto aspect-square rounded-big object-cover bg-surface-3 shadow-[0_18px_40px_rgb(0_0_0/.45)]" />
