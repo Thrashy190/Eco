@@ -157,13 +157,13 @@ export async function getAlbums(): Promise<Album[]> {
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
-  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string }[] };
-  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt }));
+  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string; readonly?: boolean }[] };
+  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt, readonly: p.readonly }));
 }
 
 export async function getPlaylist(id: string): Promise<PlaylistDetail> {
-  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; owner?: string; coverArt?: string; entry?: RawSong[] };
-  return { id: p.id, name: p.name, owner: p.owner, cover: p.coverArt, songs: (p.entry ?? []).map(toSong) };
+  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; owner?: string; coverArt?: string; readonly?: boolean; entry?: RawSong[] };
+  return { id: p.id, name: p.name, owner: p.owner, cover: p.coverArt, readonly: p.readonly, songs: (p.entry ?? []).map(toSong) };
 }
 
 /** Every ID travels in the address, and addresses have a limit, so long lists go a part at a time. */

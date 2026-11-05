@@ -12,7 +12,7 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(message: string): void {
   useToast.setState({ message, visible: true });
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => useToast.setState({ visible: false }), 3600);
+  toastTimer = setTimeout(() => useToast.setState({ visible: false }), Math.max(3600, message.length * 70)); // time to read it
 }
 
 export interface SheetItem {

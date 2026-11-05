@@ -80,6 +80,7 @@ export interface Playlist {
   owner?: string;
   songCount: number;
   cover?: string;
+  readonly?: boolean; // its songs cannot be changed, see openAddToPlaylist
 }
 
 export interface PlaylistDetail {
@@ -87,6 +88,7 @@ export interface PlaylistDetail {
   name: string;
   owner?: string;
   cover?: string;
+  readonly?: boolean;
   songs: Song[];
 }
 

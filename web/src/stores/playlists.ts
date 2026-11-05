@@ -19,6 +19,12 @@ const askName = (current = "") => prompt("Playlist name", current)?.trim() ?? ""
 /** The playlists this person can add songs to. Others may share theirs, but those are only for listening. */
 const myPlaylists = async () => (await queryClient.fetchQuery({ queryKey: ["playlists"], queryFn: getPlaylists })).filter((p) => p.owner === username());
 
+/**
+ * Navidrome keeps a playlist imported from a .m3u file identical to that file and refuses to change its songs, even for
+ * its owner, answering "not authorized". It stays in the menu, or it would look lost, and says what to do.
+ */
+const followsItsFile = (name: string) => `“${name}” follows its .m3u file. Turn off Auto-import for it in Navidrome to change its songs.`;
+
 export async function openAddToPlaylist(song: Song): Promise<void> {
   let lists;
   try { lists = await myPlaylists(); } catch (e) { toast((e as Error).message); return; }
@@ -27,7 +33,7 @@ export async function openAddToPlaylist(song: Song): Promise<void> {
     ...lists.map((list) => ({
       icon: "queue" as const,
       label: list.name,
-      run: () => void addToPlaylist(list.id, [song.id]).then(() => { playlistsChanged(list.id); toast(`Added to ${list.name}`); }).catch((e: Error) => toast(e.message)),
+      run: () => list.readonly ? toast(followsItsFile(list.name)) : void addToPlaylist(list.id, [song.id]).then(() => { playlistsChanged(list.id); toast(`Added to ${list.name}`); }).catch((e: Error) => toast(e.message)),
     })),
   ]);
 }

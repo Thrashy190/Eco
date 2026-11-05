@@ -191,15 +191,16 @@ function RegularPlaylist({ id }: { id: string }) {
 
   if (playlist) {
     const mine = playlist.owner === username();
+    const editable = mine && !playlist.readonly; // the name of a playlist that follows a file can change, its songs cannot
     const menu = () => openSheet(playlist.name, "Playlist", [
       { icon: "pencil", label: "Rename", run: () => void rename(id, playlist.name) },
       { icon: "trash", label: "Delete playlist", danger: true, run: () => void remove(entry!, playlist.songs.length, pins).then((gone) => { if (gone) navigate("/library/playlists", { replace: true }); }) },
     ]);
     return (
-      <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={`Playlist · ${plural(playlist.songs.length, "song")}`}
+      <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={`Playlist · ${plural(playlist.songs.length, "song")}${mine && playlist.readonly ? " · follows its .m3u file" : ""}`}
         songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!}
-        extra={mine && <><Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link><button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
-        rowMenu={mine ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
+        extra={mine && <>{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
+        rowMenu={editable ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
     );
   }
   if (online && isPending) return <Skeleton />;
