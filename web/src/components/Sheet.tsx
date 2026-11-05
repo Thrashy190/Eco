@@ -19,7 +19,9 @@ export function SheetHost() {
   const panel = useRef<HTMLDivElement>(null);
   const [at, setAt] = useState<{ left: number; top: number } | null>(null);
 
-  useEffect(() => {
+  // Before the next frame, or that frame could open the menu first: it then appeared at once with the dimmed page of a
+  // phone, which faded away when the menu found out it goes beside the pointer. The whole app seemed to blink.
+  useLayoutEffect(() => {
     if (sheet) {
       setShown(sheet);
       const frame = requestAnimationFrame(() => setOpen(true));
@@ -37,10 +39,12 @@ export function SheetHost() {
     return () => window.removeEventListener("keydown", onKey);
   }, [shown]);
 
-  // Measured before it is painted, and kept inside the window whichever corner the press was in
+  // Measured before it is painted, and kept inside the window whichever corner the press was in. Reading the size also
+  // settles the closed look, which opening animates from. Its offset size ignores the scale of that look.
   useLayoutEffect(() => {
-    if (!shown || !panel.current || !lastPress || !isWide()) { setAt(null); return; }
-    const { width, height } = panel.current.getBoundingClientRect();
+    if (!shown || !panel.current) { setAt(null); return; }
+    const { offsetWidth: width, offsetHeight: height } = panel.current;
+    if (!lastPress || !isWide()) { setAt(null); return; }
     const margin = 12;
     setAt({
       left: Math.max(margin, Math.min(lastPress.x - width + 24, innerWidth - width - margin)),
