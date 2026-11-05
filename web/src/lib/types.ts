@@ -77,6 +77,7 @@ export interface ArtistDetail {
 export interface Playlist {
   id: string;
   name: string;
+  owner?: string;
   songCount: number;
   cover?: string;
 }
@@ -84,6 +85,7 @@ export interface Playlist {
 export interface PlaylistDetail {
   id: string;
   name: string;
+  owner?: string;
   cover?: string;
   songs: Song[];
 }

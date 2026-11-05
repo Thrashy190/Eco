@@ -25,6 +25,7 @@ import { Home } from "./views/Home";
 import { ImportDetailView, ImportView } from "./views/Import";
 import { Library } from "./views/Library";
 import { Login } from "./views/Login";
+import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
 
@@ -124,7 +125,9 @@ function SignedIn({ user }: { user: string }) {
           <Route path="catalog-album/:id" element={<CatalogAlbumView />} />
           <Route path="album-lookup" element={<AlbumLookup />} />
           <Route path="spotify-album/:id" element={<OldAlbumAddress />} />
+          <Route path="playlist/new" element={<NewPlaylist />} />
           <Route path="playlist/:id" element={<PlaylistView />} />
+          <Route path="playlist/:id/add" element={<AddSongs />} />
           <Route path="import" element={<ImportView />} />
           <Route path="import/:id" element={<ImportDetailView />} />
           <Route path="cleanup" element={<Cleanup />} />

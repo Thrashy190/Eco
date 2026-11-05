@@ -15,14 +15,15 @@ import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline, useSaving } from "../stores/saving";
 import { isOnline, useSettings } from "../stores/settings";
-import { openSheet, toast } from "../stores/ui";
+import { openAddToPlaylist } from "../stores/playlists";
+import { openSheet, toast, type SheetItem } from "../stores/ui";
 import { artistTargets } from "./ArtistLinks";
 import { Tile } from "./cards";
 import { Picture, SongCover } from "./Cover";
 import { Icon, Ring } from "./Icon";
 import { useIncremental } from "./common";
 
-export function songMenu(song: Song, navigate: NavigateFunction): void {
+export function songMenu(song: Song, navigate: NavigateFunction, extra: SheetItem[] = []): void {
   const starred = isStarred(song);
   const saved = offline.isSaved(song.id);
   const isMusic = !song.mediaId; // favorites and pins are for songs in the library
@@ -33,6 +34,8 @@ export function songMenu(song: Song, navigate: NavigateFunction): void {
     isMusic && isOnline() && { icon: pinned ? "pin-fill" : "pin", label: pinned ? "Unpin from your library" : "Pin to your library", run: () => void togglePin(songEntry(song)) },
     { icon: "play", label: "Play next", run: () => player.playNext(song) },
     { icon: "queue", label: "Add to queue", run: () => player.enqueue(song) },
+    isMusic && isOnline() && { icon: "plus", label: "Add to playlist", run: () => void openAddToPlaylist(song) },
+    ...extra,
     saved
       ? { icon: "trash", label: "Remove from this device", danger: true, run: () => void removeOffline(song) }
       : { icon: "offline", label: "Save for offline", run: () => void saveOffline(song) },
@@ -58,10 +61,11 @@ interface SongRowProps {
   numbered?: boolean;
   hideAlbum?: boolean;
   from?: LibraryEntry;
+  rowMenu?: (song: Song, index: number) => SheetItem[];
 }
 
 /** A song in the library. Tapping it plays the whole list from here. */
-export function SongRow({ song, list, index, numbered, hideAlbum, from }: SongRowProps) {
+export function SongRow({ song, list, index, numbered, hideAlbum, from, rowMenu }: SongRowProps) {
   const navigate = useNavigate();
   const { current, playing } = useIsCurrent(song.id);
   return (
@@ -71,17 +75,17 @@ export function SongRow({ song, list, index, numbered, hideAlbum, from }: SongRo
       {!hideAlbum && <span className={ui.colAlbum}>{song.album}</span>}
       <SavedStatus id={song.id} />
       <span className={ui.time}>{song.duration ? clock(song.duration) : ""}</span>
-      <button className={ui.rowMore} aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate); }}><Icon name="more" size={20} /></button>
+      <button className={ui.rowMore} aria-label="More" onClick={(e) => { e.stopPropagation(); songMenu(song, navigate, rowMenu?.(song, index)); }}><Icon name="more" size={20} /></button>
     </li>
   );
 }
 
-export function SongList({ songs, numbered, hideAlbum, from }: { songs: Song[]; numbered?: boolean; hideAlbum?: boolean; from?: LibraryEntry }) {
+export function SongList({ songs, numbered, hideAlbum, from, rowMenu }: { songs: Song[]; numbered?: boolean; hideAlbum?: boolean; from?: LibraryEntry; rowMenu?: SongRowProps["rowMenu"] }) {
   const { visible, sentinel } = useIncremental(songs);
   return (
     <>
       <ul className={ui.rows}>
-        {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} hideAlbum={hideAlbum} from={from} />)}
+        {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} hideAlbum={hideAlbum} from={from} rowMenu={rowMenu} />)}
       </ul>
       {sentinel}
     </>

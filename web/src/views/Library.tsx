@@ -233,7 +233,7 @@ function PlaylistsTab() {
   }
   return (
     <>
-      <div className={ui.actions}><Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import a playlist</Link></div>
+      <div className={ui.actions}><Link className={ui.pill} data-on="" to="/playlist/new"><Icon name="plus" size={16} />New playlist</Link><Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import a playlist</Link></div>
       <Listing>
         <FavoritesRow count={favorites.data?.length} />
         {lists.data?.map((p) => <PlaylistRow key={p.id} playlist={p} />)}

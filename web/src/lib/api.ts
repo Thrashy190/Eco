@@ -50,10 +50,15 @@ export function signOut(): void {
   useSession.setState({ session: null });
 }
 
-const params = (extra: Record<string, string | number> = {}): URLSearchParams => {
+type Param = string | number | string[];
+
+const params = (extra: Record<string, Param> = {}): URLSearchParams => {
   const current = candidate ?? session();
   const out = new URLSearchParams({ u: current?.u ?? "", t: current?.t ?? "", s: current?.s ?? "", v: "1.16.1", c: "eco", f: "json" });
-  for (const [key, value] of Object.entries(extra)) out.set(key, String(value));
+  for (const [key, value] of Object.entries(extra)) {
+    if (Array.isArray(value)) for (const one of value) out.append(key, one);
+    else out.set(key, String(value));
+  }
   return out;
 };
 
@@ -88,7 +93,7 @@ interface SubsonicBody {
 }
 
 /** Call a Subsonic endpoint and return its response body. */
-export async function subsonic(endpoint: string, extra?: Record<string, string | number>): Promise<SubsonicBody> {
+export async function subsonic(endpoint: string, extra?: Record<string, Param>): Promise<SubsonicBody> {
   const body = (await request<{ "subsonic-response": SubsonicBody }>(`/rest/${endpoint}?${params(extra)}`))["subsonic-response"];
   if (body.status !== "ok") {
     if ((body.error?.code === 40 || body.error?.code === 41) && !signingIn) signOut();
@@ -147,14 +152,31 @@ export async function getAlbums(): Promise<Album[]> {
 }
 
 export async function getPlaylists(): Promise<Playlist[]> {
-  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; songCount: number; coverArt?: string }[] };
-  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, songCount: p.songCount, cover: p.coverArt }));
+  const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string }[] };
+  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt }));
 }
 
 export async function getPlaylist(id: string): Promise<PlaylistDetail> {
-  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; coverArt?: string; entry?: RawSong[] };
-  return { id: p.id, name: p.name, cover: p.coverArt, songs: (p.entry ?? []).map(toSong) };
+  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; owner?: string; coverArt?: string; entry?: RawSong[] };
+  return { id: p.id, name: p.name, owner: p.owner, cover: p.coverArt, songs: (p.entry ?? []).map(toSong) };
 }
+
+/** Every ID travels in the address, and addresses have a limit, so long lists go a part at a time. */
+const ADD_AT_ONCE = 150;
+
+export async function addToPlaylist(id: string, songIds: string[]): Promise<void> {
+  for (let i = 0; i < songIds.length; i += ADD_AT_ONCE) await subsonic("updatePlaylist", { playlistId: id, songIdToAdd: songIds.slice(i, i + ADD_AT_ONCE) });
+}
+
+export async function createPlaylist(name: string, songIds: string[] = []): Promise<string> {
+  const { id } = (await subsonic("createPlaylist", { name })).playlist as { id: string };
+  await addToPlaylist(id, songIds);
+  return id;
+}
+
+export const renamePlaylist = (id: string, name: string) => subsonic("updatePlaylist", { playlistId: id, name });
+export const removeFromPlaylist = (id: string, index: number) => subsonic("updatePlaylist", { playlistId: id, songIndexToRemove: index });
+export const deletePlaylist = (id: string) => subsonic("deletePlaylist", { id });
 
 /** Tell Navidrome a song was played, which feeds "recently played" and "most played". */
 export const scrobble = (id: string) => subsonic("scrobble", { id, submission: "true" }).catch(() => undefined);

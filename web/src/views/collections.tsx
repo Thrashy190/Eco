@@ -2,8 +2,8 @@
 // to the copy saved on this device when there is no connection.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Navigate, useParams } from "react-router";
-import { coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum } from "../lib/api";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, username } from "../lib/api";
 import { plural } from "../lib/format";
 import { pictureToCover } from "../lib/image";
 import type { CollectionSpec, LibraryEntry, Song } from "../lib/types";
@@ -16,6 +16,7 @@ import { Icon, Ring } from "../components/Icon";
 import { ExternalRow, GetAllButton, PlayButtons, SongList } from "../components/songs";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
+import { remove, removeSong, rename } from "../stores/playlists";
 import { syncCollectionIfSaved } from "../stores/saving";
 import { useOnline } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
@@ -40,9 +41,10 @@ interface PageProps {
   numbered?: boolean;
   fromDevice?: boolean;
   extra?: ReactNode;
+  rowMenu?: Parameters<typeof SongList>[0]["rowMenu"];
 }
 
-function CollectionPage({ art, title, subtitle, songs, spec, entry, numbered, fromDevice, extra }: PageProps) {
+function CollectionPage({ art, title, subtitle, songs, spec, entry, numbered, fromDevice, extra, rowMenu }: PageProps) {
   return (
     <>
       {fromDevice && <OfflineBanner />}
@@ -53,7 +55,7 @@ function CollectionPage({ art, title, subtitle, songs, spec, entry, numbered, fr
           {extra}
         </PlayButtons>
       )}>
-        <SongList songs={songs} numbered={numbered} hideAlbum={numbered} from={fromDevice ? undefined : entry} />
+        <SongList songs={songs} numbered={numbered} hideAlbum={numbered} from={fromDevice ? undefined : entry} rowMenu={rowMenu} />
       </DetailPage>
     </>
   );
@@ -178,6 +180,8 @@ function FavoritesPlaylist() {
 
 function RegularPlaylist({ id }: { id: string }) {
   const online = useOnline();
+  const navigate = useNavigate();
+  const { pins } = useLibraryState();
   const key = `playlist:${id}`;
   offline.useOfflineVersion();
   const { data: playlist, isPending, error } = useQuery({ queryKey: ["playlist", id], queryFn: () => getPlaylist(id), enabled: online });
@@ -186,9 +190,16 @@ function RegularPlaylist({ id }: { id: string }) {
   useEffect(() => { if (playlist) void syncCollectionIfSaved(key, playlist.songs); }, [playlist, key]);
 
   if (playlist) {
+    const mine = playlist.owner === username();
+    const menu = () => openSheet(playlist.name, "Playlist", [
+      { icon: "pencil", label: "Rename", run: () => void rename(id, playlist.name) },
+      { icon: "trash", label: "Delete playlist", danger: true, run: () => void remove(entry!, playlist.songs.length, pins).then((gone) => { if (gone) navigate("/library/playlists", { replace: true }); }) },
+    ]);
     return (
       <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={`Playlist · ${plural(playlist.songs.length, "song")}`}
-        songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!} />
+        songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!}
+        extra={mine && <><Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link><button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
+        rowMenu={mine ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
     );
   }
   if (online && isPending) return <Skeleton />;
