@@ -95,3 +95,10 @@ export function splitOwn(songs: Song[], albumIds: string[]): { own: Song[]; else
  */
 export const releaseUrl = (version: string): string | undefined =>
   /^v\d+\.\d+\.\d+$/.test(version) ? `https://github.com/Thrashy190/eco/releases/tag/${version}` : undefined;
+
+/** How long a list of songs plays, roughly: "42 min", "1 h 5 min". Nothing for an empty list. */
+export function listLength(seconds: number): string {
+  if (!(seconds > 0)) return "";
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
+}

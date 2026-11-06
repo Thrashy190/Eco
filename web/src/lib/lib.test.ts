@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, deviceName, initials, isYoutubeLink, plural, releaseUrl } from "./format";
+import { clock, deviceName, initials, isYoutubeLink, listLength, plural, releaseUrl } from "./format";
 import { md5 } from "./md5";
 
 describe("md5", () => {
@@ -51,5 +51,15 @@ describe("releaseUrl", () => {
   it("has nothing for a build between releases or a local one", () => {
     expect(releaseUrl("v1.3.0-2-gabc1234")).toBeUndefined();
     expect(releaseUrl("dev")).toBeUndefined();
+  });
+});
+
+describe("listLength", () => {
+  it("reads like a person would say it", () => {
+    expect(listLength(0)).toBe("");
+    expect(listLength(20)).toBe("1 min");
+    expect(listLength(42 * 60 + 10)).toBe("42 min");
+    expect(listLength(60 * 60)).toBe("1 h");
+    expect(listLength(65 * 60)).toBe("1 h 5 min");
   });
 });

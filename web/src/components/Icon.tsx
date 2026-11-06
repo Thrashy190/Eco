@@ -24,6 +24,7 @@ const ICONS = {
   queue: <path d="M4 6h12M4 12h12M4 18h7M17 14.5v6l4.5-3z" />,
   grip: <path d="M5 9h14M5 15h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  close: <path d="M6.5 6.5l11 11M17.5 6.5l-11 11" />,
   trash: <path d="M5 7h14M10 7V4h4v3m-8 0 1 13h10l1-13" />,
   heart: <path d={HEART} />,
   "heart-fill": <path className="fill-current stroke-none" d={HEART} />,
