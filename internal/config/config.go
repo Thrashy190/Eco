@@ -10,6 +10,7 @@ import (
 
 // Config holds every setting eco needs. Zero values are never used: Load fills in defaults.
 type Config struct {
+	Version  string // of this build ("v1.3.0", or "dev"), set by the command, not the environment
 	Root     string // directory holding .env and the spotify token cache
 	DataDir  string // contains music/ and the CSV state
 	MusicDir string // DataDir/music: the library Navidrome reads

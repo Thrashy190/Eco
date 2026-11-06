@@ -13,11 +13,11 @@ import (
 	"github.com/Thrashy190/eco/internal/userdata"
 )
 
-// me tells the web app who is signed in and whether to offer admin actions. The offer is only a convenience: every
-// admin action checks again on the server.
+// me tells the web app who is signed in, whether to offer admin actions, and which version of Eco runs. The offer is
+// only a convenience: every admin action checks again on the server.
 func (s *Server) me(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	admin, _ := s.nd.IsAdmin(r.Context(), cred) // if Navidrome cannot answer, offer nothing
-	respond(w, http.StatusOK, map[string]any{"user": cred.User, "admin": admin, "catalog": s.eng.Catalog.Name()})
+	respond(w, http.StatusOK, map[string]any{"user": cred.User, "admin": admin, "catalog": s.eng.Catalog.Name(), "version": s.cfg.Version})
 }
 
 // adminOnly lets a request through only for a Navidrome administrator. It asks Navidrome every time rather than

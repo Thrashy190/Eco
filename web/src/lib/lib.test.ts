@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, deviceName, initials, isYoutubeLink, plural } from "./format";
+import { clock, deviceName, initials, isYoutubeLink, plural, releaseUrl } from "./format";
 import { md5 } from "./md5";
 
 describe("md5", () => {
@@ -41,5 +41,15 @@ describe("format", () => {
     expect(isYoutubeLink(" https://music.youtube.com/watch?v=abc ")).toBe(true);
     expect(isYoutubeLink("https://youtube.com.evil.example/watch")).toBe(false);
     expect(isYoutubeLink("slipknot")).toBe(false);
+  });
+});
+
+describe("releaseUrl", () => {
+  it("links a published version to its release notes", () => {
+    expect(releaseUrl("v1.3.0")).toBe("https://github.com/Thrashy190/eco/releases/tag/v1.3.0");
+  });
+  it("has nothing for a build between releases or a local one", () => {
+    expect(releaseUrl("v1.3.0-2-gabc1234")).toBeUndefined();
+    expect(releaseUrl("dev")).toBeUndefined();
   });
 });

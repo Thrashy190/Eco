@@ -120,7 +120,7 @@ export const sendJson = (path: string, extra: Record<string, string>, body: unkn
   request<unknown>(`/api/${path}?${params(extra)}`, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
 
 // ---- Administrators ----
-export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string }>("me");
+export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string; version?: string }>("me");
 export interface Account { username: string; name?: string; admin: boolean; last_seen?: string; avatar?: number }
 export const listUsers = () => eco<{ locked?: boolean; users?: Account[] }>("admin/users");
 /** Confirm the administrator's password, which lets Eco use Navidrome's own API for 15 minutes. */

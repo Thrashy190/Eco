@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { getSongs, signOut, username, whoAmI } from "../lib/api";
-import { plural } from "../lib/format";
+import { plural, releaseUrl } from "../lib/format";
 import { pictureToCover } from "../lib/image";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx, ui } from "../lib/ui";
@@ -265,6 +265,11 @@ export function Settings() {
         <Group title="About">
           <Setting title="Library" description="Songs in your library"><span>{library.data ? plural(library.data.total, "song") : library.error ? "—" : "…"}</span></Setting>
           <Setting title="Server"><span className="text-muted">{location.host}</span></Setting>
+          {me?.version && <Setting title="Version" description={releaseUrl(me.version) ? "What changed in each version" : undefined}>
+            {releaseUrl(me.version)
+              ? <a className="text-muted underline underline-offset-3 hover:text-text" href={releaseUrl(me.version)} target="_blank" rel="noopener noreferrer">{me.version}</a>
+              : <span className="text-muted">{me.version}</span>}
+          </Setting>}
           {me?.catalog && <Setting title="Song information" description={me.catalog.startsWith("MusicBrainz") ? "From MusicBrainz and the Cover Art Archive, made by volunteers, and iTunes for what they cannot answer" : undefined}><span className="text-muted">{me.catalog}</span></Setting>}
         </Group>
 

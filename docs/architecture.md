@@ -74,7 +74,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
 | `GET /api/artists/songs?name=` | every song in the library that names this artist, as the main artist or alongside others, in album order |
-| `GET /api/me` | who you are, whether you are an administrator, and which `catalog` answers |
+| `GET /api/me` | who you are, whether you are an administrator, which `catalog` answers, and the `version` of Eco (shown in Settings, linked to its release notes) |
 | `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song (its file and Navidrome's record of it; `428` until the password is confirmed) or an imported item, for everyone |
 | `POST /api/admin/unlock` | administrators: confirm the password (JSON: `password`), which opens Navidrome's own API to Eco for 15 minutes, for accounts and deleting |
 | `GET /api/connect/events?device=&name=&can_volume=` | a device's stream (Server-Sent Events): `devices`, `state`, `command` |

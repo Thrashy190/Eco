@@ -16,6 +16,7 @@ import (
 
 func serve(ctx context.Context, args []string) error {
 	cfg := config.Load()
+	cfg.Version = version
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	fs.StringVar(&cfg.Listen, "listen", cfg.Listen, "address to listen on")
 	fs.Parse(args)

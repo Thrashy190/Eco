@@ -86,7 +86,11 @@ func TestOnlyAdminsDelete(t *testing.T) {
 }
 
 func TestMeTellsWhoIsAdmin(t *testing.T) {
-	_, h := accountsServer(t)
+	s, h := accountsServer(t)
+	s.cfg.Version = "v1.3.0"
+	if body := as(t, h, "ana", "GET", "/api/me", "").Body.String(); !strings.Contains(body, `"version":"v1.3.0"`) {
+		t.Errorf("the version is missing: %s", body)
+	}
 	for user, want := range map[string]bool{"admin": true, "ana": false} {
 		var out struct {
 			Admin bool `json:"admin"`

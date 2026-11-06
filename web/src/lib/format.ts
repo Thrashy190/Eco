@@ -88,3 +88,10 @@ export function splitOwn(songs: Song[], albumIds: string[]): { own: Song[]; else
   own.sort((a, b) => place.get(a.albumId!)! - place.get(b.albumId!)!); // stable: each album keeps its order
   return { own, elsewhere: songs.filter((s) => s.albumId === undefined || !place.has(s.albumId)) };
 }
+
+/**
+ * The release notes of a published version ("v1.3.0"). A build between releases ("v1.3.0-2-gabc123") or a local one
+ * ("dev") has none.
+ */
+export const releaseUrl = (version: string): string | undefined =>
+  /^v\d+\.\d+\.\d+$/.test(version) ? `https://github.com/Thrashy190/eco/releases/tag/${version}` : undefined;
