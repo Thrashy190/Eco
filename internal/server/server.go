@@ -76,6 +76,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/search", s.authed(s.search))
 	mux.HandleFunc("/api/search/external", s.authed(s.searchExternal))
 	mux.HandleFunc("GET /api/artists/lookup", s.authed(s.artistLookup))
+	mux.HandleFunc("GET /api/artists/songs", s.authed(s.artistSongs))
 	mux.HandleFunc("/api/discover", s.authed(s.discover))
 	mux.HandleFunc("/api/home", s.authed(s.home))
 	mux.HandleFunc("/api/songs", s.authed(s.songs))

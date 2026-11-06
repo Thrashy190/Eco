@@ -217,6 +217,8 @@ export const getHome = () => eco<HomeResponse>("home");
 export const getSongs = (offset: number, limit: number, sort = "added") => eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit, sort });
 export const discover = (artist: string) => eco<DiscoverResponse>("discover", { artist });
 export const lookupArtist = (name: string) => eco<{ id: string; name: string }>("artists/lookup", { name });
+/** Every song in the library that names this artist, featured or not, in album order. */
+export const artistSongs = async (name: string) => (await eco<{ songs: RawSong[] }>("artists/songs", { name })).songs.map(toSong);
 export const requestDownload = (id: string) => eco<Job>("download", { id }, "POST");
 export const getJobs = () => eco<Job[]>("jobs");
 

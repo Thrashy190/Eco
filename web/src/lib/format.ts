@@ -1,4 +1,5 @@
 // Small formatting helpers with no dependencies, so they can be unit tested without a browser.
+import type { Song } from "./types";
 
 export const clock = (seconds?: number): string =>
   seconds !== undefined && Number.isFinite(seconds) && seconds >= 0
@@ -75,4 +76,15 @@ export function knownArtists(names: string[]): Set<string> {
     }
   }
   return known;
+}
+
+/**
+ * An artist's songs: those on their own albums, in the order of the albums, and those on other people's ("Appears on"),
+ * where they are one of several artists. Navidrome only lists the albums an artist made, so both come from Eco.
+ */
+export function splitOwn(songs: Song[], albumIds: string[]): { own: Song[]; elsewhere: Song[] } {
+  const place = new Map(albumIds.map((id, k) => [id, k]));
+  const own = songs.filter((s) => s.albumId !== undefined && place.has(s.albumId));
+  own.sort((a, b) => place.get(a.albumId!)! - place.get(b.albumId!)!); // stable: each album keeps its order
+  return { own, elsewhere: songs.filter((s) => s.albumId === undefined || !place.has(s.albumId)) };
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/Thrashy190/eco/internal/match"
@@ -18,6 +19,7 @@ type snapshot struct {
 	songs   []subsonic.Song            // sorted by title
 	orders  map[string][]subsonic.Song // the same songs in each order /api/songs offers
 	byTitle map[string][]subsonic.Song // normalised title → songs with that title
+	known   map[string]bool            // normalised names that are artists in their own right (knownArtistNames)
 }
 
 // has reports whether the library already holds this title by this artist.
@@ -85,10 +87,15 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		return songs[i].Artist < songs[j].Artist
 	})
 	sn := &snapshot{at: time.Now(), songs: songs, orders: orderSongs(songs), byTitle: map[string][]subsonic.Song{}}
+	names := make([]string, 0, 2*len(songs))
 	for _, song := range songs {
 		t := match.Norm(song.Title)
 		sn.byTitle[t] = append(sn.byTitle[t], song)
+		for _, tag := range []string{song.Artist, song.AlbumArtist} {
+			names = append(names, strings.Split(tag, "; ")...)
+		}
 	}
+	sn.known = knownArtistNames(names)
 	s.mu.Lock()
 	s.lib = sn
 	s.mu.Unlock()

@@ -3,8 +3,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
-import { coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, username } from "../lib/api";
-import { plural } from "../lib/format";
+import { artistSongs, coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, username } from "../lib/api";
+import { plural, splitOwn } from "../lib/format";
 import { pictureToCover } from "../lib/image";
 import type { CollectionSpec, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
@@ -250,10 +250,20 @@ export function ArtistByName() {
   if (isPending) return <><BackButton /><Skeleton /></>;
   if (error) return <><BackButton /><Empty>{error.message}</Empty></>;
   if (data.id) return <Navigate to={`/artist/${data.id}`} replace />;
+  return <FeaturedOnly name={name} />;
+}
+
+/** Someone with no album of their own in the library, who may still sing on other people's songs. */
+function FeaturedOnly({ name }: { name: string }) {
+  const { data: songs } = useQuery({ queryKey: ["artist-songs", "name", name], queryFn: () => artistSongs(name) });
+  const count = songs?.length ?? 0;
   return (
     <>
       <BackButton />
-      <DetailPage art={<ArtistAvatar name={name} size={300} className={ui.avatarBig} />} info={<><h1>{name}</h1><p>Nothing in your library yet</p></>} actions={null}>
+      <DetailPage art={<ArtistAvatar name={name} size={300} className={ui.avatarBig} />}
+        info={<><h1>{name}</h1><p>{count > 0 ? `${plural(count, "song")} in your library` : "Nothing in your library yet"}</p></>}
+        actions={count > 0 ? <PlayButtons songs={songs!} /> : null}>
+        {count > 0 && <Section title={`Appears on (${count})`}><SongList songs={songs!} /></Section>}
         <Discover artist={name} />
       </DetailPage>
     </>
@@ -265,10 +275,11 @@ export function ArtistView() {
   const online = useOnline();
   const { data: artist, error, isPending } = useQuery({ queryKey: ["artist", id], queryFn: () => getArtist(id), enabled: online });
   const { data: songs } = useQuery({
-    queryKey: ["artist-songs", id, artist?.albums.length],
-    queryFn: async () => (await Promise.all(artist!.albums.map((a) => getAlbum(a.id).then((x) => x.songs).catch(() => [] as Song[])))).flat(),
+    queryKey: ["artist-songs", id, artist?.name, artist?.albums.length],
+    queryFn: async () => splitOwn(await artistSongs(artist!.name), artist!.albums.map((a) => a.id)),
     enabled: online && Boolean(artist),
   });
+  const all = songs ? [...songs.own, ...songs.elsewhere] : [];
   const entry = artist ? artistEntry(artist) : null;
   useRecent(entry);
 
@@ -279,12 +290,13 @@ export function ArtistView() {
     <>
       <BackButton />
       <DetailPage art={<ArtistAvatar name={artist.name} cover={artist.cover} size={300} className={ui.avatarBig} />}
-        info={<><h1>{artist.name}</h1><p>{`${plural(artist.albums.length, "album")} in your library`}</p></>}
-        actions={songs && songs.length > 0
-          ? <PlayButtons songs={songs} from={entry!}><PinButton entry={entry!} /></PlayButtons>
+        info={<><h1>{artist.name}</h1><p>{artist.albums.length > 0 || all.length === 0 ? `${plural(artist.albums.length, "album")} in your library` : `${plural(all.length, "song")} in your library`}</p></>}
+        actions={all.length > 0
+          ? <PlayButtons songs={all} from={entry!}><PinButton entry={entry!} /></PlayButtons>
           : <div className={ui.actions}><PinButton entry={entry!} /></div>}>
         {artist.albums.length > 0 && <Section title="Albums"><Shelf>{artist.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></Section>}
-        {songs && songs.length > 0 && <Section title={`Songs (${songs.length})`}><SongList songs={songs} /></Section>}
+        {songs && songs.own.length > 0 && <Section title={`Songs (${songs.own.length})`}><SongList songs={songs.own} /></Section>}
+        {songs && songs.elsewhere.length > 0 && <Section title={`Appears on (${songs.elsewhere.length})`}><SongList songs={songs.elsewhere} /></Section>}
         <Discover artist={artist.name} />
       </DetailPage>
     </>

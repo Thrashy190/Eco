@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { knownArtists, splitArtists, readableArtists } from "./format";
+import { knownArtists, splitArtists, splitOwn, readableArtists } from "./format";
+import type { Song } from "./types";
 
 const known = knownArtists(["Bad Bunny", "Beyoncé", "Tyler, The Creator"]);
 
@@ -25,5 +26,18 @@ describe("splitArtists", () => {
   });
   it("does not split a single artist", () => {
     expect(splitArtists("Metallica", known)).toEqual(["Metallica"]);
+  });
+});
+
+describe("splitOwn", () => {
+  const song = (id: string, albumId?: string): Song => ({ id, title: id, artist: "MCR-T, Joost", albumId });
+  it("puts songs on the artist's own albums first, in the order of the albums, and the rest under Appears on", () => {
+    const songs = [song("a1", "album-a"), song("feat", "someone-else"), song("b1", "album-b"), song("a2", "album-a"), song("loose")];
+    const { own, elsewhere } = splitOwn(songs, ["album-b", "album-a"]);
+    expect(own.map((s) => s.id)).toEqual(["b1", "a1", "a2"]);
+    expect(elsewhere.map((s) => s.id)).toEqual(["feat", "loose"]);
+  });
+  it("leaves everything under Appears on for someone with no album of their own", () => {
+    expect(splitOwn([song("feat", "x")], []).elsewhere.map((s) => s.id)).toEqual(["feat"]);
   });
 });
