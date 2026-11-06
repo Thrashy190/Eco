@@ -22,6 +22,7 @@ const ICONS = {
   shuffle: <path d="M3 5h3.3c5.2 0 5.2 14 10.4 14H21m0 0-2.8-2.8M21 19l-2.8 2.8M3 19h3.3c1.5 0 2.7-.8 3.6-2M21 5h-3.3c-1.5 0-2.7.8-3.6 2m6.9-2-2.8-2.8M21 5l-2.8 2.8" />,
   repeat: <path d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 0 1-3 3H3" />,
   queue: <path d="M4 6h12M4 12h12M4 18h7M17 14.5v6l4.5-3z" />,
+  grip: <path d="M5 9h14M5 15h14" />,
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M5 7h14M10 7V4h4v3m-8 0 1 13h10l1-13" />,
   heart: <path d={HEART} />,

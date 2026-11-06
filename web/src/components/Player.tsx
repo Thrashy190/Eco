@@ -18,6 +18,7 @@ import { removeOffline, saveOffline } from "../stores/saving";
 import { setCoverColor, setSettings, useSettings } from "../stores/settings";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
+import { Queue } from "./Queue";
 import { DeviceButton, openDevicePicker } from "./Devices";
 import { Icon, Ring } from "./Icon";
 import { songMenu } from "./songs";
@@ -63,20 +64,6 @@ function SeekBar({ inline }: { inline?: boolean }) {
       {slider}
       <div className="flex justify-between text-muted text-[.8rem] tabular-nums"><span>{at}</span><span>{clock(length)}</span></div>
     </div>
-  );
-}
-
-function Queue({ upcoming, index }: { upcoming: Song[]; index: number }) {
-  return (
-    <ul className={ui.rowsPlain}>
-      {upcoming.length === 0 && <li className={ui.empty}>The queue is empty</li>}
-      {upcoming.map((next, k) => (
-        <li className={ui.rowCompact} key={`${next.id}-${k}`} onClick={() => player.jumpTo(index + 1 + k)}>
-          <div className={ui.text}><b>{next.title}</b><span>{next.artist}</span></div>
-          <span className={ui.time}>{next.duration ? clock(next.duration) : ""}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -157,8 +144,7 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
         </div>
       </div>
       <div className="contents wide:block wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
-        <h3 className="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2">Up next</h3>
-        <Queue upcoming={upcoming} index={index} />
+        <Queue upcoming={upcoming} index={index} source={shown.source} heading="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2 mb-1 [&:not(:first-child)]:mt-5" />
       </div>
     </section>
   );
@@ -228,8 +214,7 @@ function DeckNow({ song }: { song: Song }) {
         </div>
       </div>
       <div className="flex-1 min-h-24 overflow-y-auto px-2 pb-3 border-t border-line [scrollbar-width:thin]">
-        <h3 className="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted">Up next</h3>
-        <Queue upcoming={upcoming} index={index} />
+        <Queue upcoming={upcoming} index={index} source={shown.source} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" />
       </div>
     </div>
   );

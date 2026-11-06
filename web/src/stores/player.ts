@@ -2,6 +2,7 @@
 // <audio> element in index.html, so music never stops because a screen changed. The UI reads usePlayer and useTime.
 import { create } from "zustand";
 import { hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
+import * as order from "../lib/queue";
 import type { LibraryEntry, Song } from "../lib/types";
 import { touch } from "./library";
 import * as offline from "./offline";
@@ -11,8 +12,9 @@ import { toast } from "./ui";
 export type Repeat = "off" | "all" | "one";
 
 interface PlayerState {
-  queue: Song[]; // songs in play order
+  queue: Song[]; // songs in play order; the ones added by hand are marked `queued` (lib/queue.ts)
   index: number;
+  source: string; // the name of the album or playlist playing, when known: the queue says what comes next from it
   shuffle: boolean;
   repeat: Repeat;
   playing: boolean;
@@ -26,6 +28,7 @@ interface PlayerState {
 export interface Handoff {
   queue: Song[];
   index: number;
+  source?: string;
   position: number;
   playing: boolean;
   shuffle: boolean;
@@ -57,7 +60,7 @@ const remember = (key: string, value: number) => { try { localStorage.setItem(ke
 const audio = document.getElementById("audio") as HTMLAudioElement;
 
 export const usePlayer = create<PlayerState>(() => ({
-  queue: [], index: -1, shuffle: false, repeat: "off", playing: false, blocked: false, loading: false,
+  queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false,
   speed: SPEEDS.includes(readNumber("eco.speed") ?? 1) ? readNumber("eco.speed") ?? 1 : 1,
   volume: Math.min(Math.max(readNumber("eco.volume") ?? 1, 0), 1),
 }));
@@ -151,16 +154,20 @@ function mixed<T>(list: T[]): T[] {
   return out;
 }
 
-/** Play a list of songs starting at position i. `from` is the album or playlist it belongs to, for the Recent view. */
-export function play(songs: Song[], i = 0, from?: LibraryEntry): void {
+/** The next song may have changed: fetch that one ahead instead, once the current one has been heard a moment. */
+function nextChanged(): void {
+  if (!audio.paused && audio.currentTime * 1000 >= PREPARE_AFTER) prepareNext();
+}
+
+/**
+ * Play a list of songs starting at position i. `from` is the album or playlist it belongs to, for the Recent view and
+ * the queue. Songs added to the queue by hand and not played yet stay, right after the first song.
+ */
+export function play(songs: Song[], i = 0, from?: LibraryEntry, source = from?.name ?? ""): void {
   if (from) touch(from);
-  if (remote("load", { songs, index: i })) return;
-  if (state().shuffle) {
-    const rest = songs.filter((_, k) => k !== i);
-    usePlayer.setState({ queue: [songs[i], ...mixed(rest)], index: 0 });
-  } else {
-    usePlayer.setState({ queue: songs.slice(), index: i });
-  }
+  if (remote("load", { songs, index: i, source })) return;
+  const list = state().shuffle ? [songs[i], ...mixed(songs.filter((_, k) => k !== i))] : songs;
+  usePlayer.setState({ ...order.startList(state(), list, state().shuffle ? 0 : i), source });
   void load();
 }
 
@@ -168,7 +175,7 @@ export function play(songs: Song[], i = 0, from?: LibraryEntry): void {
 export function playShuffled(songs: Song[], from?: LibraryEntry): void {
   if (!songs.length) return;
   const start = Math.floor(Math.random() * songs.length);
-  if (remote("load", { songs, index: start, shuffle: true })) { if (from) touch(from); return; }
+  if (remote("load", { songs, index: start, shuffle: true, source: from?.name ?? "" })) { if (from) touch(from); return; }
   usePlayer.setState({ shuffle: true });
   play(songs, start, from);
 }
@@ -176,16 +183,27 @@ export function playShuffled(songs: Song[], from?: LibraryEntry): void {
 export function playNext(song: Song): void {
   if (remote("play_next", song)) { toast("Playing next"); return; }
   if (!current()) return play([song]);
-  const { queue, index } = state();
-  usePlayer.setState({ queue: [...queue.slice(0, index + 1), song, ...queue.slice(index + 1)] });
+  usePlayer.setState(order.addNext(state(), song));
+  nextChanged();
   toast("Playing next");
 }
 
 export function enqueue(song: Song): void {
   if (remote("enqueue", song)) { toast("Added to the queue"); return; }
   if (!current()) return play([song]);
-  usePlayer.setState({ queue: [...state().queue, song] });
+  usePlayer.setState(order.addToQueue(state(), song));
+  nextChanged();
   toast("Added to the queue");
+}
+
+/** Drag a song that has not played yet to another place in the queue (positions in the whole queue). */
+export function moveInQueue(from: number, to: number): void {
+  if (remote("move", { from, to })) return;
+  const before = state();
+  const after = order.move(before, from, to);
+  if (after === before) return;
+  usePlayer.setState(after);
+  nextChanged();
 }
 
 async function load(startAt = 0, autoplay = true): Promise<void> {
@@ -250,7 +268,7 @@ export function previous(): void {
 
 export function jumpTo(i: number): void {
   if (remote("jump", i)) return;
-  usePlayer.setState({ index: i });
+  usePlayer.setState(order.jump(state(), i));
   void load();
 }
 export function seek(seconds: number): void {
@@ -259,8 +277,8 @@ export function seek(seconds: number): void {
 }
 export function toggleShuffle(): void {
   if (remote("shuffle")) return;
-  const { shuffle, queue, index } = state();
-  if (!shuffle && current()) usePlayer.setState({ queue: [...queue.slice(0, index + 1), ...mixed(queue.slice(index + 1))] });
+  const { shuffle } = state();
+  if (!shuffle && current()) { usePlayer.setState(order.shuffleUpcoming(state(), mixed)); nextChanged(); }
   usePlayer.setState({ shuffle: !shuffle });
 }
 export function cycleRepeat(): void {
@@ -273,22 +291,22 @@ const length = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? au
 
 /** What this device is playing, as other devices see it. */
 export const localStatus = () => {
-  const { queue, index, playing, shuffle, repeat, speed, volume, blocked } = state();
+  const { queue, index, source, playing, shuffle, repeat, speed, volume, blocked } = state();
   return {
-    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index,
+    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index, source,
     position: audio.currentTime || 0, length: length(), upcoming: queue.slice(index + 1, index + 31),
   };
 };
 
 /** Everything needed to continue on another device, or null when nothing is loaded here. */
 export function handoff(): Handoff | null {
-  const { queue, index, playing, shuffle, repeat } = state();
-  return queue[index] ? { queue, index, position: audio.currentTime || 0, playing, shuffle, repeat } : null;
+  const { queue, index, source, playing, shuffle, repeat } = state();
+  return queue[index] ? { queue, index, source, position: audio.currentTime || 0, playing, shuffle, repeat } : null;
 }
 
 /** Carry on from where another device stopped. */
 function adopt(from: Handoff): void {
-  usePlayer.setState({ queue: from.queue, index: from.index, shuffle: from.shuffle, repeat: from.repeat });
+  usePlayer.setState({ queue: from.queue, index: from.index, source: from.source ?? "", shuffle: from.shuffle, repeat: from.repeat });
   void load(from.position, from.playing);
 }
 
@@ -298,9 +316,9 @@ export function applyCommand(action: string, value: unknown): void {
   try {
     switch (action) {
       case "load": {
-        const { songs, index, shuffle } = value as { songs: Song[]; index: number; shuffle?: boolean };
+        const { songs, index, shuffle, source } = value as { songs: Song[]; index: number; shuffle?: boolean; source?: string };
         if (shuffle) usePlayer.setState({ shuffle: true });
-        play(songs, index);
+        play(songs, index, undefined, typeof source === "string" ? source : "");
         break;
       }
       case "resume": adopt(value as Handoff); break;
@@ -316,6 +334,11 @@ export function applyCommand(action: string, value: unknown): void {
       case "repeat": cycleRepeat(); break;
       case "play_next": playNext(value as Song); break;
       case "enqueue": enqueue(value as Song); break;
+      case "move": {
+        const { from, to } = value as { from: number; to: number };
+        moveInQueue(Number(from), Number(to));
+        break;
+      }
     }
   } finally {
     applying = false;
@@ -336,7 +359,7 @@ export function forgetSong(id: string): void {
   audio.pause();
   audio.removeAttribute("src");
   if (before < rest.length) { usePlayer.setState({ queue: rest, index: before }); void load(); return; }
-  usePlayer.setState({ queue: [], index: -1 });
+  usePlayer.setState({ queue: [], index: -1, source: "" });
 }
 
 audio.addEventListener("play", () => usePlayer.setState({ playing: true, blocked: false }));

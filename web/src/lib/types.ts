@@ -16,6 +16,8 @@ export interface Song {
   mediaId?: string;
   kind?: MediaKind;
   size?: number;
+  /** Only in the player's queue: added by hand ("Play next", "Add to queue"), not part of the album or playlist. */
+  queued?: boolean;
 }
 
 export interface RawSong {
