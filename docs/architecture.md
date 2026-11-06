@@ -81,6 +81,10 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `POST /api/admin/unlock` | administrators: confirm the password (JSON: `password`), which opens Navidrome's own API to Eco for 15 minutes, for accounts and deleting |
 | `GET /api/connect/events?device=&name=&can_volume=` | a device's stream (Server-Sent Events): `devices`, `state`, `command` |
 | `POST /api/connect/state?device=` · `POST /api/connect/command?device=` | report what this device plays; send a command to another device of your account |
+| `GET /api/connect/poll?device=&name=&can_volume=` | the same events for a device that cannot keep a stream open (the Roku app): waits up to 25 s |
+| `POST /api/tv/pair` · `GET /api/tv/pair/{code}?secret=` | a TV asks for a code to show, then collects the sign-in once someone approves it (no sign-in needed) |
+| `POST /api/tv/approve` | `{code}`: sign the TV showing it in to your account |
+| `GET /api/covers/accent?id=` · `GET /api/covers/shaped?id=&size=&shape=` | for the TV, which cannot read or mask pictures: a cover's dynamic colour (the web app's maths) and the cover cut to the account's corners |
 | `/rest/*` | Navidrome's Subsonic API, passed through |
 | `GET /healthz` | liveness |
 
@@ -136,6 +140,8 @@ A scan alone does not remove the song: Navidrome marks it missing and keeps it, 
 
 In the web app, `stores/connect.ts` holds `target`, the device being controlled. While it is set, `stores/player.ts` forwards every control there, so screens call the same functions wherever the music is. Only one device plays at a time: when one starts, the others stop and show what plays there. Moving playback sends the whole queue and position to the new device.
 
+The Roku app (`roku/`, [docs/tv.md](tv.md)) is a device like any other, except that it asks for its events (`/api/connect/poll`) instead of keeping a stream open, which a Roku cannot read. `Hub.Hold` keeps it connected for 20 s after each poll, with its events waiting, so it never seems to leave between polls. It only plays: it follows the same queue rules (`components/lib/queue.brs` mirrors `lib/queue.ts`) and the same "only one device plays" rule, and never controls another device. It signs in with a code typed in the web app (`internal/pairing`), so nobody types a password with a remote.
+
 A song goes to another device only if you chose that device. When music simply starts on another device, this one stops and shows what plays there, but tapping a song plays it here. Only a device *starting* to play stops the others, and if two start at the same moment the one with the higher ID keeps playing. A device that does not answer a command within 6 seconds is dropped, because a phone asleep can look connected for a while.
 
 Two limits come from browsers. iOS ignores `audio.volume`, so an iPhone cannot have its volume set (it reports `can_volume` false and the slider hides), and iOS suspends web apps in the background, so a locked iPhone stops answering. And a browser may refuse to start audio on a page nobody has touched: the device then reports `blocked`, and the one controlling it says it needs a tap.
@@ -175,4 +181,6 @@ Liked songs end up as **Navidrome favourites**: `eco likes favorites` stars ever
 | `internal/media` | imported audio on disk |
 | `internal/userdata` | each user's recents, pins and playlist covers |
 | `internal/connect` | devices of one account seeing and controlling each other |
+| `internal/pairing` | signing a TV in with a code shown on it and typed on a phone |
+| `internal/palette` · `internal/coverart` | a cover's accent colour, and covers cut round, for the TV |
 | `web/src` | the web app (React, TypeScript): `lib` talks to the server, `stores` holds the player, downloads, offline storage and settings, `components` and `views` draw them. `make web` builds it into `web/dist`, which is embedded into the binary |

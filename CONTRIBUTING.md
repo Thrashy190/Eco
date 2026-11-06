@@ -10,6 +10,7 @@ make doctor     # what is missing on your machine
 make check      # gofmt, go vet, go test, TypeScript, web tests and build — what CI runs
 make run        # http://127.0.0.1:8000 (needs a running Navidrome: see README)
 make web-dev    # the web app with hot reload on :5173, using the eco running on :8000
+make roku-check # the Roku app: BrighterScript validation and its tests (part of make check)
 ```
 
 You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (which also uses deno or Node to solve YouTube's challenges).
@@ -19,6 +20,7 @@ You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (wh
 - **Code, comments, commit messages and docs are in English.** So is the interface.
 - **Keep the matching logic honest.** `internal/match` decides whether a video is the right song, and a wrong song in someone's library is worse than a failed download. Every fix there needs a test (`internal/match/match_test.go`) that names the real case it came from.
 - **Keep the web app light.** `web/src` is React and TypeScript with `react-query`, `zustand` and Tailwind; avoid adding UI kits. Let React escape text: never use `dangerouslySetInnerHTML`.
+- **The Roku app (`roku/`) mirrors the web app.** Its queue rules are `web/src/lib/queue.ts` translated, and its colours come from the server with the web app's maths (`internal/palette`): change both sides together. Check it with `make roku-check`, then on a TV or in the simulator ([docs/tv.md](docs/tv.md#for-developers)).
 - **Never run network-touching code in tests.** Tests must pass offline.
 - **Do not commit secrets or personal data.** `.env`, `secrets/` and `data/` are git-ignored.
 - Keep changes small and say *why* in the description, not only what.

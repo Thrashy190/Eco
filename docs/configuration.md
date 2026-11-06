@@ -18,6 +18,7 @@ Everything is configured with environment variables, normally in a `.env` file n
 | [`TUNNEL_TOKEN`](#tunnel_token) | tunnel profile | your Cloudflare tunnel |
 | [`ND_USER`, `ND_PASS`](#nd_user-nd_pass) | favourites sync, Lidarr | a Navidrome account |
 | [`VPN_*`, `WG_*`](#vpn) | VPN override | provider details for gluetun |
+| [`ROKU_IP`, `ROKU_PASS`, `ROKU_ECO_URL`](#roku) | only `make roku-install` | the Roku to install the TV app on |
 | [advanced](#advanced) | no | binaries and addresses when not using Docker |
 
 ## PUID, PGID
@@ -141,6 +142,16 @@ Only for the optional [qBittorrent behind a VPN](downloads-stack.md#running-qbit
 values from your VPN provider following the [gluetun wiki](https://github.com/qdm12/gluetun-wiki): `VPN_PROVIDER` is the
 provider's name there (for example `mullvad`, `protonvpn`), `WG_PRIVATE_KEY` and `WG_ADDRESSES` come from the WireGuard
 configuration you download from them, and `VPN_COUNTRY` is a country name such as `Netherlands`.
+
+## Roku
+
+Only for installing the [TV app](tv.md) with `make roku-install`. Eco itself never reads them.
+
+| Variable | Meaning |
+|---|---|
+| `ROKU_IP` | the Roku's address on your network (Settings ▸ Network ▸ About on the Roku) |
+| `ROKU_PASS` | the password set for the user `rokudev` when you turned on developer mode |
+| `ROKU_ECO_URL` | the address the TV opens Eco at: `https://eco.<your domain>` through a tunnel, or `http://<computer>:8000` at home, which needs [`ECO_BIND=0.0.0.0`](#network). Empty: the TV asks for it |
 
 ## Advanced
 
