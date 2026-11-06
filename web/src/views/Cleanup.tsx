@@ -9,7 +9,7 @@ import { cx, ui } from "../lib/ui";
 import { BackButton, Empty, Section, Skeleton, useIncremental } from "../components/common";
 import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
-import { SONG_LISTS } from "../stores/admin";
+import { DELETE_REASON, SONG_LISTS, withPassword } from "../stores/admin";
 import { toast } from "../stores/ui";
 
 const megabytes = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
@@ -24,7 +24,7 @@ function DuplicateCard({ group, onDone }: { group: CleanupReport["duplicates"][n
     if (!confirm(`Keep “${kept.title}” from ${kept.album} and delete ${plural(others.length, "other copy", "other copies")} for everyone?\n\nThe file is erased from the server. Your favorite and your playlists move to the copy that stays; other people's stay on the deleted copy and are lost.`)) return;
     setBusy(true);
     try {
-      await removeDuplicate(keep, others.map((s) => s.id));
+      if (await withPassword(() => removeDuplicate(keep, others.map((s) => s.id)), DELETE_REASON) === null) { setBusy(false); return; }
       toast("Deleted");
       onDone();
     } catch (e) {

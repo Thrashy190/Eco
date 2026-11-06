@@ -104,8 +104,9 @@ func (a *adminSessions) forget(user string) {
 	delete(a.open, strings.ToLower(user))
 }
 
-// unlockUsers has the administrator confirm their password, which opens the session and is then forgotten.
-func (s *Server) unlockUsers(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+// unlockAdmin has the administrator confirm their password, which opens the session and is then forgotten. The
+// session lets Eco list and add accounts, and remove deleted songs from Navidrome.
+func (s *Server) unlockAdmin(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	var in struct {
 		Password string `json:"password"`
 	}

@@ -111,7 +111,7 @@ func TestAccountsAreForAdministrators(t *testing.T) {
 	for _, c := range []struct{ method, path, body string }{
 		{"GET", "/api/admin/users", ""},
 		{"POST", "/api/admin/users", newAccount},
-		{"POST", "/api/admin/users/unlock", `{"password":"right"}`},
+		{"POST", "/api/admin/unlock", `{"password":"right"}`},
 	} {
 		if rec := as(t, h, "ana", c.method, c.path, c.body); rec.Code != http.StatusForbidden {
 			t.Errorf("a regular user got through %s %s: %d", c.method, c.path, rec.Code)
@@ -129,13 +129,13 @@ func TestAccountListNeedsThePassword(t *testing.T) {
 		t.Errorf("listed before confirming: %s", rec.Body)
 	}
 	// A 401 here would sign the administrator out of the app for mistyping a password
-	if rec := as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"wrong"}`); rec.Code != http.StatusForbidden {
+	if rec := as(t, h, "admin", "POST", "/api/admin/unlock", `{"password":"wrong"}`); rec.Code != http.StatusForbidden {
 		t.Errorf("wrong password: %d", rec.Code)
 	}
 	if rec := as(t, h, "admin", "GET", "/api/admin/users", ""); !strings.Contains(rec.Body.String(), `"locked":true`) {
 		t.Errorf("a wrong password unlocked it: %s", rec.Body)
 	}
-	rec := as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
+	rec := as(t, h, "admin", "POST", "/api/admin/unlock", `{"password":"right"}`)
 	if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "session") {
 		t.Errorf("unlocking: %d %s", rec.Code, rec.Body)
 	}
@@ -147,7 +147,7 @@ func TestAccountListNeedsThePassword(t *testing.T) {
 
 func TestSessionThatEndsLocksAgain(t *testing.T) {
 	h, created, over := usersServer(t)
-	as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
+	as(t, h, "admin", "POST", "/api/admin/unlock", `{"password":"right"}`)
 	*over = true
 	if rec := as(t, h, "admin", "POST", "/api/admin/users", newAccount); rec.Code != http.StatusLocked {
 		t.Errorf("creating with an old session: %d", rec.Code)
@@ -166,7 +166,7 @@ func TestCreatingAnAccount(t *testing.T) {
 	if rec := as(t, h, "admin", "POST", "/api/admin/users", newAccount); rec.Code != http.StatusLocked {
 		t.Errorf("creating before confirming: %d", rec.Code)
 	}
-	as(t, h, "admin", "POST", "/api/admin/users/unlock", `{"password":"right"}`)
+	as(t, h, "admin", "POST", "/api/admin/unlock", `{"password":"right"}`)
 	cases := []struct {
 		name, body string
 		want       int

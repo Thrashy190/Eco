@@ -33,6 +33,10 @@ type fakeLibrary struct {
 func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if r.URL.Path == "/auth/login" {
+		w.Write([]byte(`{"token":"session"}`))
+		return
+	}
 	q := r.URL.Query()
 	reply := func(body map[string]any) {
 		body["status"] = "ok"
@@ -299,6 +303,9 @@ func TestDeletingADuplicateMovesWhatThePersonHadOnIt(t *testing.T) {
 	fake, h, _ := libraryServer(t, keep, drop, stranger)
 	fake.playlists["p"] = []string{"stranger", "drop"}
 	fake.owner["p"] = "admin"
+	if rec := as(t, h, "admin", "POST", "/api/admin/unlock", `{"password":"any"}`); rec.Code != http.StatusOK { // see TestDeletingASongNeedsThePasswordFirst
+		t.Fatalf("unlocking: %d %s", rec.Code, rec.Body)
+	}
 
 	// Not copies of the same song: nothing happens, whatever the app sent
 	if rec := as(t, h, "admin", "POST", "/api/admin/cleanup/duplicates", `{"keep":"keep","remove":["stranger"]}`); rec.Code != 400 {

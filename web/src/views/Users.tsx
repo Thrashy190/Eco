@@ -2,7 +2,7 @@
 // which it only allows after confirming your password. The server checks on every request that you may.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
-import { createUser, listUsers, unlockUsers, userAvatarUrl, type Account } from "../lib/api";
+import { createUser, listUsers, unlockAdmin, userAvatarUrl, type Account } from "../lib/api";
 import { initials } from "../lib/format";
 import { cx, ui } from "../lib/ui";
 import { BackButton, Empty, Section, Skeleton } from "../components/common";
@@ -16,7 +16,7 @@ function Unlock() {
   const client = useQueryClient();
   const [password, setPassword] = useState("");
   const unlock = useMutation({
-    mutationFn: () => unlockUsers(password),
+    mutationFn: () => unlockAdmin(password),
     onSuccess: () => void client.invalidateQueries({ queryKey: KEY }),
     onSettled: () => setPassword(""), // it does not stay on screen
   });

@@ -112,6 +112,11 @@ func (s *Server) cleanupDuplicate(w http.ResponseWriter, r *http.Request, cred s
 			return
 		}
 	}
+	session, ok := s.admins.get(cred.User) // removing a copy deletes it in Navidrome too (see deleteSong)
+	if !ok {
+		askForPassword(w)
+		return
+	}
 	ctx := r.Context()
 	keep, err := s.nd.Song(ctx, cred, body.Keep)
 	if err != nil {
@@ -143,12 +148,12 @@ func (s *Server) cleanupDuplicate(w http.ResponseWriter, r *http.Request, cred s
 			fail(w, http.StatusBadGateway, "Nothing was deleted: "+err.Error())
 			return
 		}
-		rel, code, err := s.removeSong(ctx, cred, id)
+		gone, code, err := s.removeSong(ctx, cred, session, id)
 		if err != nil {
 			fail(w, code, err.Error())
 			return
 		}
-		deleted = append(deleted, rel)
+		deleted = append(deleted, gone.File)
 	}
 	respond(w, http.StatusOK, map[string]any{"deleted": deleted})
 }

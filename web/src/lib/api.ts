@@ -77,12 +77,17 @@ export const hasCover = (song: Song) => Boolean(song.mediaId || song.cover);
 /** A picture the user chose for a playlist. The version makes the browser fetch a new picture when it changes. */
 export const playlistCoverUrl = (id: string, version: number) => `/api/covers/playlists/${part(id)}?${params({ cover: version })}`;
 
+/** A request the server answered with an error. `status` tells, for one, that it wants the password first (428). */
+export class HttpError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   let response: Response;
   try { response = await fetch(url, options); } catch { throw new Error("No connection to the server"); }
   if (response.status === 401 && !signingIn) { signOut(); throw new Error("Your session expired"); }
   const body = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(body.error || `Server error ${response.status}`);
+  if (!response.ok) throw new HttpError(body.error || `Server error ${response.status}`, response.status);
   return body;
 }
 
@@ -118,13 +123,15 @@ export const sendJson = (path: string, extra: Record<string, string>, body: unkn
 export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string }>("me");
 export interface Account { username: string; name?: string; admin: boolean; last_seen?: string; avatar?: number }
 export const listUsers = () => eco<{ locked?: boolean; users?: Account[] }>("admin/users");
-export const unlockUsers = (password: string) => send<{ unlocked: boolean }>("admin/users/unlock", JSON.stringify({ password }));
+/** Confirm the administrator's password, which lets Eco use Navidrome's own API for 15 minutes. */
+export const unlockAdmin = (password: string) => send<{ unlocked: boolean }>("admin/unlock", JSON.stringify({ password }));
 export const userAvatarUrl = (name: string, version: number) => `/api/admin/users/${part(name)}/avatar?${params({ v: version })}`;
 export const createUser = (username: string, name: string, password: string) => send<{ username: string }>("admin/users", JSON.stringify({ username, name, password }));
 export const getCleanup = () => eco<CleanupReport>("admin/cleanup");
 export const removeDuplicate = (keep: string, remove: string[]) => send<{ deleted: string[] }>("admin/cleanup/duplicates", JSON.stringify({ keep, remove }));
 export const separateArtists = (names: string[]) => send<CleanupReport["task"]>("admin/cleanup/artists", JSON.stringify({ names }));
-export const deleteSong = (id: string) => eco<{ deleted: boolean; file: string }>(`admin/songs/${part(id)}`, undefined, "DELETE");
+/** `purged` is false when the file is gone but Navidrome still lists the song (under Missing Files there). */
+export const deleteSong = (id: string) => eco<{ deleted: boolean; file: string; purged: boolean }>(`admin/songs/${part(id)}`, undefined, "DELETE");
 
 // Normalise Subsonic objects into the shape the UI uses everywhere.
 export const toSong = (s: RawSong): Song => ({

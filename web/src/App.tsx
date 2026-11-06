@@ -8,6 +8,7 @@ import { activePlace, pageKey, tabsFrom } from "./lib/nav";
 import { queryClient } from "./lib/query";
 import { Icon } from "./components/Icon";
 import { Ambient, Player } from "./components/Player";
+import { PasswordPrompt } from "./components/PasswordPrompt";
 import { SheetHost, ToastHost } from "./components/Sheet";
 import { TopBar } from "./components/TopBar";
 import { ME_KEY } from "./stores/admin";
@@ -157,6 +158,7 @@ export function App() {
     <>
       {user ? <SignedIn key={user} user={user} /> : <Login />}
       <SheetHost />
+      <PasswordPrompt />
       <ToastHost />
     </>
   );

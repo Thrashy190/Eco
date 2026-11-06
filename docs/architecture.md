@@ -74,7 +74,8 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
 | `GET /api/me` | who you are, whether you are an administrator, and which `catalog` answers |
-| `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song's file or an imported item, for everyone |
+| `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song (its file and Navidrome's record of it; `428` until the password is confirmed) or an imported item, for everyone |
+| `POST /api/admin/unlock` | administrators: confirm the password (JSON: `password`), which opens Navidrome's own API to Eco for 15 minutes, for accounts and deleting |
 | `GET /api/connect/events?device=&name=&can_volume=` | a device's stream (Server-Sent Events): `devices`, `state`, `command` |
 | `POST /api/connect/state?device=` · `POST /api/connect/command?device=` | report what this device plays; send a command to another device of your account |
 | `/rest/*` | Navidrome's Subsonic API, passed through |
@@ -111,6 +112,8 @@ Styles are Tailwind utilities in the components, with the ones several screens s
 Songs, podcasts and audiobooks are one shared library. Everything personal stays with its account: recents, pins, playlist covers, the profile picture, the download queue (`jobs.List(user)`) and connected devices. Deleting from the shared library needs a Navidrome administrator, which the server asks Navidrome on every request rather than trusting the app or a remembered sign-in.
 
 Deleting a song has to find its file, and Navidrome's `path` is synthetic. `library.FindSongFile` looks for the exact size in bytes and extension, then confirms the title in the file's tags. Anything other than exactly one match refuses to delete. It is logged, the empty folders left behind are removed, the song leaves everyone's pins and recents, and a Navidrome scan runs.
+
+A scan alone does not remove the song: Navidrome marks it missing and keeps it, with its album greyed out, until an administrator removes it under *Missing Files*. Only Navidrome's own API can do that, and it needs a session opened with a password, so the app asks for the administrator's password before the first deletion (the server keeps the session in memory for 15 minutes, never the password). After the scan Eco removes that one song's record (`DELETE /api/missing`, which only touches songs marked missing), and Navidrome drops the album and artist if they are left empty; Eco then takes those out of everyone's recents and pins too. If the scan has not marked the song missing within a few seconds, the file is still gone and the app says Navidrome lists it under Missing Files.
 
 ## Playing on another device
 

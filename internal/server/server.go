@@ -117,7 +117,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/me/avatar", s.authed(s.deleteMyAvatar))
 	mux.HandleFunc("GET /api/admin/users", s.authed(s.adminOnly(s.listUsers)))
 	mux.HandleFunc("POST /api/admin/users", s.authed(s.adminOnly(s.createUser)))
-	mux.HandleFunc("POST /api/admin/users/unlock", s.authed(s.adminOnly(s.unlockUsers)))
+	mux.HandleFunc("POST /api/admin/unlock", s.authed(s.adminOnly(s.unlockAdmin)))
 	mux.HandleFunc("GET /api/admin/users/{name}/avatar", s.authed(s.adminOnly(s.userAvatar)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	static := http.FileServerFS(s.web)

@@ -92,6 +92,7 @@ type response struct {
 	Body struct {
 		Status string `json:"status"`
 		Error  struct {
+			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"error"`
 		Search struct {
@@ -128,8 +129,11 @@ type response struct {
 // ErrAuth is returned when Navidrome rejects the credentials.
 var ErrAuth = errors.New("wrong username or password")
 
-// APIError is a request Navidrome understood and refused (not found, not allowed…).
-type APIError struct{ Message string }
+// APIError is a request Navidrome understood and refused (not found, not allowed…). Code is Subsonic's: 70 is not found.
+type APIError struct {
+	Message string
+	Code    int
+}
 
 func (e *APIError) Error() string { return e.Message }
 
@@ -161,9 +165,9 @@ func (c *Client) call(ctx context.Context, cred Cred, endpoint string, extra url
 		if msg := out.Body.Error.Message; msg == "Wrong username or password" {
 			return nil, ErrAuth
 		} else if msg != "" {
-			return nil, &APIError{msg}
+			return nil, &APIError{Message: msg, Code: out.Body.Error.Code}
 		}
-		return nil, &APIError{"navidrome returned an error"}
+		return nil, &APIError{Message: "navidrome returned an error", Code: out.Body.Error.Code}
 	}
 	return &out, nil
 }
