@@ -51,12 +51,69 @@ func (s *Server) setMyAvatar(w http.ResponseWriter, r *http.Request, cred subson
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	respond(w, http.StatusOK, st)
+	respond(w, http.StatusOK, withoutLook(st))
 }
 
 func (s *Server) deleteMyAvatar(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	st, err := s.users.RemoveAvatar(cred.User)
 	answer(w, st, err)
+}
+
+// ---- How the app looks, the same on every device ----
+
+func (s *Server) myWallpaper(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	serveJPEG(w, r, s.users.WallpaperPath(cred.User))
+}
+
+func (s *Server) setMyWallpaper(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	data, err := io.ReadAll(io.LimitReader(r.Body, userdata.MaxCoverBytes+1))
+	if err != nil {
+		fail(w, http.StatusBadRequest, "could not read the picture")
+		return
+	}
+	st, err := s.users.SetWallpaper(cred.User, data)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	respond(w, http.StatusOK, map[string]int64{"wallpaper": st.Wallpaper})
+}
+
+func (s *Server) deleteMyWallpaper(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	if _, err := s.users.RemoveWallpaper(cred.User); err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respond(w, http.StatusOK, map[string]int64{"wallpaper": 0})
+}
+
+// myLook answers with the look saved for this account (null when none was), when it was saved, and the version of the
+// background picture.
+func (s *Server) myLook(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	st := s.users.Get(cred.User)
+	look := st.Look
+	if look == nil {
+		look = json.RawMessage("null")
+	}
+	respond(w, http.StatusOK, map[string]any{"look": look, "at": st.LookAt, "wallpaper": st.Wallpaper})
+}
+
+func (s *Server) setMyLook(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	data, err := io.ReadAll(io.LimitReader(r.Body, userdata.MaxLookBytes+1))
+	if err != nil {
+		fail(w, http.StatusBadRequest, "could not read the look")
+		return
+	}
+	at, err := s.users.SetLook(cred.User, data)
+	if errors.Is(err, userdata.ErrBadLook) {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err != nil {
+		fail(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	respond(w, http.StatusOK, map[string]int64{"at": at})
 }
 
 // userAvatar shows someone else's picture to an administrator. Nobody else can look at another account.

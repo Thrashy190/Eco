@@ -17,8 +17,13 @@
   --accent-ink: #05241a;
   --danger: #ff7a7a;
   --glow: 124 240 192;
-  --glass: rgb(11 11 15 / .78);
-  --glass-strong: rgb(32 32 42 / .86);
+  /* The floating bars: a colour per theme and how much of it covers what is behind (Settings › Glass) */
+  --glass-rgb: 11 11 15; --glass-a: .78;
+  --glass-strong-rgb: 32 32 42; --glass-strong-a: .86;
+  --glass: rgb(var(--glass-rgb) / var(--glass-a));
+  --glass-strong: rgb(var(--glass-strong-rgb) / var(--glass-strong-a));
+  /* Cards of albums, playlists and artists (Settings › Card size), in a shelf and in a grid */
+  --card-w: 9.5rem; --artist-w: 7.5rem; --grid-min: 150px;
   --slider: rgb(255 255 255 / .22);
   --ghost: rgb(255 255 255 / .1);
   --ambient: .42; /* how strongly a big screen takes the colour of the music */
@@ -44,28 +49,37 @@
 :root[data-text="large"] { font-size: 18px; }
 :root[data-theme="light"] {
   --bg: #f6f6f9; --surface: #ffffff; --surface-2: #ececf2; --surface-3: #dedee8; --line: rgb(0 0 0 / .08);
-  --text: #14141a; --muted: #6a6a78; --danger: #c62828; --glass: rgb(246 246 249 / .82); --glass-strong: rgb(255 255 255 / .9); --slider: rgb(0 0 0 / .2); --ghost: rgb(0 0 0 / .07);
+  --text: #14141a; --muted: #6a6a78; --danger: #c62828; --glass-rgb: 246 246 249; --glass-a: .82; --glass-strong-rgb: 255 255 255; --glass-strong-a: .9; --slider: rgb(0 0 0 / .2); --ghost: rgb(0 0 0 / .07);
   --ambient: .3;
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     --bg: #f6f6f9; --surface: #ffffff; --surface-2: #ececf2; --surface-3: #dedee8; --line: rgb(0 0 0 / .08);
-    --text: #14141a; --muted: #6a6a78; --danger: #c62828; --glass: rgb(246 246 249 / .82); --glass-strong: rgb(255 255 255 / .9); --slider: rgb(0 0 0 / .2); --ghost: rgb(0 0 0 / .07);
+    --text: #14141a; --muted: #6a6a78; --danger: #c62828; --glass-rgb: 246 246 249; --glass-a: .82; --glass-strong-rgb: 255 255 255; --glass-strong-a: .9; --slider: rgb(0 0 0 / .2); --ghost: rgb(0 0 0 / .07);
     --ambient: .3;
     color-scheme: light;
   }
 }
 :root[data-theme="black"] {
   --bg: #000000; --surface: #0a0a0a; --surface-2: #151515; --surface-3: #202020; --line: rgb(255 255 255 / .1);
-  --glass: rgb(0 0 0 / .8); --glass-strong: rgb(20 20 20 / .88);
+  --glass-rgb: 0 0 0; --glass-a: .8; --glass-strong-rgb: 20 20 20; --glass-strong-a: .88;
 }
 :root[data-corners="sharp"] { --radius: 6px; --r-cover: 3px; --r-big: 6px; }
 :root[data-motion="reduced"] { --rise: 0px; }
 
+/* After the themes, so they win over each theme's own amount */
+:root[data-glass="clear"] { --glass-a: .42; --glass-strong-a: .5; --blur-2xl: 18px; --blur-xl: 14px; }
+:root[data-glass="solid"] { --glass-a: .97; --glass-strong-a: .98; }
+:root[data-cards="small"] { --card-w: 8rem; --artist-w: 6.5rem; --grid-min: 118px; }
+:root[data-cards="large"] { --card-w: 11.5rem; --artist-w: 9.5rem; --grid-min: 190px; }
+
 /* From this width the page is a panel that scrolls by itself. These widths must match lib/media.ts. */
 @media (min-width: 760px) {
   html, body { height: 100%; overflow: hidden; }
+  :root { --card-w: 11rem; --artist-w: 9rem; --grid-min: 164px; }
+  :root[data-cards="small"] { --card-w: 9rem; --artist-w: 7.5rem; --grid-min: 130px; }
+  :root[data-cards="large"] { --card-w: 13.5rem; --artist-w: 11rem; --grid-min: 210px; }
 }
 
 @theme inline {
@@ -105,6 +119,7 @@
   --animate-pop: pop .4s var(--ease-snap);
   --animate-slide-up: slide-up .4s cubic-bezier(.2, .9, .3, 1.1) both;
   --animate-art-in: art-in .45s var(--ease-snap) both;
+  --animate-fade-in: fade-in .7s ease both;
   --animate-glow-pulse: glow-pulse 1.8s ease-in-out infinite;
   --animate-shimmer: shimmer 1.3s linear infinite;
   --animate-turn: turn 1s linear infinite;
@@ -114,6 +129,7 @@
   @keyframes rise { from { opacity: 0; transform: translateY(calc(var(--rise) * 1.2)) scale(.985); } to { opacity: 1; transform: none; } }
   @keyframes pop { 0% { transform: scale(.4); } 55% { transform: scale(1.25); } 100% { transform: scale(1); } }
   @keyframes slide-up { from { opacity: 0; transform: translateY(calc(var(--rise) * 2)) scale(.97); } to { opacity: 1; transform: none; } }
+  @keyframes fade-in { from { opacity: 0; } }
   @keyframes art-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
   @keyframes glow-pulse { 0%, 100% { opacity: .55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
   @keyframes shimmer { to { background-position: -300% 0; } }
@@ -161,6 +177,10 @@
   &::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--accent); }
   &::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--text); }
 }
+/* A record turning at 33⅓ (the player's Vinyl look). Turned-down motion keeps it still */
+@utility record { animation: record 1.8s linear infinite; }
+@keyframes record { to { transform: rotate(1turn); } }
+:root[data-motion="reduced"] .record { animation: none; }
 @utility no-scrollbar { scrollbar-width: none; &::-webkit-scrollbar { display: none; } }
 
 /* off: nothing moves at all. reduced: things only fade (see --rise) and the system preference is honoured too */

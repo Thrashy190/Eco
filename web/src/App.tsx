@@ -12,6 +12,7 @@ import { PasswordPrompt } from "./components/PasswordPrompt";
 import { SheetHost, ToastHost } from "./components/Sheet";
 import { TopBar } from "./components/TopBar";
 import { ME_KEY } from "./stores/admin";
+import { watchLook } from "./stores/look";
 import { startConnect } from "./stores/connect";
 import { pollJobs } from "./stores/downloads";
 import * as offline from "./stores/offline";
@@ -110,7 +111,8 @@ function SignedIn({ user }: { user: string }) {
     void offline.init().then(() => { if (!left) stopSaving = watchSaving(); });
     pollJobs();
     const stopNetwork = watchNetwork((connected) => toast(connected ? "Back online" : "You are offline"));
-    return () => { left = true; stopSaving?.(); stopNetwork(); };
+    const stopLook = watchLook(); // after loadSettings: what this device had shows at once, the account's look follows
+    return () => { left = true; stopSaving?.(); stopNetwork(); stopLook(); };
   }, [user]);
 
   return (

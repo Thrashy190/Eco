@@ -194,3 +194,48 @@ func TestCreatingAnAccount(t *testing.T) {
 		t.Errorf("created: %v", *created)
 	}
 }
+
+// How the app looks travels between one person's devices, and never to someone else's.
+func TestLookAndWallpaperStayWithTheirAccount(t *testing.T) {
+	_, h := accountsServer(t)
+	if rec := as(t, h, "ana", "GET", "/api/me/look", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"look":null`) {
+		t.Fatalf("before saving one: %d %s", rec.Code, rec.Body)
+	}
+	if rec := as(t, h, "ana", "PUT", "/api/me/look", `{"theme":"dark","background":"photo"}`); rec.Code != http.StatusOK {
+		t.Fatalf("saving: %d %s", rec.Code, rec.Body)
+	}
+	if rec := as(t, h, "ana", "GET", "/api/me/look", ""); !strings.Contains(rec.Body.String(), `"background":"photo"`) {
+		t.Errorf("not kept: %s", rec.Body)
+	}
+	if rec := as(t, h, "ben", "GET", "/api/me/look", ""); !strings.Contains(rec.Body.String(), `"look":null`) {
+		t.Errorf("another account sees it: %s", rec.Body)
+	}
+	for _, bad := range []string{`[1,2]`, `"dark"`, `null`, `{broken`, `{"x":"` + strings.Repeat("a", 40<<10) + `"}`} {
+		if rec := as(t, h, "ana", "PUT", "/api/me/look", bad); rec.Code != http.StatusBadRequest {
+			t.Errorf("kept %.20q: %d", bad, rec.Code)
+		}
+	}
+	// It has its own address: lists of recents and pins do not carry it around
+	if rec := as(t, h, "ana", "GET", "/api/me/library", ""); strings.Contains(rec.Body.String(), "look") {
+		t.Errorf("the library state carries the look: %s", rec.Body)
+	}
+
+	if rec := as(t, h, "ana", "PUT", "/api/me/wallpaper", "<svg onload=alert(1)>"); rec.Code != http.StatusBadRequest {
+		t.Errorf("kept something that is not a picture: %d", rec.Code)
+	}
+	if rec := as(t, h, "ana", "PUT", "/api/me/wallpaper", aJPEG(t)); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"wallpaper":1`) {
+		t.Fatalf("setting a background: %d %s", rec.Code, rec.Body)
+	}
+	if rec := as(t, h, "ana", "GET", "/api/me/wallpaper", ""); rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "image/jpeg" {
+		t.Errorf("own background: %d", rec.Code)
+	}
+	if rec := as(t, h, "ben", "GET", "/api/me/wallpaper", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("another account got a background: %d", rec.Code)
+	}
+	if rec := as(t, h, "ana", "DELETE", "/api/me/wallpaper", ""); rec.Code != http.StatusOK {
+		t.Errorf("removing it: %d", rec.Code)
+	}
+	if rec := as(t, h, "ana", "GET", "/api/me/wallpaper", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("still there after removing: %d", rec.Code)
+	}
+}

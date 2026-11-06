@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { getSongs, signOut, username, whoAmI } from "../lib/api";
+import { getSongs, signOut, username, wallpaperUrl, whoAmI } from "../lib/api";
 import { plural, releaseUrl } from "../lib/format";
-import { pictureToCover } from "../lib/image";
+import { pictureToCover, pictureToWallpaper } from "../lib/image";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx, ui } from "../lib/ui";
 import { Credit } from "../components/common";
@@ -14,11 +14,12 @@ import { ME_KEY } from "../stores/admin";
 import { removeAvatar, setAvatar, useLibraryState } from "../stores/library";
 import { myDeviceName, renameDevice, useConnect } from "../stores/connect";
 import * as offline from "../stores/offline";
-import { ACCENTS, resetSettings, setSettings, useSettings, type Settings as SettingValues } from "../stores/settings";
+import { removeWallpaper, setWallpaper } from "../stores/look";
+import { ACCENTS, resetSettings, setSettings, useOnline, useSettings, type Settings as SettingValues } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
 
 /** A pill-shaped choice between a few options. */
-function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
+function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView" | "glass" | "cardSize">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
   const value = useSettings((s) => s[name]);
   return (
     <div className={SEG} role="group">
@@ -63,7 +64,7 @@ function ProfilePicture() {
   );
 }
 
-function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" | "dynamicAccent" }) {
+function Toggle({ name }: { name: "tint" | "scrobble" | "offlineMode" | "dynamicAccent" | "backgroundWash" | "syncLook" }) {
   const on = useSettings((s) => s[name]);
   return <button type="button" className={ui.toggle} role="switch" aria-checked={on} onClick={() => setSettings({ [name]: !on })} />;
 }
@@ -94,6 +95,108 @@ function Swatches() {
         <input type="color" className="absolute -inset-2 size-15 opacity-0 cursor-pointer" aria-label="Custom colour" value={accent} onChange={(e) => setSettings({ accent: e.target.value, dynamicAccent: false })} />
       </span>
     </div>
+  );
+}
+
+// ---- Background and player: choices you see before you make them ----
+
+const TILE = "tap group/tile grid gap-1.5 text-center text-[.8rem] font-semibold text-muted aria-pressed:text-text";
+const TILE_ART = "relative aspect-[3/4] rounded-xl overflow-hidden bg-surface-2 shadow-[inset_0_0_0_1px_var(--line)] group-aria-pressed/tile:shadow-[0_0_0_2px_var(--accent)] transition-shadow";
+
+/** A row of options, each with a small drawing of what it looks like. */
+function Choices<K extends "background" | "playerStyle">({ name, options, onPick }: {
+  name: K;
+  options: [SettingValues[K], string, ReactNode][];
+  onPick?: (value: SettingValues[K]) => boolean; // false: the choice needs something first (a picture)
+}) {
+  const value = useSettings((s) => s[name]);
+  return (
+    <div className="grid grid-cols-4 gap-2.5" role="group">
+      {options.map(([option, label, art]) => (
+        <button key={option} type="button" className={TILE} aria-pressed={value === option}
+          onClick={() => { if (onPick?.(option) !== false) setSettings({ [name]: option } as Partial<SettingValues>); }}>
+          <span className={TILE_ART} aria-hidden="true">{art}</span>{label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** A slider for a number setting, with its value beside it. */
+function Slider({ name, max, label, show }: { name: "backgroundBlur" | "backgroundDim"; max: number; label: string; show: (value: number) => string }) {
+  const value = useSettings((s) => s[name]);
+  const step = max / 40;
+  return (
+    <label className="flex items-center gap-3">
+      <input type="range" className="range flex-1 min-w-0" style={{ "--fill": value / max } as React.CSSProperties} min="0" max={max} step={step} value={value}
+        aria-label={label} onChange={(e) => setSettings({ [name]: Number(e.target.value) })} />
+      <span className="w-11 flex-none text-right text-muted text-[.85rem] tabular-nums">{show(value)}</span>
+    </label>
+  );
+}
+
+const lines = (className = "") => (
+  <span className={cx("absolute inset-x-2 bottom-2 grid gap-1", className)}>
+    <i className="h-1.5 w-4/5 rounded-full bg-text/80" /><i className="h-1 w-1/2 rounded-full bg-text/40" />
+  </span>
+);
+
+function BackgroundSettings() {
+  const background = useSettings((s) => s.background);
+  const wallpaper = useSettings((s) => s.wallpaper);
+  const online = useOnline();
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      await setWallpaper(await pictureToWallpaper(file));
+      toast("Background updated");
+    } catch (e) { toast((e as Error).message); }
+    setBusy(false);
+  }
+  const pick = () => { if (online) input.current?.click(); else toast("Choosing a picture needs a connection"); };
+  const picture = background !== "wash";
+  return (
+    <Group title="Background">
+      <Setting title="Behind everything" description="Text stays readable on any picture: Eco darkens it as much as it needs" stack>
+        <Choices name="background" onPick={(value) => { if (value === "photo" && !wallpaper) { pick(); return false; } return true; }} options={[
+          ["wash", "Music colour", <span className="absolute inset-0 [background:radial-gradient(90%_70%_at_20%_15%,rgb(var(--tint)/.8),transparent_70%),radial-gradient(70%_60%_at_90%_100%,rgb(var(--glow)/.4),transparent_70%)]" />],
+          ["photo", "Your picture", wallpaper
+            ? <img src={wallpaperUrl(wallpaper)} alt="" className="absolute inset-0 size-full object-cover" />
+            : <span className="absolute inset-0 grid place-items-center text-muted"><Icon name="image" size={26} /></span>],
+          ["cover", "Album cover", <span className="absolute inset-0 grid place-items-center text-muted [background:linear-gradient(160deg,rgb(var(--tint)/.55),transparent)]"><Icon name="play" size={22} /></span>],
+        ]} />
+      </Setting>
+      {background === "photo" && (
+        <Setting title="Your picture" description="Kept on the server, so your other devices can show it too">
+          <div className="flex gap-2">
+            <button type="button" className={ui.pill} disabled={busy} onClick={pick}>{busy ? <Ring percent={-1} size={16} /> : <Icon name="image" size={16} />}Change</button>
+            {wallpaper > 0 && <button type="button" className={ui.pill} aria-label="Remove the picture" onClick={() => void removeWallpaper().then(() => toast("Picture removed")).catch((e: Error) => toast(e.message))}><Icon name="trash" size={16} /></button>}
+          </div>
+        </Setting>
+      )}
+      {picture && <Setting title="Blur" stack><Slider name="backgroundBlur" max={40} label="Blur" show={(v) => (v === 0 ? "Off" : `${Math.round(v)}`)} /></Setting>}
+      {picture && <Setting title="Darken" description="More than readability needs, to calm a busy picture" stack><Slider name="backgroundDim" max={1} label="Darken" show={(v) => `${Math.round(v * 100)}%`} /></Setting>}
+      {picture && <Setting title="Music colour on top" description="The colour of what plays, glowing over the picture"><Toggle name="backgroundWash" /></Setting>}
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
+    </Group>
+  );
+}
+
+function PlayerSettings() {
+  return (
+    <Group title="Player">
+      <Setting title="Style" description="How the full-screen player and the deck show what plays" stack>
+        <Choices name="playerStyle" options={[
+          ["cover", "Cover", <><span className="absolute left-1/2 top-[14%] w-[62%] aspect-square -translate-x-1/2 rounded-md bg-[linear-gradient(135deg,var(--accent),rgb(var(--glow)/.35))] shadow-md" />{lines()}</>],
+          ["vinyl", "Vinyl", <><span className="absolute left-1/2 top-[12%] w-[66%] aspect-square -translate-x-1/2 rounded-full bg-[#141416] shadow-md [background:repeating-radial-gradient(circle,#121214_0_1px,#24242a_1px_2.5px)]"><i className="absolute inset-[32%] rounded-full bg-accent" /></span>{lines()}</>],
+          ["backdrop", "Backdrop", <><span className="absolute inset-0 bg-[linear-gradient(160deg,var(--accent),rgb(var(--glow)/.2)_70%)]" /><span className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_35%,var(--surface-2)_85%)]" />{lines()}</>],
+          ["minimal", "Minimal", <span className="absolute inset-x-2 bottom-2 grid gap-1.5"><i className="h-2.5 w-full rounded-full bg-text/85" /><i className="h-2.5 w-3/4 rounded-full bg-text/85" /><i className="h-1 w-1/2 rounded-full bg-text/40" /></span>],
+        ]} />
+      </Setting>
+    </Group>
   );
 }
 
@@ -190,6 +293,7 @@ export function Settings() {
   }, [version]);
   const library = useQuery({ queryKey: ["songs-total"], queryFn: () => getSongs(0, 1) });
   const { data: me } = useQuery({ queryKey: ME_KEY, queryFn: whoAmI, staleTime: 5 * 60_000 });
+  const syncLook = useSettings((s) => s.syncLook);
 
   return (
     <>
@@ -197,10 +301,11 @@ export function Settings() {
       <div className="grid gap-5.5 px-4 pb-2 wide:px-8 @4xl:block @4xl:columns-2 @4xl:gap-6 @4xl:*:mb-6 @4xl:*:break-inside-avoid">
         <div className="flex items-center gap-4 p-4.5 rounded-[calc(var(--radius)+6px)] bg-[linear-gradient(135deg,rgb(var(--glow)/.22),var(--surface)_70%)] shadow-[inset_0_0_0_1px_var(--line)] [&_h2]:text-[1.3rem] [&_h2]:font-extrabold [&_h2]:tracking-[-.02em] [&_p]:text-muted [&_p]:text-[.88rem] [&_p]:mt-0.5">
           <ProfilePicture />
-          <div><h2>{user}</h2><p>Your look is saved on this device. Your picture follows you to every device.</p></div>
+          <div><h2>{user}</h2><p>{syncLook ? "Your look and your picture follow you to every device." : "Your look is saved on this device. Your picture follows you to every device."}</p></div>
         </div>
 
         <Group title="Appearance">
+          <Setting title="Same look everywhere" description="What you choose here shows on all your devices"><Toggle name="syncLook" /></Setting>
           <Setting title="Theme" description="Follows your phone unless you choose one" stack>
             <Segmented name="theme" options={[["system", "Auto"], ["dark", "Dark"], ["light", "Light"], ["black", "Black"]]} />
           </Setting>
@@ -208,12 +313,18 @@ export function Settings() {
           <Setting title="Accent colour" description="Buttons, highlights and the logo, when nothing is playing or dynamic colour is off" stack><Swatches /></Setting>
           <Preview />
           <Setting title="Corners"><Segmented name="corners" options={[["soft", "Soft"], ["sharp", "Sharp"]]} /></Setting>
+          <Setting title="Glass" description="How much of what is behind the floating bars shows through" stack>
+            <Segmented name="glass" options={[["clear", "Clear"], ["frosted", "Frosted"], ["solid", "Solid"]]} />
+          </Setting>
           <Setting title="List size" description="Compact fits more songs on screen"><Segmented name="density" options={[["comfortable", "Comfy"], ["compact", "Compact"]]} /></Setting>
           <Setting title="Colour the player" description="Tint the player with the cover's colour and, on a big screen, the whole page"><Toggle name="tint" /></Setting>
           <Setting title="Animations" description="Reduced only fades; Off keeps everything still" stack>
             <Segmented name="motion" options={[["full", "Full"], ["reduced", "Less"], ["off", "Off"]]} />
           </Setting>
         </Group>
+
+        <BackgroundSettings />
+        <PlayerSettings />
 
         <Group title="Text">
           <Setting title="Font" stack><Segmented name="font" options={[["rounded", "Rounded"], ["system", "Plain"], ["serif", "Serif"], ["mono", "Mono"]]} /></Setting>
@@ -224,6 +335,7 @@ export function Settings() {
           <HomeSettings />
           <TabSettings />
           <Setting title="Library view" description="Cards or rows, in every section of the library"><Segmented name="libraryView" options={[["grid", "Grid"], ["list", "List"]]} /></Setting>
+          <Setting title="Card size" description="Albums, playlists and artists, on Home and in the library"><Segmented name="cardSize" options={[["small", "Small"], ["medium", "Medium"], ["large", "Large"]]} /></Setting>
         </Group>
 
         <Group title="Playback">

@@ -45,6 +45,7 @@
 
 - A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
 - The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next.
+- Make it yours: a photo of your own or the album playing behind everything (text stays readable on any picture), four player styles (cover, vinyl, backdrop, minimal), glass, card size, fonts and colours. Your look follows you to all your devices.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
 - Make playlists from the songs you have, and add to them from any song's menu.
 - Paste a YouTube link to keep its audio as a podcast or an audiobook. Those remember where you stopped and play at your speed.

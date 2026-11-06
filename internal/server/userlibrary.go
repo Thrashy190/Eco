@@ -33,7 +33,7 @@ func withNavidromeRecents(st userdata.State, played []subsonic.Album) userdata.S
 
 func (s *Server) myLibrary(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	played, _ := s.nd.AlbumList(r.Context(), cred, "recent", 12) // the view still works without them
-	respond(w, http.StatusOK, withNavidromeRecents(s.users.Get(cred.User), played))
+	respond(w, http.StatusOK, withNavidromeRecents(withoutLook(s.users.Get(cred.User)), played))
 }
 
 func readEntry(r *http.Request) (userdata.Entry, error) {
@@ -44,13 +44,19 @@ func readEntry(r *http.Request) (userdata.Entry, error) {
 	return e, e.Validate()
 }
 
+// withoutLook leaves the look out of a state sent back: it has its own endpoint, and every pin would carry it along.
+func withoutLook(st userdata.State) userdata.State {
+	st.Look, st.LookAt = nil, 0
+	return st
+}
+
 // answer sends back the state a change produced, so the app never has to ask for it again.
 func answer(w http.ResponseWriter, st userdata.State, err error) {
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	respond(w, http.StatusOK, st)
+	respond(w, http.StatusOK, withoutLook(st))
 }
 
 func (s *Server) touchRecent(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
@@ -136,7 +142,7 @@ func (s *Server) setPlaylistCover(w http.ResponseWriter, r *http.Request, cred s
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	respond(w, http.StatusOK, st)
+	respond(w, http.StatusOK, withoutLook(st))
 }
 
 func (s *Server) deletePlaylistCover(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {

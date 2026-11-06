@@ -1,7 +1,8 @@
 // Personal settings: how the app looks and what it shows first, and playback options.
-// They are stored per user on this device, so everyone who signs in on a shared phone keeps their own look.
+// They are stored per user on this device, so everyone who signs in on a shared phone keeps their own look, and, unless
+// someone turns it off, on the server too, so all their devices look the same (stores/look.ts).
 import { create } from "zustand";
-import { accentFromCover, luminance, type Rgb } from "../lib/color";
+import { accentFromCover, luminance, type Ink, type Rgb } from "../lib/color";
 import { DEFAULT_TABS } from "../lib/nav";
 import { sortOption } from "../lib/sorting";
 
@@ -23,11 +24,22 @@ export interface Settings {
   libraryView: "grid" | "list"; // how albums and artists are listed
   librarySort: Record<string, string>; // the chosen order of each section of the library (see lib/sorting.ts)
   nowPanel: boolean; // on a big screen, the deck (what is playing) stays beside the page
+  background: "wash" | "photo" | "cover"; // behind everything: the music's colour, your picture, or the cover playing
+  backgroundBlur: number; // px, for a picture behind everything
+  backgroundDim: number; // 0–1: darkening beyond what keeps text readable (lib/color.ts readableDim)
+  backgroundWash: boolean; // the music's colour over the picture too
+  wallpaper: number; // when the picture was set on the server, 0 for none: its address changes with it
+  playerStyle: "cover" | "vinyl" | "backdrop" | "minimal"; // how the full-screen player and the deck show the song
+  glass: "clear" | "frosted" | "solid"; // how much of what is behind the floating bars shows through
+  cardSize: "small" | "medium" | "large"; // albums, playlists and artists as cards
+  syncLook: boolean; // the same look on every device of the account
 }
 
 export const DEFAULTS: Settings = {
   theme: "system", accent: "#7cf0c0", dynamicAccent: false, tint: true, density: "comfortable", corners: "soft", motion: "full", scrobble: true, offlineMode: false,
   font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, nowPanel: true,
+  background: "wash", backgroundBlur: 16, backgroundDim: 0.15, backgroundWash: true, wallpaper: 0, playerStyle: "cover", glass: "frosted",
+  cardSize: "medium", syncLook: true,
 };
 
 export const ACCENTS: [string, string][] = [
@@ -53,17 +65,32 @@ export function loadSettings(name = ""): void {
   apply();
 }
 
+/** Someone changed a setting on this device: stores/look.ts shares it with their other devices. */
+let changed: ((patch: Partial<Settings>) => void) | null = null;
+export const onSettingsChanged = (listener: typeof changed) => { changed = listener; };
+
 export function setSettings(patch: Partial<Settings>): void {
+  useSettings.setState(patch);
+  write(keyFor(user), settings());
+  apply();
+  changed?.(patch);
+}
+
+/** A look that came from another device (already checked by cleanLook): applied and kept here, but not sent back. */
+export function adoptSettings(patch: Partial<Settings>): void {
   useSettings.setState(patch);
   write(keyFor(user), settings());
   apply();
 }
 
+/** Whose settings these are: the account signed in, or "" before anyone is. */
+export const settingsUser = () => user;
+
 /** The order chosen for a section of the library. */
 export const useSort = (section: string) => sortOption(section, useSettings((s) => s.librarySort)[section]);
 
-/** Back to the original look and layout. Offline mode and whether plays are counted are not about looks. */
-export const resetSettings = () => setSettings({ ...DEFAULTS, scrobble: settings().scrobble, offlineMode: settings().offlineMode });
+/** Back to the original look and layout. Offline mode, whether plays are counted, sharing the look and the picture kept on the server are not about looks. */
+export const resetSettings = () => setSettings({ ...DEFAULTS, scrobble: settings().scrobble, offlineMode: settings().offlineMode, syncLook: settings().syncLook, wallpaper: settings().wallpaper });
 
 // ---- colour maths ----
 const toRgb = (hex: string): Rgb => { const n = parseInt(hex.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -72,6 +99,23 @@ const mix = (rgb: Rgb, to: Rgb, amount: number): Rgb => rgb.map((c, i) => c + (t
 
 const scheme = typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: light)") : null;
 const effective = (theme: Settings["theme"]) => (theme === "system" ? (scheme?.matches ? "light" : "dark") : theme);
+
+/** The colours text is drawn in on each theme, which a picture behind everything must leave readable (styles.css). */
+const INKS: Record<"dark" | "black" | "light", Ink> = {
+  dark: { background: [11, 11, 15], text: [244, 244, 247], muted: [155, 155, 168] },
+  black: { background: [0, 0, 0], text: [244, 244, 247], muted: [155, 155, 168] },
+  light: { background: [246, 246, 249], text: [20, 20, 26], muted: [106, 106, 120] },
+};
+/** The theme showing now, and its colours. Follows the phone when the theme is "system". */
+export const currentInk = (): Ink => INKS[effective(settings().theme)];
+const useScheme = create<{ light: boolean }>(() => ({ light: Boolean(scheme?.matches) }));
+scheme?.addEventListener("change", () => useScheme.setState({ light: scheme.matches }));
+/** The theme showing now, redrawing what uses it when it changes. */
+export function useInk(): Ink {
+  const theme = useSettings((s) => s.theme);
+  const light = useScheme((s) => s.light);
+  return INKS[theme === "system" ? (light ? "light" : "dark") : theme];
+}
 
 function apply(): void {
   const current = settings();
@@ -83,6 +127,8 @@ function apply(): void {
   root.dataset.motion = current.motion;
   root.dataset.font = current.font;
   root.dataset.text = current.textSize;
+  root.dataset.glass = current.glass;
+  root.dataset.cards = current.cardSize;
 
   // A pale accent is unreadable as text on a light background: darken it there
   let accent = toRgb(/^#[0-9a-f]{6}$/i.test(current.accent) ? current.accent : DEFAULTS.accent);
@@ -98,7 +144,7 @@ function apply(): void {
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
 
   // boot.js replays this before the first paint on the next launch, so the app never flashes the wrong colours
-  write("eco.boot", { attrs: { theme: current.theme === "system" ? null : current.theme, density: current.density, corners: current.corners, motion: current.motion, font: current.font, text: current.textSize }, vars, background });
+  write("eco.boot", { attrs: { theme: current.theme === "system" ? null : current.theme, density: current.density, corners: current.corners, motion: current.motion, font: current.font, text: current.textSize, glass: current.glass, cards: current.cardSize }, vars, background });
 }
 
 /** The colour of what is playing, as "r g b", or null when nothing with a picture is. Only matters with dynamicAccent on. */

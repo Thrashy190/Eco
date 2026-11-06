@@ -74,6 +74,8 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
 | `GET /api/artists/songs?name=` | every song in the library that names this artist, as the main artist or alongside others, in album order |
+| `GET`, `PUT /api/me/look` | how the app looks for you (`look`, saved by the web app and only kept by the server, a JSON object of at most 32 KB), when it was saved (`at`) and the version of your background picture (`wallpaper`) |
+| `GET`, `PUT`, `DELETE /api/me/wallpaper` | your background picture (a JPEG, like the profile picture) |
 | `GET /api/me` | who you are, whether you are an administrator, which `catalog` answers, and the `version` of Eco (shown in Settings, linked to its release notes) |
 | `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song (its file and Navidrome's record of it; `428` until the password is confirmed) or an imported item, for everyone |
 | `POST /api/admin/unlock` | administrators: confirm the password (JSON: `password`), which opens Navidrome's own API to Eco for 15 minutes, for accounts and deleting |
@@ -105,6 +107,12 @@ Administrators get **Library clean-up** in Settings. Eco proposes and an adminis
 ## The queue
 
 The player's queue is one list in play order (`stores/player.ts`, rules in `lib/queue.ts`). Songs added with *Play next* or *Add to queue* are marked `queued` and wait right after the song playing, before the rest of the album or playlist: *Play next* goes first, *Add to queue* after the songs already waiting. The queue shows them under their own heading, apart from the list they interrupt. They survive starting another album, and jumping to a later song keeps them waiting after it. Every song that has not played can be dragged by its handle (pointer events, so touch and mouse alike) or moved with the arrow keys; a song dropped among the added ones becomes one of them, and one dropped among the album's songs becomes part of it, so the added songs always stay together at the front.
+
+## Your look
+
+Everything in Settings › Appearance, Background, Player, Text and Layout is a setting of the web app (`stores/settings.ts`), kept in `localStorage` per user and, unless *Same look everywhere* is off, on the server (`stores/look.ts`, `PUT /api/me/look`). A device takes the account's look when it opens and whenever it comes back to the screen, and sends its own 0.8 s after a change; a change made offline waits and wins once there is a connection. What arrives is checked value by value (`cleanLook` in `lib/look.ts`): a value this version does not know is left out rather than applied. Offline mode, the deck and the choice to share stay with each device.
+
+Behind everything goes the colour of the music, a picture of your own (kept like the profile picture, `data/users/<hash>/wallpaper.jpg`) or the cover playing. Text must stay readable on any picture, so the app measures a small copy of it and lays as much of the page's colour over it as gives text 4.5:1 and muted text 3:1 on all but its hardest tenth (`readableDim` in `lib/color.ts`); the *Darken* slider adds to that, never below it. The full-screen player and the deck show the song as a cover, a turning record, the cover filling the background (under the same readable veil) or just its title. *Glass* changes how much the floating bars cover (`--glass-a`, `--blur-*` in `styles.css`), and *Card size* the width of cards in shelves and grids (`--card-w`, `--artist-w`, `--grid-min`).
 
 ## Screens
 

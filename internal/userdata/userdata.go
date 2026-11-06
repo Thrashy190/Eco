@@ -81,6 +81,11 @@ type State struct {
 	Pins    []Entry          `json:"pins"`
 	Avatar  int64            `json:"avatar,omitempty"` // when the profile picture was set, so its address changes with it
 	Covers  map[string]int64 `json:"covers"`           // playlist ID → when its picture was set, used to refresh cached images
+	// The background picture, like the avatar, and how the app looks (the web app's settings, which the server only
+	// keeps), so every device of the account looks the same
+	Wallpaper int64           `json:"wallpaper,omitempty"`
+	Look      json.RawMessage `json:"look,omitempty"`
+	LookAt    int64           `json:"look_at,omitempty"`
 }
 
 // Store keeps every user's state under a root folder.
@@ -296,6 +301,46 @@ func (s *Store) RemoveAvatar(user string) (State, error) {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Avatar = 0 })
+}
+
+// WallpaperPath is where a user's background picture is stored.
+func (s *Store) WallpaperPath(user string) string { return filepath.Join(s.dir(user), "wallpaper.jpg") }
+
+// SetWallpaper stores a user's background picture, under the same rules as any other picture.
+func (s *Store) SetWallpaper(user string, image []byte) (State, error) {
+	if err := saveJPEG(s.WallpaperPath(user), image); err != nil {
+		return State{}, err
+	}
+	return s.update(user, func(st *State) { st.Wallpaper = time.Now().UnixMilli() })
+}
+
+// RemoveWallpaper deletes a user's background picture.
+func (s *Store) RemoveWallpaper(user string) (State, error) {
+	if err := os.Remove(s.WallpaperPath(user)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return State{}, err
+	}
+	return s.update(user, func(st *State) { st.Wallpaper = 0 })
+}
+
+// MaxLookBytes is the most a user's look may take: a few dozen settings need a fraction of it.
+const MaxLookBytes = 32 << 10
+
+// ErrBadLook means the look is not a JSON object of a sensible size.
+var ErrBadLook = errors.New("the look must be a JSON object of at most 32 KB")
+
+// SetLook keeps how the app looks for a user. The server does not read it: the web app checks every value it applies.
+// It returns when it was saved.
+func (s *Store) SetLook(user string, look []byte) (int64, error) {
+	var object map[string]json.RawMessage
+	if len(look) > MaxLookBytes || json.Unmarshal(look, &object) != nil || object == nil {
+		return 0, ErrBadLook
+	}
+	at := time.Now().UnixMilli()
+	_, err := s.update(user, func(st *State) {
+		st.Look = json.RawMessage(look)
+		st.LookAt = at
+	})
+	return at, err
 }
 
 // AvatarVersion says when a user's picture was set, 0 if there is none.

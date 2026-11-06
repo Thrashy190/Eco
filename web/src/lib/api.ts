@@ -123,6 +123,14 @@ export const sendJson = (path: string, extra: Record<string, string>, body: unkn
 export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string; version?: string }>("me");
 export interface Account { username: string; name?: string; admin: boolean; last_seen?: string; avatar?: number }
 export const listUsers = () => eco<{ locked?: boolean; users?: Account[] }>("admin/users");
+// ---- How the app looks, the same on every device ----
+export const getLook = () => eco<{ look: unknown; at: number; wallpaper: number }>("me/look");
+export const putLook = (look: object) => send<{ at: number }>("me/look", JSON.stringify(look), "PUT");
+export const putWallpaper = (picture: Blob) => send<{ wallpaper: number }>("me/wallpaper", picture, "PUT", "image/jpeg");
+export const deleteWallpaper = () => eco<{ wallpaper: number }>("me/wallpaper", undefined, "DELETE");
+/** The background picture. Its address changes with it, so it can be kept for good. */
+export const wallpaperUrl = (version: number) => `/api/me/wallpaper?${params({ v: version })}`;
+
 /** Confirm the administrator's password, which lets Eco use Navidrome's own API for 15 minutes. */
 export const unlockAdmin = (password: string) => send<{ unlocked: boolean }>("admin/unlock", JSON.stringify({ password }));
 export const userAvatarUrl = (name: string, version: number) => `/api/admin/users/${part(name)}/avatar?${params({ v: version })}`;

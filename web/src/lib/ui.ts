@@ -48,15 +48,15 @@ export const ui = {
   letters: "grid place-items-center font-extrabold text-[1.6rem] text-white bg-[linear-gradient(135deg,hsl(var(--h)_55%_42%),hsl(calc(var(--h)+40)_60%_28%))]",
 
   // ---- Cards ----
-  card: "group/card tap flex-none w-38 grid gap-0.5 content-start snap-start active:scale-[.96] [&>b]:mt-1 [&>b]:truncate [&>b]:text-[.95rem] [&>b]:font-semibold [&>span:last-child]:truncate [&>span:last-child]:text-muted [&>span:last-child]:text-[.82rem] wide:w-44 wide:[&>b]:mt-1.5 wide:[&>b]:text-[.98rem] wide:[&>span:last-child]:text-[.85rem]",
+  card: "group/card tap flex-none w-(--card-w) grid gap-0.5 content-start snap-start active:scale-[.96] [&>b]:mt-1 [&>b]:truncate [&>b]:text-[.95rem] [&>b]:font-semibold [&>span:last-child]:truncate [&>span:last-child]:text-muted [&>span:last-child]:text-[.82rem] wide:[&>b]:mt-1.5 wide:[&>b]:text-[.98rem] wide:[&>span:last-child]:text-[.85rem]",
   // The name sits as far below the picture as on an album's card (its cover's margin plus the name's), so rows line up
-  cardArtist: "group/card tap flex-none w-30 grid gap-0.5 content-start snap-start text-center active:scale-[.96] [&>b]:truncate [&>b]:text-[.95rem] [&>b]:font-semibold [&>span:last-child]:truncate [&>span:last-child]:text-muted [&>span:last-child]:text-[.82rem] [&>b]:mt-2.5 wide:w-36 wide:[&>b]:mt-3",
+  cardArtist: "group/card tap flex-none w-(--artist-w) grid gap-0.5 content-start snap-start text-center active:scale-[.96] [&>b]:truncate [&>b]:text-[.95rem] [&>b]:font-semibold [&>span:last-child]:truncate [&>span:last-child]:text-muted [&>span:last-child]:text-[.82rem] [&>b]:mt-2.5 wide:[&>b]:mt-3",
   // A cover inside a card: it rises towards you under a mouse
   cardCover: "mb-1.5 shadow-[0_12px_28px_rgb(0_0_0/.3)] transition-[transform,box-shadow] duration-300 ease-snap can-hover:group-hover/card:-translate-y-1 can-hover:group-hover/card:shadow-[0_18px_36px_rgb(0_0_0/.4)]",
   cardArt: "relative block",
   shelf: "stagger flex gap-4 overflow-x-auto px-5 pt-0.5 pb-2 snap-x snap-proximity scroll-px-5 no-scrollbar wide:gap-5 wide:px-8 wide:pb-3 wide:scroll-px-8 wide:scroll-smooth",
   // Cards fill their cell: an artist's card is narrower in a shelf, and its fixed width left it to one side of the cell
-  grid: "stagger grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-4 gap-y-5 px-5 py-2 *:w-auto! wide:grid-cols-[repeat(auto-fill,minmax(164px,1fr))] wide:gap-x-5 wide:gap-y-7 wide:px-8",
+  grid: "stagger grid grid-cols-[repeat(auto-fill,minmax(var(--grid-min),1fr))] gap-x-4 gap-y-5 px-5 py-2 *:w-auto! wide:gap-x-5 wide:gap-y-7 wide:px-8",
 
   // ---- Rows ----
   rows: "stagger px-2 wide:px-5",

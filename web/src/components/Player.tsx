@@ -4,9 +4,10 @@
 // one; the controls go wherever the music is (see stores/connect.ts).
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { hasCover, songCover } from "../lib/api";
+import { hasCover, songCover, wallpaperUrl } from "../lib/api";
+import { readableDim, shownDim, type Ink } from "../lib/color";
 import { clock } from "../lib/format";
-import { dominantColor } from "../lib/image";
+import { dominantColor, pixelsOf } from "../lib/image";
 import { useRoomy, useWide } from "../lib/media";
 import type { Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
@@ -15,7 +16,7 @@ import { toggleFavorite, useStarred } from "../stores/favorites";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline } from "../stores/saving";
-import { setCoverColor, setSettings, useSettings } from "../stores/settings";
+import { setCoverColor, setSettings, useInk, useSettings } from "../stores/settings";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
 import { Queue } from "./Queue";
@@ -81,16 +82,58 @@ function useTint(art: string, wanted: boolean): string {
   return tint;
 }
 
+/** The size of the song's picture in the full-screen player. */
+const ART = "w-[min(82vw,44vh,420px)] wide:w-[min(40vw,54vh,420px)]";
+
+/**
+ * A record: the cover is its label, and it turns at 33⅓ while the music plays. The light on it stays still, as on a
+ * real one. Motion turned down stops it.
+ */
+function Vinyl({ src, playing, className }: { src: string; playing: boolean; className?: string }) {
+  return (
+    <div className={cx("relative aspect-square rounded-full", className)} aria-hidden="true">
+      <div className={cx("record absolute inset-0 rounded-full shadow-[0_24px_60px_rgb(0_0_0/.5),0_4px_16px_rgb(0_0_0/.4)]", !playing && "[animation-play-state:paused]")}
+        style={{ background: "repeating-radial-gradient(circle, #121214 0 1.5px, #1d1d21 1.5px 3px)" }}>
+        {src
+          ? <img src={src} alt="" draggable={false} className="absolute left-[31%] top-[31%] w-[38%] h-[38%] rounded-full object-cover" />
+          : <i className="absolute left-[31%] top-[31%] w-[38%] h-[38%] rounded-full bg-accent" />}
+        <i className="absolute left-1/2 top-1/2 size-[3.5%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-bg shadow-[inset_0_0_0_1px_rgb(255_255_255/.25)]" />
+      </div>
+      <i className="absolute inset-0 rounded-full pointer-events-none"
+        style={{ background: "conic-gradient(from 210deg, transparent 0deg, rgb(255 255 255 / .16) 22deg, transparent 50deg, transparent 180deg, rgb(255 255 255 / .1) 202deg, transparent 230deg)" }} />
+    </div>
+  );
+}
+
+/**
+ * The cover as the whole background. It lies under as much of the page's colour as keeps text readable on it; on a
+ * phone the top, where no text is, shows it clearly.
+ */
+function Backdrop({ src, className }: { src: string; className?: string }) {
+  const ink = useInk();
+  const readable = useReadableDim(src, ink);
+  const wide = useWide();
+  const veil = `color-mix(in srgb, var(--bg) ${Math.round(readable * 100)}%, transparent)`;
+  return (
+    <div aria-hidden="true" className={cx("overflow-hidden pointer-events-none", className)}>
+      <img key={src} src={src} alt="" className="absolute inset-0 size-full object-cover animate-fade-in" />
+      <i className="absolute inset-0" style={{ background: wide ? veil : `linear-gradient(to bottom, transparent 10%, ${veil} 46%, ${veil} 70%, var(--bg) 96%)` }} />
+    </div>
+  );
+}
+
 function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
   const shown = useShown();
   const { song, playing, loading, shuffle, repeat, speed, upcoming, index } = shown;
   const starred = useStarred(song);
   const tintOn = useSettings((s) => s.tint);
+  const look = useSettings((s) => s.playerStyle);
   offline.useOfflineVersion();
 
   const art = song && hasCover(song) ? songCover(song, 600) : "";
   const tint = useTint(art, open);
+  const backdrop = look === "backdrop" && art !== "";
 
   // Mounted only while visible, but kept for the length of the slide-down
   const [visible, setVisible] = useState(false);
@@ -110,22 +153,39 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
   const spoken = player.isSpoken(song);
   const saved = offline.isSaved(song.id);
   const column = "w-full max-w-110";
+  const slide = cx("transition-transform duration-240 ease-snap", raised ? "translate-y-0" : "translate-y-full");
   return (
+    <>
+    {/* Outside the panel, which scrolls: the picture stays put behind it */}
+    {backdrop && <Backdrop src={art} className={cx("fixed inset-0 z-50 bg-bg", slide)} />}
     <section role="dialog" aria-label="Now playing" style={{ "--tint": tintOn ? tint : NEUTRAL } as React.CSSProperties}
       className={cx(
-        "fixed inset-0 z-50 flex flex-col items-center gap-4.5 overflow-y-auto px-6 pt-[calc(var(--safe-top)+10px)] pb-[calc(var(--safe-bottom)+28px)] [background:radial-gradient(130%_75%_at_50%_12%,rgb(var(--tint)/.8),transparent_72%),var(--bg)] transition-transform duration-240 ease-snap",
-        "wide:grid wide:grid-cols-[minmax(0,440px)_minmax(0,400px)] wide:grid-rows-[auto_minmax(0,1fr)] wide:justify-center wide:items-start wide:gap-x-12 wide:gap-y-3 wide:overflow-hidden wide:pt-10 wide:[background:radial-gradient(90%_80%_at_20%_30%,rgb(var(--tint)/.75),transparent_70%),var(--bg)]",
-        raised ? "translate-y-0" : "translate-y-full",
+        "fixed inset-0 z-50 flex flex-col items-center gap-4.5 overflow-y-auto px-6 pt-[calc(var(--safe-top)+10px)] pb-[calc(var(--safe-bottom)+28px)]",
+        "wide:grid wide:grid-cols-[minmax(0,440px)_minmax(0,400px)] wide:grid-rows-[auto_minmax(0,1fr)] wide:justify-center wide:items-start wide:gap-x-12 wide:gap-y-3 wide:overflow-hidden wide:pt-10",
+        !backdrop && "[background:radial-gradient(130%_75%_at_50%_12%,rgb(var(--tint)/.8),transparent_72%),var(--bg)] wide:[background:radial-gradient(90%_80%_at_20%_30%,rgb(var(--tint)/.75),transparent_70%),var(--bg)]",
+        slide,
       )}>
       <button className="w-11 h-9 self-start grid place-items-center -ml-2 text-text wide:col-span-full" aria-label="Minimise" onClick={onClose}><Icon name="down" size={28} /></button>
       <div className="contents wide:flex wide:flex-col wide:gap-4.5 wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
-        {art
-          ? <img key={art} src={art} alt="" className="w-[min(82vw,44vh,420px)] aspect-square rounded-big object-cover bg-surface-2 mx-auto mt-1 flex-none animate-art-in shadow-[0_24px_60px_rgb(var(--tint)/.55),0_4px_16px_rgb(0_0_0/.4)] wide:w-[min(40vw,54vh,420px)]" />
-          : <div className="invisible w-[min(82vw,44vh,420px)] aspect-square mx-auto flex-none" />}
-        <div className={cx("grid gap-0.5", column)}>
-          <h2 className="font-title text-[1.7rem] font-bold tracking-[-.03em] leading-[1.1] wrap-anywhere wide:text-[2rem]">{song.title}</h2>
-          <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
-        </div>
+        {look === "minimal"
+          ? (
+            <div className={cx(column, "min-h-[min(70vw,40vh,380px)] flex flex-col justify-end gap-2 wide:min-h-[min(40vw,54vh,420px)]")}>
+              {song.album && <span className="text-[.78rem] uppercase tracking-[.14em] font-semibold text-muted truncate">{song.album}</span>}
+              <h2 className="font-title text-[clamp(2.4rem,11vw,4.2rem)] font-bold leading-[.98] tracking-[-.04em] wrap-anywhere line-clamp-4">{song.title}</h2>
+              <ArtistLinks className="text-[1.15rem] text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
+            </div>
+          )
+          : backdrop || !art
+            ? <div className={cx(ART, "invisible aspect-square mx-auto flex-none")} />
+            : look === "vinyl"
+              ? <Vinyl key={art} src={art} playing={playing} className={cx(ART, "mx-auto mt-1 flex-none animate-art-in")} />
+              : <img key={art} src={art} alt="" className={cx(ART, "aspect-square rounded-big object-cover bg-surface-2 mx-auto mt-1 flex-none animate-art-in shadow-[0_24px_60px_rgb(var(--tint)/.55),0_4px_16px_rgb(0_0_0/.4)]")} />}
+        {look !== "minimal" && (
+          <div className={cx("grid gap-0.5", column)}>
+            <h2 className="font-title text-[1.7rem] font-bold tracking-[-.03em] leading-[1.1] wrap-anywhere wide:text-[2rem]">{song.title}</h2>
+            <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
+          </div>
+        )}
         <div className={column}><SeekBar /></div>
         <div className={cx("flex items-center justify-between", column)}>
           <button className={ghost} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" /></button>
@@ -147,6 +207,7 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
         <Queue upcoming={upcoming} index={index} source={shown.source} heading="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2 mb-1 [&:not(:first-child)]:mt-5" />
       </div>
     </section>
+    </>
   );
 }
 
@@ -183,16 +244,22 @@ function DeckNow({ song }: { song: Song }) {
   const shown = useShown();
   const { playing, loading, shuffle, repeat, upcoming, index, isRemote, deviceName } = shown;
   const starred = useStarred(song);
+  const look = useSettings((s) => s.playerStyle);
   offline.useOfflineVersion();
   const spoken = player.isSpoken(song);
   const saved = offline.isSaved(song.id);
+  const art = hasCover(song) ? songCover(song, 600) : "";
+  const size = "block mx-auto w-full max-w-[min(100%,38dvh)]";
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      {look === "backdrop" && art !== "" && <Backdrop src={art} className="absolute inset-0 -z-10" />}
       <div className="flex-none px-4 pb-2">
-        <SongCover song={song} size={600} className="block mx-auto w-full max-w-[min(100%,38dvh)] h-auto aspect-square rounded-[22px] object-cover bg-surface-2 shadow-[0_20px_50px_rgb(var(--tint)/.4),0_4px_14px_rgb(0_0_0/.3)] transition-shadow duration-700" />
+        {look === "cover" && <SongCover song={song} size={600} className={cx(size, "h-auto aspect-square rounded-[22px] object-cover bg-surface-2 shadow-[0_20px_50px_rgb(var(--tint)/.4),0_4px_14px_rgb(0_0_0/.3)] transition-shadow duration-700")} />}
+        {look === "vinyl" && <Vinyl key={art} src={art} playing={playing} className={size} />}
+        {look === "backdrop" && art !== "" && <div className="h-[min(18dvh,160px)]" />}
         <div className="flex items-start gap-2 mt-3.5">
           <div className="flex-1 min-w-0 grid gap-0.5">
-            <h2 className="font-title text-[1.4rem] font-bold tracking-[-.025em] leading-[1.12] line-clamp-2" title={song.title}>{song.title}</h2>
+            <h2 className={cx("font-title font-bold tracking-[-.025em] leading-[1.12]", look === "minimal" || look === "backdrop" ? "text-[2rem] leading-[1.02] tracking-[-.035em] line-clamp-3" : "text-[1.4rem] line-clamp-2")} title={song.title}>{song.title}</h2>
             {isRemote ? <span className={onDevice}>{`Playing on ${deviceName}`}</span> : <ArtistLinks className="truncate text-muted font-medium text-[.92rem]" name={song.artist} id={song.artistId} />}
           </div>
           {!spoken && <button className={heartPlain} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} size={22} /></button>}
@@ -287,10 +354,36 @@ export function Player() {
  * the small cover the player has already fetched, and with "Colour the player" off only the accent colour shows. The same
  * colour feeds the accent when it is set to follow the album.
  */
+/**
+ * How much of the page's colour must lie over a picture for text on it to read (lib/color.ts readableDim). Until the
+ * picture has been measured, assume it needs a fair amount rather than flash unreadable text.
+ */
+function useReadableDim(src: string, ink: Ink): number {
+  const [dim, setDim] = useState(0.6);
+  useEffect(() => {
+    if (!src) return;
+    const probe = new Image();
+    probe.onload = () => setDim(readableDim(pixelsOf(probe), ink));
+    probe.src = src;
+    return () => { probe.onload = null; };
+  }, [src, ink]);
+  return dim;
+}
+
+/**
+ * Behind everything: the colour of the music, a picture of your own or the cover playing (Settings › Background). A
+ * picture lies under as much of the page's colour as keeps text readable on it, plus however much more you chose.
+ */
 export function Ambient() {
   const { song } = useShown();
   const tintOn = useSettings((s) => s.tint);
   const dynamic = useSettings((s) => s.dynamicAccent);
+  const background = useSettings((s) => s.background);
+  const wallpaper = useSettings((s) => s.wallpaper);
+  const blur = useSettings((s) => s.backgroundBlur);
+  const extra = useSettings((s) => s.backgroundDim);
+  const washOver = useSettings((s) => s.backgroundWash);
+  const ink = useInk();
   const art = song && hasCover(song) ? songCover(song, 96) : "";
   const tint = useTint(art, (tintOn || dynamic) && Boolean(song));
   const known = art && tint !== NEUTRAL ? tint : null;
@@ -299,11 +392,27 @@ export function Ambient() {
     setCoverColor(known);
   }, [known, tintOn]);
   useEffect(() => () => setCoverColor(null), []); // signed out: nothing is playing
+
+  // A sharp cover needs its full size; a blurred one would look the same from a small one
+  const picture = background === "photo" && wallpaper ? wallpaperUrl(wallpaper)
+    : background === "cover" && song && hasCover(song) ? songCover(song, blur < 6 ? 600 : 300) : "";
+  const readable = useReadableDim(picture, ink);
   const wash = "absolute transition-colors duration-[1400ms] rounded-full";
   return (
     <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none">
-      <i className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />
-      <i className={cx(wash, "-right-[20%] -bottom-[45%] size-[70vmax] opacity-[calc(var(--ambient)*.35)] bg-[rgb(var(--glow))] mask-[radial-gradient(closest-side,black,transparent)]")} />
+      {picture !== "" && (
+        <>
+          <img key={picture} src={picture} alt="" className="absolute inset-0 size-full object-cover animate-fade-in"
+            style={blur > 0 ? { filter: `blur(${blur}px)`, transform: "scale(1.1)" } : undefined} />
+          <i className="absolute inset-0 bg-bg transition-opacity duration-500" style={{ opacity: shownDim(readable, extra) }} />
+        </>
+      )}
+      {(picture === "" || washOver) && (
+        <>
+          <i className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />
+          <i className={cx(wash, "-right-[20%] -bottom-[45%] size-[70vmax] opacity-[calc(var(--ambient)*.35)] bg-[rgb(var(--glow))] mask-[radial-gradient(closest-side,black,transparent)]")} />
+        </>
+      )}
     </div>
   );
 }

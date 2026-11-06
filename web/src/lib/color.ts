@@ -46,3 +46,30 @@ export function accentFromCover(cover: Rgb, background: Rgb): Rgb {
   }
   return accent;
 }
+
+/** What text on a background picture is checked against: the page's text and its muted text. */
+export interface Ink { background: Rgb; text: Rgb; muted: Rgb }
+
+const blend = (pixel: Rgb, over: Rgb, amount: number): Rgb => pixel.map((c, i) => c + (over[i] - c) * amount) as Rgb;
+
+/**
+ * How much of the page's colour must cover a background picture for text to stay readable on it: 4.5:1 for text and
+ * 3:1 for muted text, everywhere but the 10% of the picture hardest to read on (a white cloud in a blue sky does not
+ * darken the whole sky). The pixels are a small copy of the picture, which is also roughly what blurring it gives.
+ * Returns 0–0.95.
+ */
+export function readableDim(pixels: Rgb[], ink: Ink): number {
+  if (pixels.length === 0) return 0;
+  const worstAllowed = Math.floor(pixels.length * 0.1);
+  for (let dim = 0; dim < 0.95; dim += 0.01) {
+    const margins = pixels.map((pixel) => {
+      const shown = blend(pixel, ink.background, dim);
+      return Math.min(contrast(ink.text, shown) / 4.5, contrast(ink.muted, shown) / 3);
+    }).sort((a, b) => a - b);
+    if (margins[worstAllowed] >= 1) return Math.round(dim * 100) / 100;
+  }
+  return 0.95;
+}
+
+/** The darkening shown: what readability needs, then the person's own amount (0–1) of what is left. */
+export const shownDim = (readable: number, extra: number) => Math.min(readable + (1 - readable) * Math.min(Math.max(extra, 0), 1), 0.97);
