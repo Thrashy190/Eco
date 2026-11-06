@@ -87,12 +87,18 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		return songs[i].Artist < songs[j].Artist
 	})
 	sn := &snapshot{at: time.Now(), songs: songs, orders: orderSongs(songs), byTitle: map[string][]subsonic.Song{}}
-	names := make([]string, 0, 2*len(songs))
+	seen := map[string]bool{} // each name counts once, or ten songs by one artist with a comma in the name made it a list
+	var names []string
 	for _, song := range songs {
 		t := match.Norm(song.Title)
 		sn.byTitle[t] = append(sn.byTitle[t], song)
 		for _, tag := range []string{song.Artist, song.AlbumArtist} {
-			names = append(names, strings.Split(tag, "; ")...)
+			for _, name := range strings.Split(tag, "; ") {
+				if !seen[name] {
+					seen[name] = true
+					names = append(names, name)
+				}
+			}
 		}
 	}
 	sn.known = knownArtistNames(names)

@@ -260,10 +260,14 @@ func TestFindCombinedArtists(t *testing.T) {
 		{Artist: "21 Savage, Offset, Metro Boomin"},
 		{Artist: "Tyler, The Creator"},
 		{Artist: "Arcángel", AlbumArtist: "League of Legends, Against The Current"},
+		{Artist: "Tyler, The Creator; Kali Uchis"}, // separated before: the comma left is part of a name
 	})
 	sure := map[string]bool{}
 	for _, fix := range got {
 		sure[fix.Name] = fix.Sure
+	}
+	if _, listed := sure["Tyler, The Creator; Kali Uchis"]; listed {
+		t.Error("offered a tag that was already separated")
 	}
 	for name, want := range map[string]bool{"Bad Bunny, Chuwi": true, "Offset, Metro Boomin": true, "21 Savage, Offset, Metro Boomin": true, "Tyler, The Creator": false, "League of Legends, Against The Current": false} {
 		value, listed := sure[name]
@@ -271,10 +275,20 @@ func TestFindCombinedArtists(t *testing.T) {
 			t.Errorf("%q: listed %v, sure %v, want %v", name, listed, value, want)
 		}
 	}
-	if got := separated("Bad Bunny, Chuwi", map[string]bool{"Bad Bunny, Chuwi": true}); got != "Bad Bunny; Chuwi" {
+	chosen := chosenParts([]string{"Bad Bunny, Chuwi", "Tyler, The Creator, Kali Uchis", "Earth, Wind & Fire, Someone"}, map[string][]string{
+		"Tyler, The Creator, Kali Uchis": {"Tyler, The Creator", "Kali Uchis"},
+		"Earth, Wind & Fire, Someone":    {"Earth, Wind and Fire", "Someone"}, // a word changed: refused
+	})
+	if got := separated("Bad Bunny, Chuwi", chosen); got != "Bad Bunny; Chuwi" {
 		t.Errorf("got %q", got)
 	}
-	if got := separated("Tyler, The Creator", map[string]bool{"Bad Bunny, Chuwi": true}); got != "" {
+	if got := separated("Tyler, The Creator, Kali Uchis", chosen); got != "Tyler, The Creator; Kali Uchis" {
+		t.Errorf("the parts given were not used: %q", got)
+	}
+	if got := separated("Earth, Wind & Fire, Someone", chosen); got != "" {
+		t.Errorf("parts that change the name were used: %q", got)
+	}
+	if got := separated("Tyler, The Creator", chosen); got != "" {
 		t.Errorf("a name nobody chose would be rewritten: %q", got)
 	}
 	if match.FirstArtist("Bad Bunny; Chuwi") != "bad bunny" {

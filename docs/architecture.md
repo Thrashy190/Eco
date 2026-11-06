@@ -67,7 +67,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `POST /api/imports` · `GET /api/imports`, `/api/imports/{id}` | make or update a playlist from a list (JSON: `name`, `rows`); list them; one, with each song and whether you have it |
 | `POST /api/imports/{id}/sync`, `/download` · `DELETE /api/imports/{id}` | bring its playlist up to date; queue the songs you lack; forget it (the playlist stays) |
 | `GET /api/admin/cleanup` | administrators: `duplicates`, combined `artists`, and the `task` running |
-| `POST /api/admin/cleanup/duplicates`, `/artists` | administrators: delete other copies (JSON: `keep`, `remove`); separate artists (JSON: `names`) |
+| `POST /api/admin/cleanup/duplicates`, `/artists` | administrators: delete other copies (JSON: `keep`, `remove`); separate artists (JSON: `names`, and optionally `parts`, where a name splits when a comma belongs to a name: `{"Tyler, The Creator, Kali Uchis": ["Tyler, The Creator", "Kali Uchis"]}`; the parts must give the name back joined with commas) |
 | `GET /api/media/preview?url=` | what a YouTube link is (title, channel, length, thumbnail) and whether it is already imported |
 | `POST /api/media/import?url=&kind=` | import the audio of a link as `podcast`, `audiobook` or `other`; the same video is never imported twice |
 | `GET /api/media?kind=` | imported items, newest first |

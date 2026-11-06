@@ -239,19 +239,24 @@ func findCombinedArtists(songs []subsonic.Song) []artistFix {
 	count := map[string]int{}
 	seen := map[string]bool{}
 	var names []string
-	add := func(name string) {
-		if name != "" && !seen[name] {
-			seen[name] = true
-			names = append(names, name)
+	add := func(tag string) {
+		for _, name := range strings.Split(tag, "; ") { // already separated: each one is a name of its own
+			if name != "" && !seen[name] {
+				seen[name] = true
+				names = append(names, name)
+			}
 		}
 	}
+	// A tag that already uses "; " was separated before, by hand or here: a comma left in it belongs to a name
+	// ("Tyler, The Creator; Kali Uchis"), so it is not offered again
+	combined := func(tag string) bool { return strings.Contains(tag, ", ") && !strings.Contains(tag, "; ") }
 	for _, song := range songs {
 		add(song.Artist)
 		add(song.AlbumArtist)
-		if strings.Contains(song.Artist, ", ") {
+		if combined(song.Artist) {
 			count[song.Artist]++
 		}
-		if song.AlbumArtist != song.Artist && strings.Contains(song.AlbumArtist, ", ") {
+		if song.AlbumArtist != song.Artist && combined(song.AlbumArtist) {
 			count[song.AlbumArtist]++
 		}
 	}
@@ -300,12 +305,34 @@ func (s *Server) cleanupReport(w http.ResponseWriter, r *http.Request, cred subs
 	respond(w, http.StatusOK, map[string]any{"songs": len(songs), "duplicates": findDuplicates(songs), "artists": findCombinedArtists(songs), "task": task})
 }
 
-// separated writes the chosen names with the separator Navidrome splits on. Anything else stays as it is.
-func separated(name string, chosen map[string]bool) string {
-	if !chosen[name] {
+// separated writes a chosen name with the separator Navidrome splits on, between the parts chosen for it. Anything
+// else stays as it is.
+func separated(name string, chosen map[string][]string) string {
+	parts, ok := chosen[name]
+	if !ok {
 		return ""
 	}
-	return strings.Join(splitNames(name), tag.Separator)
+	return strings.Join(parts, tag.Separator)
+}
+
+// chosenParts decides how each chosen name splits: at every comma, unless the request says where. A name can hold a
+// comma ("Tyler, The Creator, Kali Uchis" is two artists, not three), but the parts may only move the separators: put
+// back together with commas they must give the name exactly, so no word of a tag can change.
+func chosenParts(names []string, parts map[string][]string) map[string][]string {
+	chosen := map[string][]string{}
+	for _, name := range names {
+		split := splitNames(name)
+		if given, ok := parts[name]; ok {
+			if strings.Join(given, ", ") != name {
+				continue
+			}
+			split = given
+		}
+		if len(split) > 1 {
+			chosen[name] = split
+		}
+	}
+	return chosen
 }
 
 // cleanupArtists starts rewriting the artist tags of the songs with the chosen names. It keeps a copy of every file it
@@ -313,18 +340,14 @@ func separated(name string, chosen map[string]bool) string {
 // real Navidrome, songs kept their IDs, favourites and playlists; albums whose album artist changes get a new ID.
 func (s *Server) cleanupArtists(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	var body struct {
-		Names []string `json:"names"`
+		Names []string            `json:"names"`
+		Parts map[string][]string `json:"parts"` // optional: where a name splits, when not at every comma
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil || len(body.Names) == 0 {
 		fail(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	chosen := map[string]bool{}
-	for _, name := range body.Names {
-		if len(splitNames(name)) > 1 {
-			chosen[name] = true
-		}
-	}
+	chosen := chosenParts(body.Names, body.Parts)
 	songs, err := s.nd.AllSongs(r.Context(), cred)
 	if err != nil {
 		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
@@ -332,7 +355,9 @@ func (s *Server) cleanupArtists(w http.ResponseWriter, r *http.Request, cred sub
 	}
 	var todo []subsonic.Song
 	for _, song := range songs {
-		if chosen[song.Artist] || chosen[song.AlbumArtist] {
+		_, artist := chosen[song.Artist]
+		_, albumArtist := chosen[song.AlbumArtist]
+		if artist || albumArtist {
 			todo = append(todo, song)
 		}
 	}
@@ -355,7 +380,7 @@ func (s *Server) cleanupArtists(w http.ResponseWriter, r *http.Request, cred sub
 	respond(w, http.StatusAccepted, task)
 }
 
-func (s *Server) runRetag(cred subsonic.Cred, todo []subsonic.Song, chosen map[string]bool, backup string) {
+func (s *Server) runRetag(cred subsonic.Cred, todo []subsonic.Song, chosen map[string][]string, backup string) {
 	for _, song := range todo {
 		err := s.ctx.Err()
 		if err == nil {
@@ -376,7 +401,7 @@ func (s *Server) runRetag(cred subsonic.Cred, todo []subsonic.Song, chosen map[s
 	s.mu.Unlock()
 }
 
-func (s *Server) retagSong(song subsonic.Song, chosen map[string]bool, backup string) error {
+func (s *Server) retagSong(song subsonic.Song, chosen map[string][]string, backup string) error {
 	path, err := library.FindSongFile(s.cfg.MusicDir, song.Size, song.Suffix, song.Title)
 	if err != nil {
 		return err
