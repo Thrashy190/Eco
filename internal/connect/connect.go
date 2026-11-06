@@ -63,9 +63,22 @@ type Conn struct {
 	state  json.RawMessage
 	at     time.Time
 	once   sync.Once
+	// For a device that asks for its events instead of keeping a stream open (Hub.Hold); guarded by Hub.mu.
+	held    bool
+	holders int
+	linger  *time.Timer
 }
 
 func (c *Conn) close() { c.once.Do(func() { close(c.Closed) }) }
+
+func (c *Conn) isClosed() bool {
+	select {
+	case <-c.Closed:
+		return true
+	default:
+		return false
+	}
+}
 
 // offer queues an event. A device too slow to keep up is disconnected instead of holding everyone else back;
 // its browser reconnects on its own.
@@ -103,12 +116,20 @@ func cleanName(name string) string {
 // Join connects a device. Joining again with the same ID replaces the old connection (a reconnecting browser often
 // arrives before the server notices the old one died). The returned function disconnects it.
 func (h *Hub) Join(user string, info Info) (*Conn, func(), error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	conn, err := h.join(user, info)
+	if err != nil {
+		return nil, nil, err
+	}
+	return conn, func() { h.mu.Lock(); defer h.mu.Unlock(); h.leave(user, conn) }, nil
+}
+
+// join adds a device; h.mu must be held.
+func (h *Hub) join(user string, info Info) (*Conn, error) {
 	info.Name = cleanName(info.Name)
 	conn := &Conn{Info: info, Events: make(chan Event, 64), Closed: make(chan struct{})}
 	u := key(user)
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
 	devices := h.users[u]
 	if devices == nil {
 		devices = map[string]*Conn{}
@@ -118,27 +139,69 @@ func (h *Hub) Join(user string, info Info) (*Conn, func(), error) {
 		conn.state, conn.at = old.state, old.at // the same device keeps what it was playing
 		old.close()
 	} else if len(devices) >= maxDevices {
-		return nil, nil, ErrTooManyDevices
+		return nil, ErrTooManyDevices
 	}
 	devices[info.ID] = conn
 	h.broadcastDevices(devices)
+	return conn, nil
+}
 
-	leave := func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		conn.close()
-		devices := h.users[u]
-		if devices[info.ID] != conn { // already replaced by a newer connection
-			return
-		}
-		delete(devices, info.ID)
-		if len(devices) == 0 {
-			delete(h.users, u)
-			return
-		}
-		h.broadcastDevices(devices)
+// leave disconnects a device, unless a newer connection already replaced it; h.mu must be held.
+func (h *Hub) leave(user string, conn *Conn) {
+	u := key(user)
+	conn.close()
+	devices := h.users[u]
+	if devices[conn.ID] != conn {
+		return
 	}
-	return conn, leave, nil
+	delete(devices, conn.ID)
+	if len(devices) == 0 {
+		delete(h.users, u)
+		return
+	}
+	h.broadcastDevices(devices)
+}
+
+// Hold connects a device that cannot keep a stream open, such as a TV app, which asks for its events again and again
+// instead. Each request holds the device; once the last one ends, it stays connected for linger, so the other devices
+// do not see it leave and come back between two requests. Events wait in Conn.Events in the meantime. Call the
+// returned function when the request ends.
+func (h *Hub) Hold(user string, info Info, linger time.Duration) (*Conn, func(), error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	info.Name = cleanName(info.Name)
+	conn := h.users[key(user)][info.ID]
+	if conn == nil || !conn.held || conn.isClosed() || conn.Info != info {
+		var err error
+		if conn, err = h.join(user, info); err != nil {
+			return nil, nil, err
+		}
+		conn.held = true
+	}
+	conn.holders++
+	if conn.linger != nil {
+		conn.linger.Stop()
+		conn.linger = nil
+	}
+	var once sync.Once
+	release := func() {
+		once.Do(func() {
+			h.mu.Lock()
+			defer h.mu.Unlock()
+			conn.holders--
+			if conn.holders > 0 {
+				return
+			}
+			conn.linger = time.AfterFunc(linger, func() {
+				h.mu.Lock()
+				defer h.mu.Unlock()
+				if conn.holders == 0 {
+					h.leave(user, conn)
+				}
+			})
+		})
+	}
+	return conn, release, nil
 }
 
 type deviceOut struct {

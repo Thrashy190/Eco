@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func join(t *testing.T, h *Hub, user, id string) (*Conn, func()) {
@@ -194,5 +195,86 @@ func TestDeviceLimitAndNames(t *testing.T) {
 	}
 	if ValidAction("delete_everything") || !ValidAction("pause") {
 		t.Error("ValidAction is wrong")
+	}
+}
+
+// A TV asks for its events again and again. Between two requests it must not look gone to the other devices, and
+// what was sent to it in that moment must still reach it.
+func TestHeldDeviceStaysBetweenRequests(t *testing.T) {
+	h := NewHub()
+	phone, _ := join(t, h, "diego", "phone-0001")
+	tv := Info{ID: "roku-0000001", Name: "Living room"}
+	conn, release, err := h.Hold("diego", tv, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	for {
+		if _, ok := next(phone, "devices"); !ok {
+			break
+		}
+	}
+	if err := h.Send("diego", "phone-0001", tv.ID, "pause", nil); err != nil {
+		t.Fatalf("the TV vanished between requests: %v", err)
+	}
+	again, release2, err := h.Hold("diego", tv, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release2()
+	if again != conn {
+		t.Fatal("a new request replaced the connection, losing what was waiting for it")
+	}
+	if e, ok := next(again, "command"); !ok || !strings.Contains(string(e.Data), `"pause"`) {
+		t.Fatalf("the command sent between requests was lost: %q", e.Data)
+	}
+	if e, ok := next(phone, "devices"); ok {
+		t.Fatalf("the phone saw the TV leave and come back: %s", e.Data)
+	}
+}
+
+func TestHeldDeviceLeavesWhenItStopsAsking(t *testing.T) {
+	h := NewHub()
+	join(t, h, "diego", "phone-0001")
+	_, release, err := h.Hold("diego", Info{ID: "roku-0000001", Name: "TV"}, 10*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	release() // ending a request twice must not count twice
+	deadline := time.Now().Add(2 * time.Second)
+	for h.Send("diego", "phone-0001", "roku-0000001", "pause", nil) == nil {
+		if time.Now().After(deadline) {
+			t.Fatal("the TV stayed connected after it stopped asking")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// While one request is still open, a second one ending must not start the countdown.
+func TestHeldDeviceStaysWhileAnyRequestIsOpen(t *testing.T) {
+	h := NewHub()
+	join(t, h, "diego", "phone-0001")
+	tv := Info{ID: "roku-0000001", Name: "TV"}
+	_, first, _ := h.Hold("diego", tv, time.Millisecond)
+	_, second, _ := h.Hold("diego", tv, time.Millisecond)
+	second()
+	time.Sleep(20 * time.Millisecond)
+	if err := h.Send("diego", "phone-0001", tv.ID, "pause", nil); err != nil {
+		t.Fatalf("the TV left while a request was still open: %v", err)
+	}
+	first()
+}
+
+func TestHeldDevicesAreIsolated(t *testing.T) {
+	h := NewHub()
+	join(t, h, "ana", "ana-phone01")
+	_, release, err := h.Hold("diego", Info{ID: "roku-0000001", Name: "TV"}, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	if err := h.Send("ana", "ana-phone01", "roku-0000001", "pause", nil); !errors.Is(err, ErrUnknownDevice) {
+		t.Fatalf("another account reached the TV: %v", err)
 	}
 }

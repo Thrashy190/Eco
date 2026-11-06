@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { getSongs, signOut, username, wallpaperUrl, whoAmI } from "../lib/api";
+import { approveTV, getSongs, signOut, username, wallpaperUrl, whoAmI } from "../lib/api";
 import { plural, releaseUrl } from "../lib/format";
 import { pictureToCover, pictureToWallpaper } from "../lib/image";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
@@ -266,6 +266,32 @@ function TabSettings() {
   );
 }
 
+/** A TV shows a code instead of asking for a password typed with its remote. */
+function ConnectTV() {
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const clean = code.replace(/[\s-]/g, "");
+  async function connect(e: React.FormEvent) {
+    e.preventDefault();
+    if (clean.length < 6 || busy) return;
+    setBusy(true);
+    try {
+      await approveTV(clean);
+      setCode("");
+      toast("TV connected. It shows your music in a moment");
+    } catch (err) { toast((err as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <Setting title="Connect a TV" description="Open Eco on the TV and type the code it shows" stack>
+      <form className="flex gap-2" onSubmit={(e) => void connect(e)}>
+        <input className={cx(ui.input, "uppercase tracking-[.2em]")} value={code} maxLength={9} placeholder="ABC-DEF" aria-label="Code shown on the TV"
+          autoCapitalize="characters" autoComplete="off" spellCheck={false} onChange={(e) => setCode(e.target.value)} />
+        <button type="submit" className={cx(ui.pill, "disabled:opacity-50")} disabled={clean.length < 6 || busy}>{busy ? "Connecting…" : "Connect"}</button>
+      </form>
+    </Setting>
+  );
+}
+
 function DeviceSettings() {
   const devices = useConnect((s) => s.devices);
   const [name, setName] = useState(myDeviceName);
@@ -278,6 +304,7 @@ function DeviceSettings() {
       <Setting title="Where music plays" description={`${plural(devices.length, "device")} signed in to your account right now`}>
         <button type="button" className={ui.pill} onClick={openDevicePicker}><Icon name="devices" size={16} />Choose</button>
       </Setting>
+      <ConnectTV />
     </Group>
   );
 }

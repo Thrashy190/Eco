@@ -119,6 +119,9 @@ export const connectEventsUrl = (extra: Record<string, string>) => `/api/connect
 export const sendJson = (path: string, extra: Record<string, string>, body: unknown) =>
   request<unknown>(`/api/${path}?${params(extra)}`, { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
 
+/** Sign the TV showing this code in to this account (the TV app, see roku/). */
+export const approveTV = (code: string) => send<{ ok: boolean }>("tv/approve", JSON.stringify({ code }));
+
 // ---- Administrators ----
 export const whoAmI = () => eco<{ user: string; admin: boolean; catalog: string; version?: string }>("me");
 export interface Account { username: string; name?: string; admin: boolean; last_seen?: string; avatar?: number }

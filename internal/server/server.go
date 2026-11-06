@@ -26,6 +26,7 @@ import (
 	"github.com/Thrashy190/eco/internal/engine"
 	"github.com/Thrashy190/eco/internal/jobs"
 	"github.com/Thrashy190/eco/internal/media"
+	"github.com/Thrashy190/eco/internal/pairing"
 	"github.com/Thrashy190/eco/internal/subsonic"
 	"github.com/Thrashy190/eco/internal/userdata"
 )
@@ -42,6 +43,7 @@ type Server struct {
 	users  *userdata.Store
 	admins adminSessions
 	hub    *connect.Hub
+	pairs  *pairing.Store
 
 	proxy *httputil.ReverseProxy
 
@@ -60,7 +62,7 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, eng: eng, nd: subsonic.New(cfg.NavidromeURL), web: web, ctx: ctx, valid: map[string]time.Time{}, media: media.Store{Root: cfg.MediaDir}, users: &userdata.Store{Root: cfg.UsersDir}, hub: connect.NewHub()}
+	s := &Server{cfg: cfg, eng: eng, nd: subsonic.New(cfg.NavidromeURL), web: web, ctx: ctx, valid: map[string]time.Time{}, media: media.Store{Root: cfg.MediaDir}, users: &userdata.Store{Root: cfg.UsersDir}, hub: connect.NewHub(), pairs: pairing.New()}
 	s.proxy = httputil.NewSingleHostReverseProxy(target)
 	s.proxy.FlushInterval = -1 // stream audio as it arrives
 	director := s.proxy.Director
@@ -103,6 +105,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/connect/events", s.authed(s.connectEvents))
 	mux.HandleFunc("POST /api/connect/state", s.authed(s.connectState))
 	mux.HandleFunc("POST /api/connect/command", s.authed(s.connectCommand))
+	mux.HandleFunc("GET /api/connect/poll", s.authed(s.connectPoll))
+	mux.HandleFunc("POST /api/tv/pair", s.pairStart)
+	mux.HandleFunc("GET /api/tv/pair/{code}", s.pairCollect)
+	mux.HandleFunc("POST /api/tv/approve", s.authed(s.pairApprove))
 	mux.HandleFunc("GET /api/catalog/albums/{id}", s.authed(s.catalogAlbum))
 	mux.HandleFunc("GET /api/albums/match", s.authed(s.albumMatch))
 	mux.HandleFunc("GET /api/me/library", s.authed(s.myLibrary))
