@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Connect for the TV: being one of the account's devices, like Spotify Connect. A browser keeps a stream open
+  (/api/connect/events); a Roku cannot read a response before it ends, so this asks /api/connect/poll again and again
+  instead. Each answer brings the same events: the list of devices, what each plays, and commands for this TV.
+  Only polling happens here: what the TV reports goes out in requests of its own (Connect.brs), so it never waits
+  behind a poll.
+-->
+<component name="ConnectTask" extends="Task">
+  <interface>
+    <!-- Events from the server, a batch at a time: [{name, data}] -->
+    <field id="events" type="array" alwaysNotify="true" />
+    <field id="connected" type="boolean" />
+    <!-- Set to false to end the task: Roku does not stop a running task by itself -->
+    <field id="active" type="boolean" value="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/http.brs" />
+  <script type="text/brightscript" uri="pkg:/components/tasks/ConnectTask.brs" />
+</component>

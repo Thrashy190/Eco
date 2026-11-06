@@ -17,3 +17,6 @@ node_modules/
 # The built web app. dist/.gitkeep stays so that go:embed works before the first build.
 web/dist/*
 !web/dist/.gitkeep
+
+# The Roku app's validation output
+roku/out/

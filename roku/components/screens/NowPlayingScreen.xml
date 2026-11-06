@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The player, over the whole screen like Spotify on a TV: the big cover, the song in large type, the controls and
+  what comes next, over the cover's own colours. It opens by itself when music starts (from the remote or from a
+  phone); Back returns to where you were. After a few seconds without a key, the controls fade away and only the
+  cover and the song stay, until a key brings them back.
+-->
+<component name="NowPlayingScreen" extends="Group">
+  <interface>
+    <field id="args" type="assocarray" />
+    <field id="navigate" type="assocarray" alwaysNotify="true" />
+    <field id="focusIn" type="boolean" alwaysNotify="true" onChange="takeFocus" />
+    <field id="fullscreen" type="boolean" value="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/request.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/screens/NowPlayingScreen.brs" />
+  <children>
+    <Group id="corner" translation="[96,64]">
+      <Poster id="logo" uri="pkg:/images/logo-mark.png" width="44" height="44" />
+      <Label id="device" translation="[60,6]" color="0xC9C9D2FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="26" />
+      </Label>
+    </Group>
+
+    <Group id="art" translation="[140,170]">
+      <Poster uri="pkg:/images/shadow.png" width="747" height="747" translation="[-93,-84]" opacity="0.9" />
+      <Poster id="back" uri="pkg:/images/mask-soft.png" width="560" height="560" blendColor="0x1D1D26FF" />
+      <Poster id="cover" width="560" height="560" loadDisplayMode="scaleToZoom" />
+    </Group>
+
+    <Group id="info" translation="[820,180]">
+      <Label id="source" width="960" color="0xC9C9D2FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="24" />
+      </Label>
+      <Label id="title" translation="[0,44]" width="960" wrap="true" maxLines="2" lineSpacing="-6" color="0xFFFFFFFF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="88" />
+      </Label>
+      <Label id="artist" width="960" color="0xF4F4F7FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="44" />
+      </Label>
+      <Label id="album" width="960" color="0xB4B4BEFF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="32" />
+      </Label>
+    </Group>
+
+    <Group id="controlsBox" translation="[820,600]">
+      <Poster uri="pkg:/images/bar.9.png" width="960" height="10" blendColor="0xFFFFFF33" />
+      <Poster id="progress" uri="pkg:/images/bar.9.png" width="12" height="10" />
+      <Label id="elapsed" translation="[0,26]" color="0xC9C9D2FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="26" />
+      </Label>
+      <Label id="remaining" translation="[760,26]" width="200" horizAlign="right" color="0xC9C9D2FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="26" />
+      </Label>
+      <Tabs id="controls" look="icons" translation="[0,90]" />
+    </Group>
+
+    <Group id="queueBox" translation="[0,800]">
+      <Label id="nextLabel" text="Up next" translation="[140,0]" color="0xF4F4F7FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="28" />
+      </Label>
+      <Label id="nextHint" translation="[290,4]" color="0xA3A3AEFF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="24" />
+      </Label>
+      <RowList id="upNext" translation="[116,52]" focusXOffset="[24]" itemComponentName="Tile" numRows="1" itemSize="[1680,190]" rowItemSize="[[124,180]]" rowItemSpacing="[[30,0]]" showRowLabel="[false]" rowFocusAnimationStyle="floatingFocus" drawFocusFeedback="false" />
+    </Group>
+
+    <Timer id="idle" duration="8" />
+    <Animation id="fade" duration="0.5" easeFunction="inOutQuad">
+      <FloatFieldInterpolator id="fadeControls" key="[0, 1]" fieldToInterp="controlsBox.opacity" />
+      <FloatFieldInterpolator id="fadeQueue" key="[0, 1]" fieldToInterp="queueBox.opacity" />
+      <FloatFieldInterpolator id="fadeCorner" key="[0, 1]" fieldToInterp="corner.opacity" />
+    </Animation>
+  </children>
+</component>

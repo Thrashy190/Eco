@@ -1,0 +1,15 @@
+{
+  "name": "eco-roku",
+  "private": true,
+  "description": "Eco for Roku TVs: tooling only. The app itself is plain BrightScript and SceneGraph.",
+  "license": "MIT",
+  "scripts": {
+    "lint": "bsc --create-package false",
+    "test": "node tests/run.mjs"
+  },
+  "devDependencies": {
+    "@rokucommunity/bslint": "^0.8.47",
+    "brighterscript": "^0.73.8",
+    "brs-node": "^2.6.2"
+  }
+}

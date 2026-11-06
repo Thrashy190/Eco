@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One request to the server, made off the screen's thread (see lib/request.brs). -->
+<component name="ApiTask" extends="Task">
+  <interface>
+    <field id="url" type="string" />
+    <field id="method" type="string" value="GET" />
+    <field id="body" type="string" />
+    <field id="timeout" type="integer" value="20" />
+    <field id="response" type="assocarray" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/http.brs" />
+  <script type="text/brightscript" uri="pkg:/components/tasks/ApiTask.brs" />
+</component>

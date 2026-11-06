@@ -4,10 +4,16 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 WEB_SOURCES := $(shell find web/src web/public -type f 2>/dev/null) web/index.html web/vite.config.ts web/tsconfig.json web/package-lock.json
 
-.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean
+.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean roku roku-install roku-logs roku-check
+
+# The Roku app (roku/): read from .env so `make roku-install` needs no arguments. See docs/tv.md.
+env = $(shell sed -n 's/^$(1)=//p' .env 2>/dev/null | tail -n 1)
+ROKU_IP ?= $(call env,ROKU_IP)
+ROKU_PASS ?= $(call env,ROKU_PASS)
+ROKU_ECO_URL ?= $(call env,ROKU_ECO_URL)
 
 help: ## Show this help
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-8s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  make %-13s %s\n", $$1, $$2}'
 
 web/node_modules/.package-lock.json: web/package-lock.json
 	cd web && npm ci
@@ -46,7 +52,28 @@ vet: ## Static checks
 webcheck: web/node_modules/.package-lock.json ## Type-check, test and build the web app
 	cd web && npm run typecheck && npm test && npm run build
 
-check: vet test webcheck ## Everything CI runs
+roku/node_modules/.package-lock.json: roku/package-lock.json
+	cd roku && npm ci
+
+roku-check: roku/node_modules/.package-lock.json ## Validate the Roku app (bsc + bslint) and run its tests
+	cd roku && npm run lint && npm test
+
+roku: ## Package the Roku app into bin/eco-roku.zip, starting at ROKU_ECO_URL
+	rm -rf bin/roku && mkdir -p bin/roku
+	cp -r roku/manifest roku/source roku/components roku/images roku/fonts bin/roku/
+	sed -i 's|^eco_server=.*|eco_server=$(ROKU_ECO_URL)|' bin/roku/manifest
+	rm -f bin/eco-roku.zip && cd bin/roku && zip -qr ../eco-roku.zip .
+	@echo "bin/eco-roku.zip (server: $(or $(ROKU_ECO_URL),asked on the TV))"
+
+roku-install: roku ## Install the Roku app on a TV in developer mode (ROKU_IP, ROKU_PASS) and open it
+	@test -n "$(ROKU_IP)" || { echo "Set ROKU_IP and ROKU_PASS in .env (see docs/tv.md)"; exit 1; }
+	@sh roku/tools/install.sh "$(ROKU_IP)" "$(ROKU_PASS)" bin/eco-roku.zip
+
+roku-logs: ## Follow the Roku app's log (what it prints, and its errors)
+	@test -n "$(ROKU_IP)" || { echo "Set ROKU_IP in .env"; exit 1; }
+	nc $(ROKU_IP) 8085
+
+check: vet test webcheck roku-check ## Everything CI runs
 	@test -z "$$(gofmt -l cmd internal web/embed.go)" || { echo "gofmt needed:"; gofmt -l cmd internal web/embed.go; exit 1; }
 
 docker: ## Build the Docker image

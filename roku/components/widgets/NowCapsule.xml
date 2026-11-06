@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What plays, floating at the right of the top bar, like the web app's capsule. Focus it and press OK to open the player. -->
+<component name="NowCapsule" extends="Group">
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/widgets/NowCapsule.brs" />
+  <interface>
+    <field id="chosen" type="boolean" alwaysNotify="true" />
+  </interface>
+  <children>
+    <Poster id="bg" uri="pkg:/images/pill.9.png" width="520" height="72" blendColor="0x1C1C22F2" />
+    <Poster uri="pkg:/images/mask-circle.png" width="52" height="52" translation="[10,10]" blendColor="0x2A2A33FF" />
+    <Poster id="cover" width="52" height="52" translation="[10,10]" loadDisplayMode="scaleToZoom" />
+    <Label id="title" width="340" translation="[78,8]" color="0xF4F4F7FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="24" />
+    </Label>
+    <Label id="artist" width="340" translation="[78,38]" color="0x9B9BA8FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="21" />
+    </Label>
+    <Poster id="state" width="34" height="34" translation="[456,19]" />
+    <Rectangle id="track" width="360" height="3" translation="[78,64]" color="0xFFFFFF1F" />
+    <Rectangle id="progress" width="0" height="3" translation="[78,64]" />
+  </children>
+</component>

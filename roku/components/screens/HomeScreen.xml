@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home: rows of what you pinned, opened lately, added and play most, and your playlists. -->
+<component name="HomeScreen" extends="Group">
+  <interface>
+    <field id="args" type="assocarray" onChange="load" />
+    <field id="navigate" type="assocarray" alwaysNotify="true" />
+    <field id="focusIn" type="boolean" alwaysNotify="true" onChange="takeFocus" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/request.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/screens/HomeScreen.brs" />
+  <children>
+    <Label id="status" text="Loading your music..." translation="[96,180]" width="1728" color="0x9B9BA8FF" wrap="true">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="32" />
+    </Label>
+    <RowList id="rows" translation="[72,150]" itemComponentName="Tile" numRows="2" itemSize="[1776,430]" rowItemSize="[[250,340]]" rowItemSpacing="[[30,0]]" itemSpacing="[0,20]" showRowLabel="[true]" rowLabelOffset="[[24,16]]" rowLabelColor="0xF4F4F7FF" rowFocusAnimationStyle="fixedFocusWrap" focusXOffset="[24]" vertFocusAnimationStyle="fixedFocus" drawFocusFeedback="false">
+      <Font role="rowLabelFont" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="36" />
+    </RowList>
+  </children>
+</component>

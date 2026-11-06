@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Signs the TV in with a code shown on screen and typed on a phone (internal/pairing on the server). -->
+<component name="PairTask" extends="Task">
+  <interface>
+    <field id="code" type="string" />
+    <field id="problem" type="string" />
+    <!-- {u, t, s} once someone approved the code -->
+    <field id="cred" type="assocarray" />
+    <field id="cancel" type="boolean" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/http.brs" />
+  <script type="text/brightscript" uri="pkg:/components/tasks/PairTask.brs" />
+</component>

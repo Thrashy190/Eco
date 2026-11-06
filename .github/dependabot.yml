@@ -24,6 +24,14 @@ updates:
       web-development: { dependency-type: development }
     commit-message: { prefix: fix, prefix-development: chore }
 
+  # Only tools that check the Roku app; nothing in it ships
+  - package-ecosystem: npm
+    directory: /roku
+    schedule: { interval: monthly }
+    groups:
+      roku-tools: { patterns: ["*"] }
+    commit-message: { prefix: chore }
+
   - package-ecosystem: docker
     directory: /
     schedule: { interval: monthly }

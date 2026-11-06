@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What is behind everything, as in the web app (Ambient): the page colour with a glow of the music's colour, which
+  fades from one song's colour to the next. In the player (mode "player") the cover itself fills the screen too,
+  stretched from a few pixels so only its colours remain, since Roku cannot blur, under a veil that keeps text
+  readable.
+-->
+<component name="Backdrop" extends="Group">
+  <interface>
+    <field id="mode" type="string" value="browse" onChange="onMode" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/widgets/Backdrop.brs" />
+  <children>
+    <Rectangle id="page" width="1920" height="1080" color="0x000000FF" />
+    <Poster id="wash" width="1920" height="1080" loadDisplayMode="scaleToFill" opacity="0" />
+    <Poster id="glow" uri="pkg:/images/glow.png" width="2000" height="2000" translation="[-760,-1000]" opacity="0.5" />
+    <Poster id="glow2" uri="pkg:/images/glow.png" width="1400" height="1400" translation="[1100,500]" opacity="0.16" />
+    <Poster id="veil" uri="pkg:/images/veil.png" width="1920" height="1080" loadDisplayMode="scaleToFill" opacity="0" />
+    <Animation id="tint" duration="1.2" easeFunction="inOutQuad">
+      <ColorFieldInterpolator id="tintGlow" key="[0, 1]" fieldToInterp="glow.blendColor" />
+      <ColorFieldInterpolator id="tintGlow2" key="[0, 1]" fieldToInterp="glow2.blendColor" />
+    </Animation>
+    <Animation id="fade" duration="0.6" easeFunction="inOutQuad">
+      <FloatFieldInterpolator id="fadeWash" key="[0, 1]" fieldToInterp="wash.opacity" />
+      <FloatFieldInterpolator id="fadeVeil" key="[0, 1]" fieldToInterp="veil.opacity" />
+    </Animation>
+  </children>
+</component>

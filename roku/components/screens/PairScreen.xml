@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Signing the TV in: a code to type in Eco on a phone, so nobody types a password with the remote. -->
+<component name="PairScreen" extends="Group">
+  <interface>
+    <field id="args" type="assocarray" onChange="load" />
+    <field id="navigate" type="assocarray" alwaysNotify="true" />
+    <field id="focusIn" type="boolean" alwaysNotify="true" onChange="takeFocus" />
+    <!-- {u, t, s} once the code was approved -->
+    <field id="signedIn" type="assocarray" />
+    <!-- Set when the screen goes away, to stop asking the server -->
+    <field id="closing" type="boolean" onChange="onClosing" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/screens/PairScreen.brs" />
+  <children>
+    <Poster uri="pkg:/images/logo.png" width="120" height="120" translation="[900,110]" />
+    <Label text="Connect this TV to Eco" translation="[0,262]" width="1920" horizAlign="center" color="0xF4F4F7FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="56" />
+    </Label>
+    <Label id="code" translation="[0,370]" width="1920" horizAlign="center" color="0x7CF0C0FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="150" />
+    </Label>
+    <Label id="steps" translation="[360,600]" width="1200" horizAlign="center" wrap="true" lineSpacing="8" color="0xF4F4F7FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="34" />
+    </Label>
+    <Label id="problem" translation="[360,760]" width="1200" horizAlign="center" wrap="true" color="0xFF8A80FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="28" />
+    </Label>
+    <Tabs id="actions" look="buttons" translation="[810,880]" />
+  </children>
+</component>

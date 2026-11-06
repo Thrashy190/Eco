@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An album, a playlist or Favorites: the cover and buttons on the left, the songs on the right. -->
+<component name="CollectionScreen" extends="Group">
+  <interface>
+    <!-- {kind: "album" | "playlist" | "favorites", id} -->
+    <field id="args" type="assocarray" onChange="load" />
+    <field id="navigate" type="assocarray" alwaysNotify="true" />
+    <field id="focusIn" type="boolean" alwaysNotify="true" onChange="takeFocus" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/request.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/ui.brs" />
+  <script type="text/brightscript" uri="pkg:/components/screens/CollectionScreen.brs" />
+  <children>
+    <Group translation="[96,160]">
+      <Poster uri="pkg:/images/shadow.png" width="640" height="640" translation="[-80,-72]" opacity="0.8" />
+      <Poster id="back" uri="pkg:/images/mask-soft.png" width="480" height="480" blendColor="0x1D1D26FF" />
+      <Poster id="heart" uri="pkg:/images/favorites-heart.png" width="480" height="480" visible="false" />
+      <Poster id="cover" width="480" height="480" loadDisplayMode="scaleToZoom" />
+    </Group>
+    <Label id="kindLabel" translation="[96,666]" color="0x9B9BA8FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="22" />
+    </Label>
+    <Label id="title" translation="[96,700]" width="480" wrap="true" maxLines="2" color="0xF4F4F7FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="44" />
+    </Label>
+    <Label id="subtitle" width="480" wrap="true" maxLines="2" color="0x9B9BA8FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="26" />
+    </Label>
+    <Tabs id="actions" look="buttons" />
+    <Label id="status" text="Loading..." translation="[660,180]" width="1164" wrap="true" color="0x9B9BA8FF">
+      <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Regular.ttf" size="32" />
+    </Label>
+    <MarkupList id="list" translation="[660,160]" itemComponentName="SongItem" itemSize="[1164,84]" itemSpacing="[0,6]" numRows="9" drawFocusFeedback="false" vertFocusAnimationStyle="floatingFocus" />
+    <Menu id="menu" />
+  </children>
+</component>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A short message at the bottom of the screen that goes away by itself. -->
+<component name="Toast" extends="Group">
+  <interface>
+    <field id="text" type="string" alwaysNotify="true" onChange="show" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/widgets/Toast.brs" />
+  <children>
+    <Group id="box" visible="false">
+      <Poster id="bg" uri="pkg:/images/pill.9.png" height="72" blendColor="0x272733F2" />
+      <Label id="label" translation="[36,18]" color="0xF4F4F7FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="28" />
+      </Label>
+    </Group>
+    <Timer id="timer" duration="3.5" />
+  </children>
+</component>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The whole app: the backdrop, the top bar, the screen showing, and the player. Screens come and go (a stack, so Back
+  returns to where you were); the player stays here, so music never stops because a screen changed.
+-->
+<component name="MainScene" extends="Scene">
+  <interface>
+    <!-- Set to leave the app (source/main.brs ends it) -->
+    <field id="exit" type="boolean" alwaysNotify="true" />
+  </interface>
+  <script type="text/brightscript" uri="pkg:/components/lib/format.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/queue.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/request.brs" />
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+  <script type="text/brightscript" uri="pkg:/components/Player.brs" />
+  <script type="text/brightscript" uri="pkg:/components/Connect.brs" />
+  <script type="text/brightscript" uri="pkg:/components/Theme.brs" />
+  <children>
+    <Backdrop id="backdrop" />
+    <Group id="screens" />
+    <Group id="topBar" translation="[96,36]">
+      <!-- A floating bar, as in the web app: the logo and the tabs in one glass pill -->
+      <Poster id="barBg" uri="pkg:/images/pill.9.png" height="80" blendColor="0x16161CE6" />
+      <Poster id="logo" uri="pkg:/images/logo-mark.png" width="52" height="52" translation="[20,14]" />
+      <Label text="Eco" translation="[80,17]" color="0xF4F4F7FF">
+        <Font role="font" uri="pkg:/fonts/BricolageGrotesque-Bold.ttf" size="38" />
+      </Label>
+      <Tabs id="tabs" translation="[170,10]" />
+      <NowCapsule id="capsule" translation="[1208,4]" />
+    </Group>
+    <Toast id="toast" />
+    <Menu id="leave" />
+    <Audio id="audio" />
+    <Timer id="reportTimer" duration="0.2" />
+    <Timer id="heartbeat" duration="15" repeat="true" />
+  </children>
+</component>
