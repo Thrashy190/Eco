@@ -41,7 +41,8 @@ export const ui = {
   coverBig: "w-full h-auto aspect-square rounded-big object-cover bg-surface-2 flex-none",
   coverHuge: "w-[min(72vw,280px)] h-auto aspect-square rounded-big object-cover bg-surface-2 flex-none shadow-[0_24px_60px_rgb(0_0_0/.4)] wide:w-[clamp(160px,24cqi,220px)] @4xl:w-full",
   noCover: "grid place-items-center text-muted bg-[linear-gradient(135deg,var(--surface-2),var(--surface-3))]",
-  favCover: "grid place-items-center text-white bg-[linear-gradient(135deg,#6a4cff,#c86bff_55%,#ff8fb1)]",
+  // Favorites' picture: its own violet, or the accent (Settings › Favorites colour), which follows the music when dynamic
+  favCover: "grid place-items-center text-(--fav-ink) [background:var(--fav)]",
   avatar: "w-full aspect-square rounded-full object-cover bg-surface-2",
   avatarBig: "w-[min(56vw,200px)] flex-none aspect-square rounded-full object-cover bg-surface-2 shadow-[0_24px_60px_rgb(0_0_0/.4)] wide:w-[clamp(150px,22cqi,200px)] @4xl:w-full",
   avatarSmall: "size-12 flex-none aspect-square rounded-full object-cover bg-surface-2 text-[.95rem]",

@@ -33,13 +33,14 @@ export interface Settings {
   glass: "clear" | "frosted" | "solid"; // how much of what is behind the floating bars shows through
   cardSize: "small" | "medium" | "large"; // albums, playlists and artists as cards
   syncLook: boolean; // the same look on every device of the account
+  favoritesColor: "classic" | "accent"; // the picture of Favorites: its own violet, or the accent (dynamic or chosen)
 }
 
 export const DEFAULTS: Settings = {
   theme: "system", accent: "#7cf0c0", dynamicAccent: false, tint: true, density: "comfortable", corners: "soft", motion: "full", scrobble: true, offlineMode: false,
   font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, nowPanel: true,
   background: "wash", backgroundBlur: 16, backgroundDim: 0.15, backgroundWash: true, wallpaper: 0, playerStyle: "cover", glass: "frosted",
-  cardSize: "medium", syncLook: true,
+  cardSize: "medium", syncLook: true, favoritesColor: "classic",
 };
 
 export const ACCENTS: [string, string][] = [
@@ -129,6 +130,7 @@ function apply(): void {
   root.dataset.text = current.textSize;
   root.dataset.glass = current.glass;
   root.dataset.cards = current.cardSize;
+  root.dataset.fav = current.favoritesColor;
 
   // A pale accent is unreadable as text on a light background: darken it there
   let accent = toRgb(/^#[0-9a-f]{6}$/i.test(current.accent) ? current.accent : DEFAULTS.accent);
@@ -144,7 +146,7 @@ function apply(): void {
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", background);
 
   // boot.js replays this before the first paint on the next launch, so the app never flashes the wrong colours
-  write("eco.boot", { attrs: { theme: current.theme === "system" ? null : current.theme, density: current.density, corners: current.corners, motion: current.motion, font: current.font, text: current.textSize, glass: current.glass, cards: current.cardSize }, vars, background });
+  write("eco.boot", { attrs: { theme: current.theme === "system" ? null : current.theme, density: current.density, corners: current.corners, motion: current.motion, font: current.font, text: current.textSize, glass: current.glass, cards: current.cardSize, fav: current.favoritesColor }, vars, background });
 }
 
 /** The colour of what is playing, as "r g b", or null when nothing with a picture is. Only matters with dynamicAccent on. */

@@ -22,6 +22,8 @@
   --glass-strong-rgb: 32 32 42; --glass-strong-a: .86;
   --glass: rgb(var(--glass-rgb) / var(--glass-a));
   --glass-strong: rgb(var(--glass-strong-rgb) / var(--glass-strong-a));
+  /* The picture of Favorites (Settings › Favorites colour) */
+  --fav: linear-gradient(135deg, #6a4cff, #c86bff 55%, #ff8fb1); --fav-ink: #ffffff;
   /* Cards of albums, playlists and artists (Settings › Card size), in a shelf and in a grid */
   --card-w: 9.5rem; --artist-w: 7.5rem; --grid-min: 150px;
   --slider: rgb(255 255 255 / .22);
@@ -69,6 +71,10 @@
 :root[data-motion="reduced"] { --rise: 0px; }
 
 /* After the themes, so they win over each theme's own amount */
+:root[data-fav="accent"] {
+  --fav: linear-gradient(135deg, color-mix(in srgb, var(--accent) 62%, #000), var(--accent) 55%, color-mix(in srgb, var(--accent) 55%, #fff));
+  --fav-ink: var(--accent-ink);
+}
 :root[data-glass="clear"] { --glass-a: .42; --glass-strong-a: .5; --blur-2xl: 18px; --blur-xl: 14px; }
 :root[data-glass="solid"] { --glass-a: .97; --glass-strong-a: .98; }
 :root[data-cards="small"] { --card-w: 8rem; --artist-w: 6.5rem; --grid-min: 118px; }

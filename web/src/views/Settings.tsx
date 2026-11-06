@@ -19,7 +19,7 @@ import { ACCENTS, resetSettings, setSettings, useOnline, useSettings, type Setti
 import { openSheet, toast } from "../stores/ui";
 
 /** A pill-shaped choice between a few options. */
-function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView" | "glass" | "cardSize">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
+function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView" | "glass" | "cardSize" | "favoritesColor">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
   const value = useSettings((s) => s[name]);
   return (
     <div className={SEG} role="group">
@@ -311,6 +311,9 @@ export function Settings() {
           </Setting>
           <Setting title="Dynamic colour" description="Buttons, highlights and the Eco logo take the colour of the album playing"><Toggle name="dynamicAccent" /></Setting>
           <Setting title="Accent colour" description="Buttons, highlights and the logo, when nothing is playing or dynamic colour is off" stack><Swatches /></Setting>
+          <Setting title="Favorites colour" description="The picture of your Favorites: its own violet, or the accent, which follows the music with dynamic colour on">
+            <Segmented name="favoritesColor" options={[["classic", "Violet"], ["accent", "Accent"]]} />
+          </Setting>
           <Preview />
           <Setting title="Corners"><Segmented name="corners" options={[["soft", "Soft"], ["sharp", "Sharp"]]} /></Setting>
           <Setting title="Glass" description="How much of what is behind the floating bars shows through" stack>

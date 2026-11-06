@@ -14,6 +14,7 @@ export const CHOICES: Record<string, readonly string[]> = {
   playerStyle: ["cover", "vinyl", "backdrop", "minimal"],
   glass: ["clear", "frosted", "solid"],
   cardSize: ["small", "medium", "large"],
+  favoritesColor: ["classic", "accent"],
 };
 
 /** The range of each number. */
