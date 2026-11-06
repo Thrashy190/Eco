@@ -44,6 +44,10 @@ type Server struct {
 	admins adminSessions
 	hub    *connect.Hub
 	pairs  *pairing.Store
+	// accents remembers the dynamic colour of covers (coverAccent)
+	accents accentCache
+	// shapes keeps covers cut for the TV (shapedCover)
+	shapes shapeCache
 
 	proxy *httputil.ReverseProxy
 
@@ -109,6 +113,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/tv/pair", s.pairStart)
 	mux.HandleFunc("GET /api/tv/pair/{code}", s.pairCollect)
 	mux.HandleFunc("POST /api/tv/approve", s.authed(s.pairApprove))
+	mux.HandleFunc("GET /api/covers/accent", s.authed(s.coverAccent))
+	mux.HandleFunc("GET /api/covers/shaped", s.authed(s.shapedCover))
 	mux.HandleFunc("GET /api/catalog/albums/{id}", s.authed(s.catalogAlbum))
 	mux.HandleFunc("GET /api/albums/match", s.authed(s.albumMatch))
 	mux.HandleFunc("GET /api/me/library", s.authed(s.myLibrary))

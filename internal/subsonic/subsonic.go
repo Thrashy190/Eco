@@ -8,9 +8,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -350,4 +352,28 @@ func (c *Client) SavePlaylist(ctx context.Context, cred Cred, id, name string, s
 func (c *Client) DeletePlaylist(ctx context.Context, cred Cred, id string) error {
 	_, err := c.call(ctx, cred, "deletePlaylist", url.Values{"id": {id}})
 	return err
+}
+
+// CoverArt fetches a cover picture at about this size (in pixels).
+func (c *Client) CoverArt(ctx context.Context, cred Cred, id string, size int) ([]byte, error) {
+	q := url.Values{"u": {cred.User}, "v": {"1.16.1"}, "c": {"eco"}, "id": {id}, "size": {strconv.Itoa(size)}}
+	if cred.Token != "" {
+		q.Set("t", cred.Token)
+		q.Set("s", cred.Salt)
+	} else {
+		q.Set("p", cred.Password)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/rest/getCoverArt?"+q.Encode(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
+		return nil, &APIError{Message: "no cover", Code: 70}
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 }
