@@ -1,6 +1,7 @@
 // The play order. Songs someone adds ("Play next", "Add to queue") wait in front of the album or playlist that is
 // playing, in the order they were added, and stay marked (`queued`) so the queue can tell them apart. They also survive
-// starting another album: they were asked for, the album was not. Everything here is pure, so it is tested.
+// starting another album: they were asked for, the album was not. When the queue runs out and Autoplay is on, random
+// songs follow, marked `auto`. Everything here is pure, so it is tested.
 import type { Song } from "./types";
 
 export interface Order {
@@ -8,12 +9,16 @@ export interface Order {
   index: number; // the song playing
 }
 
-const mark = (song: Song): Song => (song.queued ? song : { ...song, queued: true });
-const unmark = (song: Song): Song => {
-  if (!song.queued) return song;
-  const { queued: _, ...rest } = song;
-  return rest;
-};
+/** Where a song in the queue comes from: added by hand, the album or playlist playing, or Autoplay. */
+export type Kind = "queued" | "list" | "auto";
+export const kindOf = (song: Song): Kind => (song.queued ? "queued" : song.auto ? "auto" : "list");
+function withKind(song: Song, kind: Kind): Song {
+  if (kindOf(song) === kind) return song;
+  const { queued: _q, auto: _a, ...rest } = song;
+  return kind === "list" ? rest : { ...rest, [kind]: true };
+}
+const mark = (song: Song) => withKind(song, "queued");
+const unmark = (song: Song) => withKind(song, "list");
 
 /** Where the next added song goes: after the current song and everything added before it. */
 export function queueEnd({ queue, index }: Order): number {
@@ -57,7 +62,8 @@ export function jump(order: Order, to: number): Order {
 export function shuffleUpcoming(order: Order, mix: (songs: Song[]) => Song[]): Order {
   const { queue, index } = order;
   const upcoming = queue.slice(index + 1);
-  return { queue: [...queue.slice(0, index + 1), ...upcoming.filter((s) => s.queued), ...mix(upcoming.filter((s) => !s.queued))], index };
+  const of = (kind: Kind) => upcoming.filter((s) => kindOf(s) === kind);
+  return { queue: [...queue.slice(0, index + 1), ...of("queued"), ...mix(of("list")), ...of("auto")], index };
 }
 
 /**
@@ -73,19 +79,35 @@ export function move(order: Order, from: number, to: number): Order {
   out.splice(to, 0, song);
   const above = to - 1 > index ? out[to - 1] : undefined;
   const below = out[to + 1];
-  const queued = above ? Boolean(above.queued) : Boolean(song.queued || below?.queued);
-  out[to] = queued ? mark(song) : unmark(song);
+  const kind = above ? kindOf(above) : song.queued || below?.queued ? "queued" : below ? kindOf(below) : kindOf(song);
+  out[to] = withKind(song, kind);
   return { queue: out, index };
 }
 
-/** What comes next, in runs of added songs and songs of the list, for the queue to show under their own headings. */
-export function sections(upcoming: Song[]): { queued: boolean; start: number; songs: Song[] }[] {
-  const out: { queued: boolean; start: number; songs: Song[] }[] = [];
+/**
+ * What Autoplay adds when the queue runs out: songs from the candidates (already in random order) that are not in the
+ * queue yet, so it does not come back to what just played. At most `count`.
+ */
+export function autoplayPick(candidates: Song[], queue: Song[], count: number): Song[] {
+  const seen = new Set(queue.map((s) => s.id));
+  const out: Song[] = [];
+  for (const song of candidates) {
+    if (out.length >= count) break;
+    if (seen.has(song.id) || song.kind) continue; // podcasts and audiobooks are not music to carry on with
+    seen.add(song.id);
+    out.push(withKind(song, "auto"));
+  }
+  return out;
+}
+
+/** What comes next, in runs by where the songs come from, for the queue to show under their own headings. */
+export function sections(upcoming: Song[]): { kind: Kind; start: number; songs: Song[] }[] {
+  const out: { kind: Kind; start: number; songs: Song[] }[] = [];
   upcoming.forEach((song, k) => {
-    const queued = Boolean(song.queued);
+    const kind = kindOf(song);
     const last = out[out.length - 1];
-    if (last && last.queued === queued) last.songs.push(song);
-    else out.push({ queued, start: k, songs: [song] });
+    if (last && last.kind === kind) last.songs.push(song);
+    else out.push({ kind, start: k, songs: [song] });
   });
   return out;
 }

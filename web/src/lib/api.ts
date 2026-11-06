@@ -214,6 +214,11 @@ export async function getStarred(): Promise<Song[]> {
   const list = (await subsonic("getStarred2")).starred2 as { song?: RawSong[] };
   return (list.song ?? []).map(toSong).sort((a, b) => ((a.starred ?? "") < (b.starred ?? "") ? 1 : (a.starred ?? "") > (b.starred ?? "") ? -1 : 0));
 }
+/** Songs picked at random from the whole library (Autoplay). */
+export async function getRandomSongs(size: number): Promise<Song[]> {
+  const list = (await subsonic("getRandomSongs", { size })).randomSongs as { song?: RawSong[] };
+  return (list.song ?? []).map(toSong);
+}
 export const star = (id: string) => subsonic("star", { id });
 export const unstar = (id: string) => subsonic("unstar", { id });
 

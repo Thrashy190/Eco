@@ -27,6 +27,7 @@ export interface DeviceStatus {
   index: number;
   upcoming: Song[];
   source?: string; // the album or playlist playing, when known
+  autoplay?: boolean;
   blocked: boolean;
 }
 
@@ -364,15 +365,15 @@ export function useShown() {
   const local = player.usePlayer();
   if (target && remote?.state) {
     const s = remote.state;
-    return { song: s.song, playing: s.playing, shuffle: s.shuffle, repeat: s.repeat, speed: s.speed, volume: s.volume, upcoming: s.upcoming, source: s.source ?? "", index: s.index, loading: false,
+    return { song: s.song, playing: s.playing, shuffle: s.shuffle, repeat: s.repeat, speed: s.speed, volume: s.volume, upcoming: s.upcoming, source: s.source ?? "", autoplay: Boolean(s.autoplay), index: s.index, loading: false,
       canVolume: remote.can_volume, deviceName: remote.name, isRemote: true };
   }
   if (target) {
-    return { song: null, playing: false, shuffle: false, repeat: "off" as const, speed: 1, volume: 1, upcoming: [] as Song[], source: "", index: -1, loading: false,
+    return { song: null, playing: false, shuffle: false, repeat: "off" as const, speed: 1, volume: 1, upcoming: [] as Song[], source: "", autoplay: false, index: -1, loading: false,
       canVolume: remote?.can_volume ?? false, deviceName: remote?.name ?? "", isRemote: true };
   }
   return { song, playing: local.playing, shuffle: local.shuffle, repeat: local.repeat, speed: local.speed, volume: local.volume,
-    upcoming: local.queue.slice(local.index + 1, local.index + 51), source: local.source, index: local.index, loading: local.loading, canVolume: player.canSetVolume, deviceName: "", isRemote: false };
+    upcoming: local.queue.slice(local.index + 1, local.index + 51), source: local.source, autoplay: local.autoplay, index: local.index, loading: local.loading, canVolume: player.canSetVolume, deviceName: "", isRemote: false };
 }
 
 /** Whether a song is the one playing, wherever that is. */

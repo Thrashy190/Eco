@@ -1,7 +1,7 @@
 // The player: queue, playback, volume, lock-screen controls and play counts. It lives outside React, around the
 // <audio> element in index.html, so music never stops because a screen changed. The UI reads usePlayer and useTime.
 import { create } from "zustand";
-import { hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
+import { getRandomSongs, hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
 import * as order from "../lib/queue";
 import type { LibraryEntry, Song } from "../lib/types";
 import { touch } from "./library";
@@ -20,6 +20,7 @@ interface PlayerState {
   playing: boolean;
   speed: number;
   volume: number; // 0–1
+  autoplay: boolean; // when the queue runs out, carry on with random songs from the library (off unless chosen)
   blocked: boolean; // the browser refused to start playing until someone taps the screen
   loading: boolean; // asked to play and no sound yet: without showing it, a slow start looks like the app froze
 }
@@ -62,6 +63,7 @@ const audio = document.getElementById("audio") as HTMLAudioElement;
 export const usePlayer = create<PlayerState>(() => ({
   queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false,
   speed: SPEEDS.includes(readNumber("eco.speed") ?? 1) ? readNumber("eco.speed") ?? 1 : 1,
+  autoplay: readNumber("eco.autoplay") === 1,
   volume: Math.min(Math.max(readNumber("eco.volume") ?? 1, 0), 1),
 }));
 /** Position changes many times a second: kept apart so only what shows it redraws. */
@@ -254,8 +256,56 @@ export function next(auto = false): void {
   if (repeat === "one" && auto) { audio.currentTime = 0; void audio.play(); return; }
   if (index + 1 < queue.length) usePlayer.setState({ index: index + 1 });
   else if (repeat === "all" && queue.length) usePlayer.setState({ index: 0 });
-  else { audio.pause(); audio.currentTime = 0; return; }
+  else if (wantsAutoplay()) {
+    // Usually the songs are already there, added while the last one played; if not, they are asked for now
+    void topUp().then((added) => {
+      if (added && state().index === index) { usePlayer.setState({ index: index + 1 }); void load(); } else if (!added) stop();
+    });
+    return;
+  } else { stop(); return; }
   void load();
+}
+
+const stop = () => { audio.pause(); audio.currentTime = 0; };
+
+// ---- Autoplay ----
+// When the queue runs out, random songs from the library follow, a few at a time, until someone pauses or chooses
+// something else. Off unless chosen, like shuffle and repeat: some people want the music to stop at the end. Offline,
+// the songs come from what is saved on this device.
+
+const AUTOPLAY_BATCH = 10;
+let toppingUp: Promise<boolean> | null = null;
+
+/** Autoplay applies: it is on, nothing repeats, and what plays is music (an audiobook ending is no cue for songs). */
+const wantsAutoplay = () => state().autoplay && state().repeat === "off" && Boolean(current()) && !isSpoken(current());
+
+/** Add Autoplay's next songs to the end of the queue. Resolves to whether any were added. */
+function topUp(): Promise<boolean> {
+  toppingUp ??= (async () => {
+    const candidates = isOnline()
+      ? await getRandomSongs(AUTOPLAY_BATCH * 3).catch(() => [] as Song[])
+      : mixed(offline.allSongs());
+    const picked = order.autoplayPick(candidates, state().queue, AUTOPLAY_BATCH);
+    if (!picked.length || !state().autoplay) return false;
+    usePlayer.setState({ queue: [...state().queue, ...picked] });
+    nextChanged();
+    return true;
+  })().finally(() => { toppingUp = null; });
+  return toppingUp;
+}
+
+/** Playing the last song with Autoplay on: fetch what follows now, so it starts without a pause. */
+function topUpIfLast(): void {
+  const { queue, index } = state();
+  if (index === queue.length - 1 && wantsAutoplay()) void topUp();
+}
+
+export function toggleAutoplay(): void {
+  if (remote("autoplay")) return;
+  const autoplay = !state().autoplay;
+  usePlayer.setState({ autoplay });
+  remember("eco.autoplay", autoplay ? 1 : 0);
+  if (autoplay) topUpIfLast();
 }
 
 export function previous(): void {
@@ -291,9 +341,9 @@ const length = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? au
 
 /** What this device is playing, as other devices see it. */
 export const localStatus = () => {
-  const { queue, index, source, playing, shuffle, repeat, speed, volume, blocked } = state();
+  const { queue, index, source, playing, shuffle, repeat, speed, volume, blocked, autoplay } = state();
   return {
-    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index, source,
+    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index, source, autoplay,
     position: audio.currentTime || 0, length: length(), upcoming: queue.slice(index + 1, index + 31),
   };
 };
@@ -332,6 +382,7 @@ export function applyCommand(action: string, value: unknown): void {
       case "speed": cycleSpeed(); break;
       case "shuffle": toggleShuffle(); break;
       case "repeat": cycleRepeat(); break;
+      case "autoplay": toggleAutoplay(); break;
       case "play_next": playNext(value as Song); break;
       case "enqueue": enqueue(value as Song); break;
       case "move": {
@@ -369,6 +420,7 @@ audio.addEventListener("playing", () => {
   usePlayer.setState({ loading: false });
   clearTimeout(prepareTimer);
   prepareTimer = setTimeout(prepareNext, PREPARE_AFTER);
+  topUpIfLast();
 });
 audio.addEventListener("waiting", () => { if (!audio.paused) usePlayer.setState({ loading: true }); });
 audio.addEventListener("canplay", () => { if (audio.paused) usePlayer.setState({ loading: false }); });

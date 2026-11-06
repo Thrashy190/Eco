@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addNext, addToQueue, jump, move, sections, shuffleUpcoming, startList, type Order } from "./queue";
+import { addNext, addToQueue, autoplayPick, jump, move, sections, shuffleUpcoming, startList, type Order } from "./queue";
 import type { Song } from "./types";
 
 const song = (id: string, queued = false): Song => ({ id, title: id, artist: "Someone", ...(queued ? { queued: true } : {}) });
 const list = (...ids: string[]) => ids.map((id) => song(id));
-/** The queue as text: added songs as `+id`, the one playing in brackets. */
-const read = ({ queue, index }: Order) => queue.map((s, k) => `${k === index ? "[" : ""}${s.queued ? "+" : ""}${s.id}${k === index ? "]" : ""}`).join(" ");
+/** The queue as text: added songs as `+id`, Autoplay's as `~id`, the one playing in brackets. */
+const read = ({ queue, index }: Order) => queue.map((s, k) => `${k === index ? "[" : ""}${s.queued ? "+" : s.auto ? "~" : ""}${s.id}${k === index ? "]" : ""}`).join(" ");
 
 const playlist: Order = { queue: list("p1", "p2", "p3", "p4"), index: 0 };
 
@@ -92,11 +92,36 @@ describe("shuffling", () => {
 describe("sections", () => {
   it("groups added songs apart from the list", () => {
     const order = addToQueue(addToQueue(playlist, song("a")), song("b"));
-    expect(sections(order.queue.slice(1)).map((s) => [s.queued, s.start, s.songs.map((x) => x.id).join(",")])).toEqual([
-      [true, 0, "a,b"], [false, 2, "p2,p3,p4"],
+    const auto = { ...song("r1"), auto: true };
+    expect(sections([...order.queue.slice(1), auto]).map((s) => [s.kind, s.start, s.songs.map((x) => x.id).join(",")])).toEqual([
+      ["queued", 0, "a,b"], ["list", 2, "p2,p3,p4"], ["auto", 5, "r1"],
     ]);
   });
   it("has nothing to show for an empty queue", () => {
     expect(sections([])).toEqual([]);
+  });
+});
+
+describe("autoplay", () => {
+  const auto = (id: string): Song => ({ ...song(id), auto: true });
+  it("picks songs that are not in the queue yet, marked as its own", () => {
+    const picked = autoplayPick(list("p2", "x1", "x2", "x3"), playlist.queue, 2);
+    expect(picked.map((s) => s.id)).toEqual(["x1", "x2"]);
+    expect(picked.every((s) => s.auto && !s.queued)).toBe(true);
+  });
+  it("leaves podcasts and audiobooks out, and never picks a song twice", () => {
+    const episode: Song = { ...song("e1"), kind: "podcast" };
+    expect(autoplayPick([episode, song("x1"), song("x1")], [], 5).map((s) => s.id)).toEqual(["x1"]);
+  });
+  it("forgets its marks when a list is started from those songs", () => {
+    expect(read(startList(playlist, [auto("x1"), auto("x2")], 0))).toBe("[x1] x2");
+  });
+  it("keeps its songs after the list when shuffling", () => {
+    const order = { queue: [...playlist.queue, auto("r1")], index: 0 };
+    expect(read(shuffleUpcoming(order, (songs) => songs.slice().reverse()))).toBe("[p1] p4 p3 p2 ~r1");
+  });
+  it("makes one of its songs dragged among the added ones an added one", () => {
+    const order = { queue: [...addToQueue(playlist, song("a")).queue, auto("r1")], index: 0 }; // [p1] +a p2 p3 p4 ~r1
+    expect(read(move(order, 5, 2))).toBe("[p1] +a +r1 p2 p3 p4");
   });
 });

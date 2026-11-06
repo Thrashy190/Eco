@@ -3,7 +3,7 @@
 // place (pointer events, so a finger and a mouse work alike), or moved with the arrow keys from the handle.
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { clock } from "../lib/format";
-import { sections } from "../lib/queue";
+import { sections, type Kind } from "../lib/queue";
 import type { Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import * as player from "../stores/player";
@@ -30,19 +30,30 @@ function scrollerOf(node: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
+/** At the end of the queue: whether random songs follow when it runs out. Off unless chosen, like shuffle and repeat. */
+function AutoplaySwitch({ on }: { on: boolean }) {
+  return (
+    <div className="flex items-center gap-3 mt-2 mx-1 px-2 pt-3.5 pb-1 border-t border-line">
+      <span className="flex-none size-9 grid place-items-center rounded-full bg-ghost text-accent"><Icon name="sparkle" size={18} /></span>
+      <div className="flex-1 min-w-0 grid"><b className="font-semibold text-[.92rem]">Autoplay</b><span className="text-muted text-[.8rem]">When the queue ends, keep going with random songs from your library</span></div>
+      <button type="button" className={ui.toggle} role="switch" aria-checked={on} aria-label="Autoplay" onClick={player.toggleAutoplay} />
+    </div>
+  );
+}
+
 /**
- * `heading` styles the headings: "Up next", or, once songs were added by hand, "Next in queue" over them and "Next from"
- * the album or playlist over the rest.
+ * `heading` styles the headings: "Up next", or, when songs come from more than one place, "Next in queue" over those
+ * added by hand, "Next from" the album or playlist, and "Autoplay" over the random songs that follow.
  */
-export function Queue({ upcoming, index, source, heading }: { upcoming: Song[]; index: number; source: string; heading: string }) {
+export function Queue({ upcoming, index, source, heading, autoplay }: { upcoming: Song[]; index: number; source: string; heading: string; autoplay: boolean }) {
   const list = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // What a drag needs between pointer events, without redrawing for it
   const live = useRef<{ from: number; to: number; startY: number; lastY: number; startScroll: number; scroller: HTMLElement; rows: { top: number; height: number }[]; frame: number } | null>(null);
   const focusAfterMove = useRef<number | null>(null);
 
-  const anyQueued = upcoming.some((s) => s.queued);
   const parts = sections(upcoming);
+  const mixedKinds = new Set(parts.map((p) => p.kind)).size > 1;
 
   // A song moved with the keyboard keeps the focus on its handle at its new place
   useEffect(() => {
@@ -121,14 +132,15 @@ export function Queue({ upcoming, index, source, heading }: { upcoming: Song[]; 
     line = drag.to === 0 ? others[0].top : others[drag.to - 1].top + others[drag.to - 1].height;
   }
 
-  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={ui.rowsPlain}><li className={ui.empty}>The queue is empty</li></ul></>;
+  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={ui.rowsPlain}><li className={ui.empty}>The queue is empty</li></ul><AutoplaySwitch on={autoplay} /></>;
+  const title = (kind: Kind, start: number) =>
+    kind === "queued" ? "Next in queue" : kind === "auto" ? "Autoplay" : !mixedKinds ? "Up next" : source ? `Next from ${source}` : start === 0 ? "Up next" : "Then";
   return (
+    <>
     <ul ref={list} className={cx(ui.rowsPlain, "relative", drag && "select-none")}>
       {parts.map((part) => [
-        (anyQueued || part.start === 0) && (
-          <li key={`h-${part.start}`} className={cx(heading, "list-none", part.queued && "text-accent!")} role="presentation">
-            {!anyQueued ? "Up next" : part.queued ? "Next in queue" : source ? `Next from ${source}` : "Then"}
-          </li>
+        (mixedKinds || part.start === 0) && (
+          <li key={`h-${part.start}`} className={cx(heading, "list-none", part.kind === "queued" && "text-accent!")} role="presentation">{title(part.kind, part.start)}</li>
         ),
         ...part.songs.map((song, j) => {
           const k = part.start + j;
@@ -151,5 +163,7 @@ export function Queue({ upcoming, index, source, heading }: { upcoming: Song[]; 
       ])}
       {line !== null && <li aria-hidden="true" className="absolute inset-x-1 h-0.5 -mt-px rounded-full bg-accent pointer-events-none" style={{ top: line }} />}
     </ul>
+    <AutoplaySwitch on={autoplay} />
+    </>
   );
 }
