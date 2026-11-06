@@ -135,7 +135,7 @@ export function Queue({ upcoming, index, source, heading }: { upcoming: Song[]; 
           const dragging = drag?.from === k;
           return (
             <li key={`${song.id}-${k}`} data-q={k} data-queued={song.queued || undefined}
-              className={cx(ui.rowCompact, "pl-0 data-queued:bg-accent/10 data-queued:hover:bg-accent/15", dragging && "relative z-10 bg-surface-2! shadow-[0_10px_30px_rgb(0_0_0/.35)] cursor-grabbing")}
+              className={cx(ui.rowCompact, "pl-0 data-queued:mb-1 data-queued:bg-accent/10 data-queued:hover:bg-accent/15", dragging && "relative z-10 bg-surface-2! shadow-[0_10px_30px_rgb(0_0_0/.35)] cursor-grabbing")}
               style={dragging ? { transform: `translateY(${drag.dy}px)` } : undefined}
               onClick={() => { if (!drag) player.jumpTo(index + 1 + k); }}>
               <button type="button" data-grip="" className={grip} aria-label={`Move ${song.title}`} title="Drag to move"
