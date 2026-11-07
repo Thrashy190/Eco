@@ -108,4 +108,6 @@ Before the Go rewrite the tool was Python (`bajar.py`, `likes.py`) with Spanish 
 
 ## Pending
 
+Feature requests with a full plan, open for anyone to take: a genre tag on downloads (#2: Eco writes none today, which is why Navidrome shows no genres), audio analysis with Essentia for moods, an Autoplay that follows the music and mood mixes (#3), and Jams, also between two Eco servers (#4).
+
 Trying the Roku app on a real TV (the browsing screens are checked on the maintainer's Roku Express; still unchecked there: the full-screen player, the screensaver, audio formats beyond MP3/M4A); torrent sources for single songs (Prowlarr search + qBittorrent file selection) once a VPN provider is chosen; testing offline playback, background audio and device control on a real iPhone.
