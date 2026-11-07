@@ -57,6 +57,7 @@
 - Open an album to see every track in order and which ones you have, then tick the ones to download.
 - Tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
 - Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest.
+- A song search cannot find? **Library ▸ Songs ▸ Add a song**: paste its YouTube link and say what it is. Pick its album from your library or the catalogue, or describe a new one, with its cover.
 
 **Take it with you**
 
@@ -127,6 +128,7 @@ Use whichever fits you; they all end up in the same library.
 | **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [Command line](#command-line). |
 | **Copy files** into `data/music/` | Music you already own. Navidrome scans every minute. |
 | **`scripts/upload.sh`** | Your own recordings: converts, tags and uploads them. |
+| **A YouTube link to a song** | **Library ▸ Songs ▸ Add a song** (or paste it in the search box and choose *Song*): you give its title, artists and album, and it joins your music like any download. |
 | **A YouTube link** (podcast, audiobook...) | Paste it in the search box. Only the audio is kept, apart from your music, in `data/media/`. |
 | **Lidarr** (`--profile downloads`) | Whole albums through the \*arr stack. [Guide](docs/downloads-stack.md). |
 
