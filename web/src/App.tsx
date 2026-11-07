@@ -20,6 +20,7 @@ import * as player from "./stores/player";
 import { watchSaving } from "./stores/saving";
 import { loadSettings, useOnline, useSettings, watchNetwork } from "./stores/settings";
 import { closeSheet, toast } from "./stores/ui";
+import { AddSong } from "./views/AddSong";
 import { AlbumLookup, CatalogAlbumView } from "./views/CatalogAlbum";
 import { Cleanup } from "./views/Cleanup";
 import { AlbumView, ArtistByName, ArtistView, PlaylistView } from "./views/collections";
@@ -133,6 +134,7 @@ function SignedIn({ user }: { user: string }) {
           <Route path="playlist/new" element={<NewPlaylist />} />
           <Route path="playlist/:id" element={<PlaylistView />} />
           <Route path="playlist/:id/add" element={<AddSongs />} />
+          <Route path="add-song" element={<AddSong />} />
           <Route path="import" element={<ImportView />} />
           <Route path="import/:id" element={<ImportDetailView />} />
           <Route path="cleanup" element={<Cleanup />} />

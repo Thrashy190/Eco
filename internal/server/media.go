@@ -45,6 +45,9 @@ func previewOf(p ytdlp.Preview, existing *media.Item) map[string]any {
 	if existing != nil {
 		out["existing"] = existing
 	}
+	if p.Music.Track != "" {
+		out["music"] = p.Music
+	}
 	return out
 }
 

@@ -109,15 +109,18 @@ func lastError(stderr string, fallback error) error {
 }
 
 type entry struct {
-	ID       string  `json:"id"`
-	Title    string  `json:"title"`
-	Duration float64 `json:"duration"`
-	Channel  string  `json:"channel"`
-	Uploader string  `json:"uploader"`
-	Track    string  `json:"track"`
-	Artist   string  `json:"artist"`
-	Thumb    string  `json:"thumbnail"`
-	Live     bool    `json:"is_live"`
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Duration float64  `json:"duration"`
+	Channel  string   `json:"channel"`
+	Uploader string   `json:"uploader"`
+	Track    string   `json:"track"`
+	Artist   string   `json:"artist"`
+	Artists  []string `json:"artists"`
+	Album    string   `json:"album"`
+	Year     int      `json:"release_year"`
+	Thumb    string   `json:"thumbnail"`
+	Live     bool     `json:"is_live"`
 }
 
 func (e entry) video(music bool) match.Video {
@@ -261,6 +264,28 @@ type Preview struct {
 	ID, Title, Channel, Thumbnail string
 	DurationSec                   float64
 	Live                          bool
+	// What YouTube Music says the song is, when the video is one of its songs ("Artist - Topic" channels and
+	// music.youtube.com). Empty for anything else.
+	Music Music
+}
+
+// Music is a video's song information, as YouTube Music gives it.
+type Music struct {
+	Track   string   `json:"track,omitempty"`
+	Artists []string `json:"artists,omitempty"`
+	Album   string   `json:"album,omitempty"`
+	Year    int      `json:"year,omitempty"`
+}
+
+func (e entry) music() Music {
+	artists := e.Artists
+	if len(artists) == 0 && e.Artist != "" {
+		artists = []string{e.Artist}
+	}
+	if e.Track == "" {
+		return Music{}
+	}
+	return Music{Track: e.Track, Artists: artists, Album: e.Album, Year: e.Year}
 }
 
 // Preview reads a single video's details without downloading it. A playlist link is refused: import one video at a time.
@@ -277,7 +302,7 @@ func (r *Runner) Preview(ctx context.Context, link string) (Preview, error) {
 	}
 	e := es[0]
 	v := e.video(false)
-	return Preview{ID: e.ID, Title: e.Title, Channel: v.Channel, Thumbnail: e.Thumb, DurationSec: e.Duration, Live: e.Live}, nil
+	return Preview{ID: e.ID, Title: e.Title, Channel: v.Channel, Thumbnail: e.Thumb, DurationSec: e.Duration, Live: e.Live, Music: e.music()}, nil
 }
 
 // MediaFiles are the files DownloadMedia produced inside its folder.

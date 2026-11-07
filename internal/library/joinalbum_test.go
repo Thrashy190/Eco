@@ -101,3 +101,18 @@ func TestJoinAlbumWithNothingToRead(t *testing.T) {
 		t.Errorf("got %q %q", got.Album, got.Date)
 	}
 }
+
+// A song added by hand to an album repeats its tags: the album artist as written, the full date and the track count.
+func TestReadAlbumTags(t *testing.T) {
+	dir := t.TempDir()
+	m := catalog.Meta{Title: "Ew", Artist: "Joji", AlbumArtists: []string{"Joji", "Diplo"}, AlbumArtist: "Joji, Diplo", Album: "Nectar", Date: "2020-09-25", Track: 1, Tracks: 18}
+	storedSong(t, dir, m)
+	got, ok := ReadAlbumTags(DestPath(m, "m4a", dir))
+	want := AlbumTags{Album: "Nectar", AlbumArtist: "Joji; Diplo", Date: "2020-09-25", Tracks: 18}
+	if !ok || got != want {
+		t.Errorf("got %+v, want %+v", got, want)
+	}
+	if _, ok := ReadAlbumTags(filepath.Join(dir, "missing.m4a")); ok {
+		t.Error("read a file that is not there")
+	}
+}

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { readableArtists } from "./format";
 import { md5 } from "./md5";
 import type {
-  Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, ExternalAlbum, ExternalSearch, HomeResponse,
+  AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, ExternalAlbum, ExternalSearch, HomeResponse,
   ImportDetail, ImportedList, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
   PlaylistDetail, RawAlbum, RawSong, Song,
 } from "./types";
@@ -272,6 +272,7 @@ export const forgetImport = (id: string) => eco<{ forgotten: boolean }>(`imports
 export const KINDS: [MediaKind, string][] = [["podcast", "Podcast"], ["audiobook", "Audiobook"], ["other", "Other"]];
 export const kindLabel = (kind?: string) => KINDS.find(([k]) => k === kind)?.[1] ?? "Other";
 export const mediaPreview = (url: string) => eco<MediaPreview>("media/preview", { url });
+export const addSong = (body: AddSongRequest) => send<Job>("songs/add", JSON.stringify(body));
 export const mediaImport = (url: string, kind: MediaKind) => eco<Job & { existing?: MediaItem }>("media/import", { url, kind }, "POST");
 export const listMedia = async (kind: MediaKind) => (await eco<{ items: MediaItem[] }>("media", { kind })).items;
 export const deleteMedia = (id: string) => eco<{ deleted: boolean }>(`media/${part(id)}`, undefined, "DELETE");

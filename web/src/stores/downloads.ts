@@ -1,9 +1,9 @@
-// Songs being fetched by the server. Screens read a job by its key (a catalogue ID, media:<video id> or import:<hash>) and
-// redraw as it moves from queued → searching → downloading → tagging → ready.
+// Songs being fetched by the server. Screens read a job by its key (a catalogue ID, media:<video id>, link:<video id> or
+// import:<hash>) and redraw as it moves from queued → searching → downloading → tagging → ready.
 import { create } from "zustand";
-import { getJobs, mediaImport, requestDownload } from "../lib/api";
+import { addSong, getJobs, mediaImport, requestDownload } from "../lib/api";
 import { queryClient } from "../lib/query";
-import type { Job, MediaKind } from "../lib/types";
+import type { AddSongRequest, Job, MediaKind } from "../lib/types";
 
 export const useJobs = create<{ jobs: Record<string, Job> }>(() => ({ jobs: {} }));
 
@@ -68,4 +68,12 @@ export async function requestMedia(url: string, kind: MediaKind) {
   store(result);
   pollJobs();
   return result;
+}
+
+/** Ask the server to add a song described by hand, from a YouTube link. */
+export async function requestAddSong(body: AddSongRequest): Promise<Job> {
+  const job = await addSong(body);
+  store(job);
+  pollJobs();
+  return job;
 }

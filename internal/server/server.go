@@ -87,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/home", s.authed(s.home))
 	mux.HandleFunc("/api/songs", s.authed(s.songs))
 	mux.HandleFunc("/api/download", s.authed(s.download))
+	mux.HandleFunc("POST /api/songs/add", s.authed(s.addSong))
 	mux.HandleFunc("/api/jobs", s.authed(s.listJobs))
 	mux.HandleFunc("GET /api/media/preview", s.authed(s.mediaPreview))
 	mux.HandleFunc("POST /api/media/import", s.authed(s.mediaImport))

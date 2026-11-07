@@ -114,7 +114,11 @@ type response struct {
 		Playlists struct {
 			List []Playlist `json:"playlist"`
 		} `json:"playlists"`
-		Song     Song `json:"song"`
+		Song      Song `json:"song"`
+		AlbumPage struct {
+			Album
+			Songs []Song `json:"song"`
+		} `json:"album"`
 		Playlist struct {
 			ID      string `json:"id"`
 			Entries []Song `json:"entry"`
@@ -201,6 +205,15 @@ func (c *Client) Song(ctx context.Context, cred Cred, id string) (Song, error) {
 		return Song{}, err
 	}
 	return r.Body.Song, nil
+}
+
+// Album returns an album and its songs.
+func (c *Client) Album(ctx context.Context, cred Cred, id string) (Album, []Song, error) {
+	r, err := c.call(ctx, cred, "getAlbum", url.Values{"id": {id}})
+	if err != nil {
+		return Album{}, nil, err
+	}
+	return r.Body.AlbumPage.Album, r.Body.AlbumPage.Songs, nil
 }
 
 // SearchResult is what Search returns.

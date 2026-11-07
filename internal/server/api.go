@@ -332,6 +332,8 @@ func (s *Server) runDownload(ctx context.Context, job jobs.Job, payload any, set
 	switch p := payload.(type) {
 	case mediaPayload:
 		return s.runMedia(ctx, p, set)
+	case linkPayload:
+		return s.runLink(ctx, p, set)
 	case importPayload:
 		m := s.metaForImport(ctx, p.Row)
 		err := s.fetchSong(ctx, m, p.Cred, set)
@@ -356,18 +358,27 @@ func (s *Server) runDownload(ctx context.Context, job jobs.Job, payload any, set
 // fetchSong downloads one song and waits for Navidrome to list it.
 func (s *Server) fetchSong(ctx context.Context, m catalog.Meta, cred subsonic.Cred, set func(func(*jobs.Job))) error {
 	set(func(j *jobs.Job) { j.Title, j.Artist, j.Album, j.State = m.Title, m.Artist, m.Album, jobs.Searching })
+	path, err := s.eng.DownloadSong(ctx, m, s.progress(set))
+	if err != nil {
+		return err
+	}
+	return s.awaitSong(ctx, m, cred, path, set)
+}
 
-	path, err := s.eng.DownloadSong(ctx, m, func(st engine.Stage, pct float64) {
+// progress turns the engine's stages into the job's state.
+func (s *Server) progress(set func(func(*jobs.Job))) func(engine.Stage, float64) {
+	return func(st engine.Stage, pct float64) {
 		set(func(j *jobs.Job) {
 			j.State, j.Progress = jobs.State(st), pct
 			if st == engine.Done {
 				j.State = jobs.Tagging
 			}
 		})
-	})
-	if err != nil {
-		return err
 	}
+}
+
+// awaitSong records where a downloaded song went and waits a moment for Navidrome to list it.
+func (s *Server) awaitSong(ctx context.Context, m catalog.Meta, cred subsonic.Cred, path string, set func(func(*jobs.Job))) error {
 	set(func(j *jobs.Job) { j.File = path; j.State = jobs.Tagging })
 	s.forgetLibrary()
 

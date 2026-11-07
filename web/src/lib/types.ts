@@ -159,7 +159,7 @@ export type JobState = "queued" | "searching" | "downloading" | "tagging" | "rea
 
 export interface Job {
   id: string;
-  /** What was asked for: a catalogue ID, media:<video> or import:<hash>. */
+  /** What was asked for: a catalogue ID, media:<video>, link:<video> (a song added by hand) or import:<hash>. */
   key: string;
   state: JobState;
   progress: number;
@@ -199,6 +199,19 @@ export interface MediaPreview {
   thumbnail?: string;
   live: boolean;
   existing?: MediaItem;
+  /** What YouTube Music says the song is, when the video is one of its songs. */
+  music?: { track: string; artists?: string[]; album?: string; year?: number };
+}
+
+/** A song added by hand from a YouTube link (POST /api/songs/add). */
+export interface AddSongRequest {
+  url: string;
+  title: string;
+  artists: string[];
+  track: number;
+  disc: number;
+  /** One of: an album in the library, one in the catalogue, or a new one. */
+  album: { library: string } | { catalog: string } | { name: string; artists: string[]; date: string; cover: "video" | "upload" | ""; picture?: string };
 }
 
 /** spotify_album: entries saved when the catalogue was Spotify, whose IDs mean nothing to another catalogue. */

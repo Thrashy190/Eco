@@ -41,14 +41,14 @@ export function ImportPanel({ link }: { link: string }) {
 
 function PreviewCard({ link, preview }: { link: string; preview: MediaPreview }) {
   const navigate = useNavigate();
-  const [kind, setKind] = useState<MediaKind>("podcast");
+  const [kind, setKind] = useState<MediaKind | "song">(preview.music ? "song" : "podcast"); // YouTube Music says when it is a song
   const job = useJobs((s) => s.jobs[`media:${preview.id}`]);
   // A running job (started earlier or from another device) is picked up again. A finished one is history unless
   // this card started it: the item may have been deleted since.
   const [startedHere, setStartedHere] = useState(false);
   const current = job && (isActive(job) || startedHere) ? job : undefined;
   const start = useMutation({
-    mutationFn: () => requestMedia(link, kind),
+    mutationFn: () => requestMedia(link, kind === "song" ? "other" : kind),
     onSuccess: (result) => {
       if (result.existing) { toast("Already in your library"); navigate(`/library/${result.existing.kind}`); return; }
       setStartedHere(true);
@@ -82,16 +82,18 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
   if (current?.state === "error") {
     action = <><p className={cx(ui.note, "text-danger!")}>{current.error}</p><button className={ui.pill} onClick={() => start.mutate()}>Try again</button></>;
   } else if (current?.state === "ready") {
-    const label = api.kindLabel(current.kind ?? kind);
+    const label = api.kindLabel(current.kind);
     action = (
       <>
         <div className={DONE}><Icon name="check" />{`Added to ${label}`}</div>
-        <button className={ui.primary} onClick={() => navigate(`/library/${current.kind ?? kind}`)}>{`Open ${label}`}</button>
+        <button className={ui.primary} onClick={() => navigate(`/library/${current.kind ?? "other"}`)}>{`Open ${label}`}</button>
       </>
     );
   } else if (current) {
     const downloading = current.state === "downloading";
     action = <div className={DONE}><Ring percent={downloading && current.progress > 0 ? current.progress : -1} size={26} />{downloading ? `Downloading ${Math.round(current.progress)}%` : "Getting ready…"}</div>;
+  } else if (kind === "song") {
+    action = <button className={ui.primary} type="button" onClick={() => navigate(`/add-song?url=${encodeURIComponent(link)}`)}>Continue</button>;
   } else {
     action = <button className={ui.primary} type="button" disabled={start.isPending} onClick={() => start.mutate()}><Icon name="download" size={20} />Add audio to library</button>;
   }
@@ -101,9 +103,10 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
       {head}
       <div className={ui.groupTitle}>What is it?</div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="What is it?">
+        <button type="button" className={ui.chip} aria-pressed={kind === "song"} onClick={() => setKind("song")}>Song</button>
         {api.KINDS.map(([value, label]) => <button key={value} type="button" className={ui.chip} aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
       </div>
-      <p className={ui.note}>{`${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
+      <p className={ui.note}>{kind === "song" ? "A song joins your music, with the title, artists and album you give it next." : `${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
       <div className="grid gap-2.5 justify-items-start mt-1.5">{action}</div>
     </>
   );

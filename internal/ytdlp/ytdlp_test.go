@@ -3,6 +3,7 @@ package ytdlp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -51,4 +52,18 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// YouTube Music's songs say what they are; any other video says nothing, and its title is no song information.
+func TestPreviewMusic(t *testing.T) {
+	es := decodeLines([]byte(`{"id":"a","title":"Joji - Ew (Official Video)","track":"Ew","artists":["Joji"],"album":"Nectar","release_year":2020}
+{"id":"b","title":"Ew","track":"Ew","artist":"Joji"}
+{"id":"c","title":"Joji - Ew (Official Video)","artist":"Joji"}`))
+	want := []Music{{Track: "Ew", Artists: []string{"Joji"}, Album: "Nectar", Year: 2020}, {Track: "Ew", Artists: []string{"Joji"}}, {}}
+	for i, e := range es {
+		got := e.music()
+		if got.Track != want[i].Track || strings.Join(got.Artists, "|") != strings.Join(want[i].Artists, "|") || got.Album != want[i].Album || got.Year != want[i].Year {
+			t.Errorf("%s: %+v, want %+v", e.ID, got, want[i])
+		}
+	}
 }

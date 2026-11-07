@@ -101,3 +101,31 @@ func mostCommon(counts map[string]int) string {
 	}
 	return best
 }
+
+// AlbumTags is how a file names its album: what a song added to that album must repeat exactly, or Navidrome shows
+// it as an album of its own.
+type AlbumTags struct {
+	Album, AlbumArtist, Date string
+	Tracks                   int
+}
+
+// ReadAlbumTags reads the album tags of an audio file. The album artist is as written ("A; B"), and the date keeps its
+// month and day.
+func ReadAlbumTags(path string) (AlbumTags, bool) {
+	f, err := os.Open(path)
+	if err != nil {
+		return AlbumTags{}, false
+	}
+	defer f.Close()
+	md, err := tag.ReadFrom(f)
+	if err != nil || md.Album() == "" {
+		return AlbumTags{}, false
+	}
+	_, tracks := md.Track()
+	out := AlbumTags{Album: md.Album(), AlbumArtist: md.AlbumArtist(), Tracks: tracks}
+	if out.AlbumArtist == "" {
+		out.AlbumArtist = md.Artist()
+	}
+	_, out.Date = readAlbum(path)
+	return out, true
+}

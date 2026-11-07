@@ -357,6 +357,7 @@ function SongsTab() {
   const songs = data.pages.flatMap((p) => p.songs).map(toSong);
   return (
     <>
+      <div className={ui.actions}><Link className={ui.pill} data-on="" to="/add-song"><Icon name="plus" size={16} />Add a song</Link></div>
       <p className={ui.count}>{plural(data.pages[0].total, "song")}</p>
       <LibrarySongs songs={songs} />
       <div className={ui.more} ref={marker} />

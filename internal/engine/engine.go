@@ -116,19 +116,53 @@ func SongOf(m catalog.Meta) match.Song {
 // Fetch downloads link, tags it with m and stores it under destDir. It returns the final path.
 // progress receives the audio download percentage (0–100) and may be nil.
 func (e *Engine) Fetch(ctx context.Context, link string, m catalog.Meta, destDir string, progress func(Stage, float64)) (string, error) {
+	m = library.JoinAlbum(m, destDir)
+	return e.save(ctx, link, m, nil, library.DestPath(m, Codec, destDir), progress)
+}
+
+// ErrExists means the album already holds a file by the name the song would get.
+var ErrExists = errors.New("the album already has a song saved under that name")
+
+// FetchWith is Fetch for a song someone described by hand. cover is the picture to embed (nil finds one like Fetch).
+// folder, when set, is the album's folder on disk: the song is stored there, next to the rest of its album. It never
+// replaces a file.
+func (e *Engine) FetchWith(ctx context.Context, link string, m catalog.Meta, cover []byte, folder string, progress func(Stage, float64)) (string, error) {
+	var final string
+	if folder == "" {
+		m = library.JoinAlbum(m, e.DestDir())
+		final = library.DestPath(m, Codec, e.DestDir())
+	} else {
+		final = filepath.Join(folder, filepath.Base(library.DestPath(m, Codec, folder)))
+	}
+	if _, err := os.Stat(final); err == nil {
+		return "", fmt.Errorf("%w (%s)", ErrExists, filepath.Base(final))
+	}
+	return e.save(ctx, link, m, cover, final, progress)
+}
+
+// save downloads the audio of link, tags it and moves it to final. Without a cover it looks for the album's.
+func (e *Engine) save(ctx context.Context, link string, m catalog.Meta, cover []byte, final string, progress func(Stage, float64)) (_ string, err error) {
 	say := func(s Stage, p float64) {
 		if progress != nil {
 			progress(s, p)
 		}
 	}
-	m = library.JoinAlbum(m, destDir)
-	final := library.DestPath(m, Codec, destDir)
-	if err := os.MkdirAll(destDir, 0o755); err != nil {
+	dir := filepath.Dir(final)
+	if _, missing := os.Stat(dir); missing != nil {
+		// A failed download leaves no empty album (or artist) folder behind. os.Remove only takes empty ones
+		defer func() {
+			if err != nil {
+				os.Remove(dir)
+				os.Remove(filepath.Dir(dir))
+			}
+		}()
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	// The scratch folder lives next to the destination so the final move is a cheap rename;
 	// hidden folders are ignored by Navidrome.
-	tmp, err := os.MkdirTemp(destDir, ".eco-")
+	tmp, err := os.MkdirTemp(dir, ".eco-")
 	if err != nil {
 		return "", err
 	}
@@ -140,7 +174,9 @@ func (e *Engine) Fetch(ctx context.Context, link string, m catalog.Meta, destDir
 		return "", err
 	}
 	say(Tagging, 100)
-	cover := e.fetchCover(ctx, m.CoverURL)
+	if len(cover) == 0 {
+		cover = e.fetchCover(ctx, m.CoverURL)
+	}
 	if finder, ok := e.Catalog.(catalog.CoverFinder); ok && len(cover) == 0 { // a volunteer catalogue may have no picture
 		find, cancel := context.WithTimeout(ctx, 10*time.Second)
 		cover = e.fetchCover(ctx, finder.FindCover(find, m.Album, m.Artist))
@@ -149,14 +185,11 @@ func (e *Engine) Fetch(ctx context.Context, link string, m catalog.Meta, destDir
 	if err := tag.Write(ctx, e.Cfg.FFmpeg, audio, Codec, m, cover); err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(filepath.Dir(final), 0o755); err != nil {
-		return "", err
-	}
 	if err := os.Rename(audio, final); err != nil {
 		return "", err
 	}
 	if len(cover) > 0 {
-		coverFile := filepath.Join(filepath.Dir(final), "cover.jpg")
+		coverFile := filepath.Join(dir, "cover.jpg")
 		if _, err := os.Stat(coverFile); err != nil {
 			os.WriteFile(coverFile, cover, 0o644)
 		}
