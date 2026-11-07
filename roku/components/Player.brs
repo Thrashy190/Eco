@@ -91,7 +91,7 @@ sub applyCommand(action as String, value as Dynamic)
         saved = CreateObject("roRegistrySection", "eco")
         if m.autoplay then saved.Write("autoplay", "1") else saved.Write("autoplay", "0")
         saved.Flush()
-        if m.autoplay then topUpIfLast()
+        if m.autoplay then topUpIfLast() else m.order = withoutAutoplay(m.order)
     else if action = "play_next" or action = "enqueue"
         addSong(objectOf(value), action = "play_next")
     else if action = "move"

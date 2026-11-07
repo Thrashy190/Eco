@@ -305,7 +305,11 @@ export function toggleAutoplay(): void {
   const autoplay = !state().autoplay;
   usePlayer.setState({ autoplay });
   remember("eco.autoplay", autoplay ? 1 : 0);
-  if (autoplay) topUpIfLast();
+  if (autoplay) { topUpIfLast(); return; }
+  // Off: the songs it lined up go too, so the queue ends where it would have
+  const before = state();
+  const after = order.withoutAutoplay(before);
+  if (after !== before) { usePlayer.setState(after); nextChanged(); }
 }
 
 export function previous(): void {

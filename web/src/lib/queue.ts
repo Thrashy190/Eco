@@ -100,6 +100,17 @@ export function autoplayPick(candidates: Song[], queue: Song[], count: number): 
   return out;
 }
 
+/**
+ * Turning Autoplay off: the random songs it lined up and that have not played go, so the queue ends where it did
+ * before. The song playing stays, and so does one dragged among the added songs, since that made it chosen.
+ */
+export function withoutAutoplay(order: Order): Order {
+  const { queue, index } = order;
+  const upcoming = queue.slice(index + 1);
+  if (!upcoming.some((s) => s.auto)) return order;
+  return { queue: [...queue.slice(0, index + 1), ...upcoming.filter((s) => !s.auto)], index };
+}
+
 /** What comes next, in runs by where the songs come from, for the queue to show under their own headings. */
 export function sections(upcoming: Song[]): { kind: Kind; start: number; songs: Song[] }[] {
   const out: { kind: Kind; start: number; songs: Song[] }[] = [];

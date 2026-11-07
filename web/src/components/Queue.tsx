@@ -30,17 +30,6 @@ function scrollerOf(node: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
-/** At the end of the queue: whether random songs follow when it runs out. Off unless chosen, like shuffle and repeat. */
-function AutoplaySwitch({ on }: { on: boolean }) {
-  return (
-    <div className="flex items-center gap-3 mt-2 mx-1 px-2 pt-3.5 pb-1 border-t border-line">
-      <span className="flex-none size-9 grid place-items-center rounded-full bg-ghost text-accent"><Icon name="sparkle" size={18} /></span>
-      <div className="flex-1 min-w-0 grid"><b className="font-semibold text-[.92rem]">Autoplay</b><span className="text-muted text-[.8rem]">When the queue ends, keep going with random songs from your library</span></div>
-      <button type="button" className={ui.toggle} role="switch" aria-checked={on} aria-label="Autoplay" onClick={player.toggleAutoplay} />
-    </div>
-  );
-}
-
 /**
  * `heading` styles the headings: "Up next", or, when songs come from more than one place, "Next in queue" over those
  * added by hand, "Next from" the album or playlist, and "Autoplay" over the random songs that follow.
@@ -132,11 +121,10 @@ export function Queue({ upcoming, index, source, heading, autoplay }: { upcoming
     line = drag.to === 0 ? others[0].top : others[drag.to - 1].top + others[drag.to - 1].height;
   }
 
-  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={ui.rowsPlain}><li className={ui.empty}>The queue is empty</li></ul><AutoplaySwitch on={autoplay} /></>;
+  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={ui.rowsPlain}><li className={ui.empty}>{autoplay ? "Autoplay picks something when this one ends" : "The queue is empty"}</li></ul></>;
   const title = (kind: Kind, start: number) =>
     kind === "queued" ? "Next in queue" : kind === "auto" ? "Autoplay" : !mixedKinds ? "Up next" : source ? `Next from ${source}` : start === 0 ? "Up next" : "Then";
   return (
-    <>
     <ul ref={list} className={cx(ui.rowsPlain, "relative", drag && "select-none")}>
       {parts.map((part) => [
         (mixedKinds || part.start === 0) && (
@@ -163,7 +151,5 @@ export function Queue({ upcoming, index, source, heading, autoplay }: { upcoming
       ])}
       {line !== null && <li aria-hidden="true" className="absolute inset-x-1 h-0.5 -mt-px rounded-full bg-accent pointer-events-none" style={{ top: line }} />}
     </ul>
-    <AutoplaySwitch on={autoplay} />
-    </>
   );
 }

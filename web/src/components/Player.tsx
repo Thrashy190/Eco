@@ -17,6 +17,7 @@ import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline } from "../stores/saving";
 import { setCoverColor, setSettings, useInk, useSettings } from "../stores/settings";
+import { toast } from "../stores/ui";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
 import { Queue } from "./Queue";
@@ -30,6 +31,14 @@ const ghost = "tap relative size-13 grid place-items-center rounded-full text-te
 const ghostSmall = "tap relative size-9 grid place-items-center rounded-full text-muted hover:text-text data-on:text-accent data-on:after:content-[''] data-on:after:absolute data-on:after:bottom-0.5 data-on:after:size-1 data-on:after:rounded-full data-on:after:bg-accent data-[mode=one]:data-on:before:content-['1'] data-[mode=one]:data-on:before:absolute data-[mode=one]:data-on:before:top-1.25 data-[mode=one]:data-on:before:right-1.5 data-[mode=one]:data-on:before:text-[.62rem] data-[mode=one]:data-on:before:font-extrabold";
 const ghostWide = "tap flex-1 h-11.5 inline-flex items-center justify-center gap-2 rounded-full bg-ghost text-text font-bold text-[.9rem] hover:brightness-125";
 const heart = "tap flex-none size-11.5 grid place-items-center rounded-full bg-ghost text-text data-on:text-love data-on:[&_svg]:animate-pop";
+const roundToggle = "tap flex-none size-11.5 grid place-items-center rounded-full bg-ghost text-text data-on:text-accent data-on:bg-[rgb(var(--glow)/.16)] data-on:[&_svg]:animate-pop";
+const AUTOPLAY_HINT = "Autoplay: when the queue ends, keep going with random songs from your library";
+
+/** Autoplay on or off, saying which: the button alone is only a sparkle. Off takes away the songs it lined up. */
+function toggleAutoplay(on: boolean): void {
+  player.toggleAutoplay();
+  toast(on ? "Autoplay off" : "Autoplay on: random songs follow when the queue ends");
+}
 const heartPlain = "tap flex-none size-9 grid place-items-center rounded-full text-muted hover:text-text data-on:text-love data-on:[&_svg]:animate-pop";
 const lines = "min-w-0 grid [&>*]:truncate [&>b]:font-[650] [&>span]:text-muted [&>span]:text-[.82rem]";
 const onDevice = "text-accent! font-[650]";
@@ -198,6 +207,7 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
         <DeviceButton name={shown.deviceName} />
         <div className={cx("flex gap-2.5", column)}>
           {!spoken && <button className={heart} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} /></button>}
+          {!spoken && <button className={roundToggle} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" /></button>}
           {spoken && <button className={ghostWide} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${speed}×`}</button>}
           <button className={ghostWide} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={20} />{saved ? "Saved offline" : "Save offline"}</button>
           <button className={ghostWide} onClick={() => songMenu(song, navigate)}><Icon name="more" size={20} />More</button>
@@ -276,6 +286,7 @@ function DeckNow({ song }: { song: Song }) {
         <div className="flex items-center gap-1 mt-1">
           <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title={isRemote ? `Playing on ${deviceName}` : "Choose a device"} onClick={openDevicePicker}><Icon name="devices" size={19} /></button>
           <button className={ghostSmall} data-on={saved || undefined} aria-label={saved ? "Remove from this device" : "Save offline"} title={saved ? "Saved on this device" : "Save offline"} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={19} /></button>
+          {!spoken && <button className={ghostSmall} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" size={19} /></button>}
           {spoken && <button className={ghostSmall} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${shown.speed}×`}</button>}
           {shown.canVolume && <VolumeSlider volume={shown.volume} className="flex-1 min-w-0 pl-1" />}
         </div>

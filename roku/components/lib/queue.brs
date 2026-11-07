@@ -184,3 +184,14 @@ function autoplayPick(candidates as Object, queue as Object, count as Integer) a
     end for
     return out
 end function
+
+' Turning Autoplay off: the random songs it lined up that have not played go. The song playing stays, and so does one
+' dragged among the added songs, since that made it chosen.
+function withoutAutoplay(order as Object) as Object
+    out = []
+    for i = 0 to order.queue.Count() - 1
+        s = order.queue[i]
+        if i <= order.index or kindOf(s) <> "auto" then out.Push(s)
+    end for
+    return makeOrder(out, order.index)
+end function

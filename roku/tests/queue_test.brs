@@ -11,6 +11,7 @@ sub Main()
     testMoveJoinsWhereItLands()
     testMoveIgnoresPlayedSongs()
     testAutoplaySkipsWhatIsQueuedAndSpokenAudio()
+    testAutoplayOffTakesItsSongsAway()
     testCamelCaseKeysSurvive()
     if m.failures = 0 then print "PASS queue" else print "FAIL queue: " + m.failures.ToStr() + " failed"
 end sub
@@ -128,4 +129,13 @@ sub testCamelCaseKeysSurvive()
     text = FormatJson(o.queue[1])
     ok = Instr(1, text, """albumId""") > 0 and Instr(1, text, """artistId""") > 0 and Instr(1, text, """mediaId""") > 0
     if ok then expect("keys keep their capitals", "ok", "ok") else expect("keys keep their capitals", text, "albumId, artistId, mediaId")
+end sub
+
+sub testAutoplayOffTakesItsSongsAway()
+    queue = songs(["p1", "p2"])
+    queue.Append(autoplayPick(songs(["r1", "r2", "r3"]), queue, 3))
+    o = withoutAutoplay(makeOrder(queue, 3))
+    expect("autoplay off keeps the song playing", shape(o), "p1 p2 *r1 [*r2]")
+    o = withoutAutoplay(makeOrder(queue, 0))
+    expect("autoplay off ends the queue where it was", shape(o), "[p1] p2")
 end sub

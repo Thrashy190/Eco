@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addNext, addToQueue, autoplayPick, jump, move, sections, shuffleUpcoming, startList, type Order } from "./queue";
+import { addNext, addToQueue, autoplayPick, jump, move, sections, shuffleUpcoming, startList, withoutAutoplay, type Order } from "./queue";
 import type { Song } from "./types";
 
 const song = (id: string, queued = false): Song => ({ id, title: id, artist: "Someone", ...(queued ? { queued: true } : {}) });
@@ -123,5 +123,17 @@ describe("autoplay", () => {
   it("makes one of its songs dragged among the added ones an added one", () => {
     const order = { queue: [...addToQueue(playlist, song("a")).queue, auto("r1")], index: 0 }; // [p1] +a p2 p3 p4 ~r1
     expect(read(move(order, 5, 2))).toBe("[p1] +a +r1 p2 p3 p4");
+  });
+  it("takes away what it lined up when turned off, but not the song playing", () => {
+    const order = { queue: [...playlist.queue, auto("r1"), auto("r2"), auto("r3")], index: 5 }; // ... ~r1 [~r2] ~r3
+    expect(read(withoutAutoplay(order))).toBe("p1 p2 p3 p4 ~r1 [~r2]");
+    expect(read(withoutAutoplay({ ...order, index: 0 }))).toBe("[p1] p2 p3 p4");
+  });
+  it("keeps one of its songs that was dragged among the added ones", () => {
+    const order = move({ queue: [...addToQueue(playlist, song("a")).queue, auto("r1"), auto("r2")], index: 0 }, 5, 2);
+    expect(read(withoutAutoplay(order))).toBe("[p1] +a +r1 p2 p3 p4");
+  });
+  it("leaves a queue without its songs as it was", () => {
+    expect(withoutAutoplay(playlist)).toBe(playlist);
   });
 });
