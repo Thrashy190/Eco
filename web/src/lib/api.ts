@@ -140,6 +140,7 @@ export const userAvatarUrl = (name: string, version: number) => `/api/admin/user
 export const createUser = (username: string, name: string, password: string) => send<{ username: string }>("admin/users", JSON.stringify({ username, name, password }));
 export const getCleanup = () => eco<CleanupReport>("admin/cleanup");
 export const removeDuplicate = (keep: string, remove: string[]) => send<{ deleted: string[] }>("admin/cleanup/duplicates", JSON.stringify({ keep, remove }));
+export const setAlbumCover = (id: string, from: { catalog: string } | { picture: string }) => send<{ written: number }>(`admin/cleanup/covers/${part(id)}`, JSON.stringify(from), "PUT");
 export const separateArtists = (names: string[]) => send<CleanupReport["task"]>("admin/cleanup/artists", JSON.stringify({ names }));
 /** `purged` is false when the file is gone but Navidrome still lists the song (under Missing Files there). */
 export const deleteSong = (id: string) => eco<{ deleted: boolean; file: string; purged: boolean }>(`admin/songs/${part(id)}`, undefined, "DELETE");
@@ -271,8 +272,8 @@ export const forgetImport = (id: string) => eco<{ forgotten: boolean }>(`imports
 // ---- Imported audio (podcasts, audiobooks, other) ----
 export const KINDS: [MediaKind, string][] = [["podcast", "Podcast"], ["audiobook", "Audiobook"], ["other", "Other"]];
 export const kindLabel = (kind?: string) => KINDS.find(([k]) => k === kind)?.[1] ?? "Other";
-export const mediaPreview = (url: string) => eco<MediaPreview>("media/preview", { url });
 export const addSong = (body: AddSongRequest) => send<Job>("songs/add", JSON.stringify(body));
+export const mediaPreview = (url: string) => eco<MediaPreview>("media/preview", { url });
 export const mediaImport = (url: string, kind: MediaKind) => eco<Job & { existing?: MediaItem }>("media/import", { url, kind }, "POST");
 export const listMedia = async (kind: MediaKind) => (await eco<{ items: MediaItem[] }>("media", { kind })).items;
 export const deleteMedia = (id: string) => eco<{ deleted: boolean }>(`media/${part(id)}`, undefined, "DELETE");

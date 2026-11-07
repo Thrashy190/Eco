@@ -99,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/cleanup", s.authed(s.adminOnly(s.cleanupReport)))
 	mux.HandleFunc("POST /api/admin/cleanup/duplicates", s.authed(s.adminOnly(s.cleanupDuplicate)))
 	mux.HandleFunc("POST /api/admin/cleanup/artists", s.authed(s.adminOnly(s.cleanupArtists)))
+	mux.HandleFunc("PUT /api/admin/cleanup/covers/{id}", s.authed(s.adminOnly(s.cleanupCover)))
 	mux.HandleFunc("POST /api/imports/parse", s.authed(s.importParse))
 	mux.HandleFunc("GET /api/imports", s.authed(s.importList))
 	mux.HandleFunc("POST /api/imports", s.authed(s.importSave))

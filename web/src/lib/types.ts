@@ -298,9 +298,23 @@ export interface DuplicateSong {
   starred: boolean;
 }
 
+export type AlbumProblem = "no_cover" | "no_album" | "no_artist" | "no_year" | "no_tracks" | "same_track" | "video_title" | "split";
+
+export interface AlbumIssue {
+  id: string;
+  name: string;
+  artist: string;
+  year?: number;
+  cover?: string;
+  songs: number;
+  problems: { code: AlbumProblem; text: string }[];
+}
+
 export interface CleanupReport {
   songs: number;
   duplicates: { keep: string; songs: DuplicateSong[] }[];
   artists: { name: string; parts: string[]; songs: number; sure: boolean }[];
+  /** Albums with no cover or doubtful tags. Older servers do not send it. */
+  albums?: AlbumIssue[];
   task: { running: boolean; done: number; total: number; failed: { title: string; error: string }[] | null; backup?: string };
 }

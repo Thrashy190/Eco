@@ -19,8 +19,8 @@ import (
 	"github.com/Thrashy190/eco/internal/userdata"
 )
 
-// Library clean-up, for administrators: copies of the same song, and "artists" that are really several people because
-// a tag said "Bad Bunny, Chuwi". eco only proposes. Everything here happens when an administrator asks for it.
+// Library clean-up, for administrators: copies of the same song, "artists" that are really several people because
+// a tag said "Bad Bunny, Chuwi", and albums with no cover or doubtful tags (cleanupalbums.go). eco only proposes. Everything here happens when an administrator asks for it.
 
 // ---- Duplicates ----
 
@@ -302,7 +302,7 @@ func (s *Server) cleanupReport(w http.ResponseWriter, r *http.Request, cred subs
 	s.mu.Lock()
 	task := s.retag
 	s.mu.Unlock()
-	respond(w, http.StatusOK, map[string]any{"songs": len(songs), "duplicates": findDuplicates(songs), "artists": findCombinedArtists(songs), "task": task})
+	respond(w, http.StatusOK, map[string]any{"songs": len(songs), "duplicates": findDuplicates(songs), "artists": findCombinedArtists(songs), "albums": s.albumIssues(songs), "task": task})
 }
 
 // separated writes a chosen name with the separator Navidrome splits on, between the parts chosen for it. Anything
