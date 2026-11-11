@@ -92,8 +92,10 @@ export function PinButton({ entry }: { entry: LibraryEntry }) {
 export function DownloadToggle({ spec, songs }: { spec: Parameters<typeof toggleCollection>[0]; songs: Song[] }) {
   offline.useOfflineVersion();
   const progress = useSaving((s) => s.collections[spec.id]);
-  const saved = offline.isCollectionSaved(spec.id);
-  const unfinished = !saved && Boolean(offline.collection(spec.id)?.songs);
+  const record = offline.collection(spec.id);
+  const saved = record?.complete === true;
+  const stopped = !saved && record?.paused === true && offline.hasCollectionSongs(spec.id);
+  const unfinished = !saved && !stopped && Boolean(record?.songs);
   let content;
   if (progress) {
     const percent = progress.total ? ((progress.done + Math.max(progress.percent, 0) / 100) / progress.total) * 100 : 0;
@@ -101,6 +103,8 @@ export function DownloadToggle({ spec, songs }: { spec: Parameters<typeof toggle
     content = <><Ring percent={percent} size={18} />{progress.waiting ? `Waiting · ${count}` : count}</>;
   } else if (saved) {
     content = <><Icon name="check" size={16} />Downloaded</>;
+  } else if (stopped) {
+    content = <><Icon name="offline" size={16} />{`${offline.heldCount(spec.id)}/${record.songIds.length} saved`}</>;
   } else if (unfinished) {
     content = <><Icon name="offline" size={16} />Resume</>;
   } else {

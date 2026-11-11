@@ -216,16 +216,19 @@ function FavoritesRow({ count }: { count?: number }) {
   );
 }
 
+/** How many songs a saved collection has here: all of them, or as far as its download got. */
+const savedSongs = (c: CollectionRecord) => (c.complete ? plural(c.songIds.length, "song") : `${offline.heldCount(c.id)} of ${plural(c.songIds.length, "song")}`);
+
 const SavedCollectionRow = ({ collection }: { collection: CollectionRecord }) => {
   const navigate = useNavigate();
   const view = useSettings((s) => s.libraryView);
   if (view === "grid") {
-    return <Tile art={<CollectionCover id={collection.id} className={BIG} />} title={collection.title} subtitle={`${collection.subtitle} · ${plural(collection.songIds.length, "song")}`} onOpen={() => navigate(offline.collectionRoute(collection.id))} />;
+    return <Tile art={<CollectionCover id={collection.id} className={BIG} />} title={collection.title} subtitle={`${collection.subtitle} · ${savedSongs(collection)}`} onOpen={() => navigate(offline.collectionRoute(collection.id))} />;
   }
   return (
     <li className={ui.row} onClick={() => navigate(offline.collectionRoute(collection.id))}>
       <CollectionCover id={collection.id} className={ui.cover} />
-      <div className={ui.text}><b>{collection.title}</b><span>{`${collection.subtitle} · ${plural(collection.songIds.length, "song")}`}</span></div>
+      <div className={ui.text}><b>{collection.title}</b><span>{`${collection.subtitle} · ${savedSongs(collection)}`}</span></div>
       <span className={ui.status}><Icon name="check" size={16} /></span>
     </li>
   );
@@ -248,7 +251,7 @@ function PlaylistsTab() {
   const lists = useQuery({ queryKey: ["playlists"], queryFn: getPlaylists, enabled: online });
   const favorites = useQuery({ queryKey: ["favorites"], queryFn: getStarred, enabled: online });
   if (!online) {
-    const saved = sorted(offline.collectionList("playlist").filter((c) => c.complete), sort, savedKeys);
+    const saved = sorted(offline.collectionList("playlist").filter((c) => offline.hasCollectionSongs(c.id)), sort, savedKeys);
     return (
       <Listing>
         <FavoritesRow count={offline.collection(FAVORITES_ID)?.songIds.length} />
@@ -279,7 +282,7 @@ function AlbumsTab() {
   const albums = useMemo(() => sorted(data ?? [], sort, albumKeys), [data, sort]);
   const { visible, sentinel } = useIncremental(albums); // a library can hold thousands
   if (!online) {
-    const saved = sorted(offline.collectionList("album").filter((c) => c.complete), sort, savedKeys);
+    const saved = sorted(offline.collectionList("album").filter((c) => offline.hasCollectionSongs(c.id)), sort, savedKeys);
     if (!saved.length) return <Empty>No albums are downloaded.</Empty>;
     return <div className={ui.grid}>{saved.map((c) => <SavedCard key={c.id} to={offline.collectionRoute(c.id)} art={<CollectionCover id={c.id} className={cx(ui.coverBig, ui.cardCover)} />} title={c.title} subtitle={c.subtitle} />)}</div>;
   }
@@ -373,7 +376,7 @@ function DownloadsTab() {
   const [space, setSpace] = useState<{ used: number; quota: number } | null>(null);
   useEffect(() => { void offline.usage().then(setSpace); }, [version]);
   const songKeys = (s: Song): SortKeys => ({ name: s.title, artist: s.artist });
-  const collections = sorted(offline.collectionList().filter((c) => c.complete), sort, savedKeys);
+  const collections = sorted(offline.collectionList().filter((c) => offline.hasCollectionSongs(c.id)), sort, savedKeys);
   const saved = sorted(offline.list().filter((s) => !s.kind), sort, songKeys);
   const spoken = sorted(offline.list().filter((s) => s.kind), sort, songKeys);
   if (!collections.length && !saved.length && !spoken.length) {

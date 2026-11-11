@@ -242,11 +242,12 @@ export const hasCollectionSongs = (id: string) => (collections.get(id)?.songIds 
 /** Remember a collection to download and its songs, so the download survives the app closing. stores/saving.ts runs it. */
 export async function beginCollection(spec: CollectionSpec, songs: Song[]): Promise<void> {
   void navigator.storage?.persist?.(); // asked while someone is tapping, which is when browsers tend to say yes
-  await putCollection({ ...spec, songIds: songs.map((s) => s.id), songs, complete: false, savedAt: Date.now() });
+  const savedAt = collections.get(spec.id)?.savedAt ?? Date.now(); // downloading the rest keeps its place in the list
+  await putCollection({ ...spec, songIds: songs.map((s) => s.id), songs, complete: false, savedAt });
 }
 
-/** Collections with a download still to finish. Records from before downloads could resume have no list and need a new tap. */
-export const unfinishedCollections = () => [...collections.values()].filter((c) => !c.complete && c.songs?.length);
+/** Collections with a download still to finish, unless it was stopped. Records from before downloads could resume have no list and need a new tap. */
+export const unfinishedCollections = () => [...collections.values()].filter((c) => !c.complete && !c.paused && c.songs?.length);
 
 /** The songs of a collection not on this device yet. */
 export const stillToSave = (id: string) => (collections.get(id)?.songs ?? []).filter((s) => !(meta.get(s.id)?.refs ?? []).includes(id));
@@ -267,26 +268,38 @@ export async function finishCollection(id: string): Promise<void> {
   await putCollection({ ...rest, complete: true });
 }
 
-/** Make a saved collection match the server's current list: download new songs, release removed ones. */
-export async function syncCollection(id: string, songs: Song[], onProgress?: (done: number, total: number) => void): Promise<{ added: number; removed: number }> {
+/**
+ * Make a collection follow the server's list: songs taken out of it are released, and new ones become songs to download
+ * (stores/saving.ts fetches them). Returns how many songs are still to download.
+ */
+export async function updateCollection(id: string, songs: Song[]): Promise<number> {
   const record = collections.get(id);
-  if (!record?.complete) return { added: 0, removed: 0 };
+  if (!record) return 0;
   const wanted = new Set(songs.map((s) => s.id));
   const gone = record.songIds.filter((x) => !wanted.has(x));
-  const fresh = songs.filter((s) => !(meta.get(s.id)?.refs ?? []).includes(id));
-  let added = 0;
-  for (let i = 0; i < fresh.length; i++) {
-    onProgress?.(i, fresh.length);
-    try {
-      await save(fresh[i], { ref: id, direct: false });
-      added++;
-    } catch (e) { // this song is tried again the next time the collection opens; the others should not wait for it
-      if (e instanceof NoRoom) throw e;
-    }
-  }
   for (const x of gone) await release(x, id);
-  if (fresh.length || gone.length) await putCollection({ ...record, songIds: songs.map((s) => s.id) });
-  return { added, removed: gone.length };
+  const missing = songs.filter((s) => !(meta.get(s.id)?.refs ?? []).includes(id)).length;
+  const same = record.songIds.length === songs.length && record.songIds.every((x, i) => x === songs[i].id);
+  if (same && !missing && record.complete) { if (gone.length) notify(); return 0; }
+  const { songs: _list, ...rest } = record;
+  const songIds = songs.map((s) => s.id);
+  await putCollection(missing ? { ...rest, songIds, songs, complete: false } : { ...rest, songIds, complete: true });
+  return missing;
+}
+
+/** How many of a collection's songs are on this device. */
+export const heldCount = (id: string) => (collections.get(id)?.songIds ?? []).filter((s) => (meta.get(s)?.refs ?? []).includes(id)).length;
+
+/**
+ * Stop a collection's download where it got to: the songs saved so far stay. With none saved, nothing is kept; with
+ * every song saved (the last one arrived as it stopped), it is simply downloaded.
+ */
+export async function pauseCollection(id: string): Promise<void> {
+  const record = collections.get(id);
+  if (!record) return;
+  if (!heldCount(id)) await removeCollection(id);
+  else if (!stillToSave(id).length) await finishCollection(id);
+  else await putCollection({ ...record, paused: true });
 }
 
 export async function removeCollection(id: string): Promise<void> {

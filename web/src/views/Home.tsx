@@ -101,7 +101,7 @@ export function CollectionCover({ id, className = ui.coverBig }: { id: string; c
 
 function HomeOffline() {
   offline.useOfflineVersion();
-  const collections = offline.collectionList().filter((c) => c.complete);
+  const collections = offline.collectionList().filter((c) => offline.hasCollectionSongs(c.id));
   const saved = offline.list().filter((s) => !s.kind);
   const spoken = offline.list().filter((s) => s.kind);
   return (

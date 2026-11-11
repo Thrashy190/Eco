@@ -47,11 +47,16 @@ export function songMenu(song: Song, navigate: NavigateFunction, extra: SheetIte
   ]);
 }
 
-/** A check when a song is on this device, or a ring while it is being saved. */
+/**
+ * Whether a song is on this device: a ring while it is being saved, a clock while it waits its turn in a collection's
+ * download, then the offline mark.
+ */
 export function SavedStatus({ id }: { id: string }) {
   offline.useOfflineVersion();
   const saving = useSaving((s) => s.songs[id]);
-  if (saving !== undefined) return <span className={ui.status}><Ring percent={saving} /></span>;
+  const waiting = useSaving((s) => id in s.waiting);
+  if (saving !== undefined) return <span className={cx(ui.status, "text-accent")} title="Downloading to this device"><Ring percent={saving} /></span>;
+  if (waiting && !offline.isSaved(id)) return <span className={cx(ui.status, "opacity-70")} title="Waiting to download"><span className="inline-flex"><Icon name="clock" size={16} /></span></span>;
   if (offline.isSaved(id)) return <span className={ui.status} title="Saved on this device"><span className="inline-flex"><Icon name="offline" size={16} /></span></span>;
   return null;
 }

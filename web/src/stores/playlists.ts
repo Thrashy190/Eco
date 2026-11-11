@@ -1,17 +1,20 @@
 // Making and changing playlists, from wherever a menu offers it. They are real Navidrome playlists, so they show up in every
 // other Subsonic app too. Only the owner of a playlist can change it.
-import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylists, removeFromPlaylist, renamePlaylist, username } from "../lib/api";
+import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylist, getPlaylists, removeFromPlaylist, renamePlaylist, username } from "../lib/api";
 import { plural } from "../lib/format";
 import { queryClient } from "../lib/query";
 import type { LibraryEntry, Song } from "../lib/types";
 import { forget, isPinned, togglePin } from "./library";
 import * as offline from "./offline";
+import { refreshSavedCollection } from "./saving";
 import { openSheet, toast } from "./ui";
 
-/** Screens showing playlists fetch them again. */
+/** Screens showing playlists fetch them again, and a playlist kept offline follows its new songs. */
 export function playlistsChanged(id?: string): void {
   void queryClient.invalidateQueries({ queryKey: ["playlists"] });
-  if (id) void queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+  if (!id) return;
+  void queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+  refreshSavedCollection(`playlist:${id}`, async () => (await queryClient.fetchQuery({ queryKey: ["playlist", id], queryFn: () => getPlaylist(id), staleTime: 0 })).songs);
 }
 
 const askName = (current = "") => prompt("Playlist name", current)?.trim() ?? "";
@@ -70,7 +73,7 @@ export async function remove(entry: LibraryEntry, songCount: number, pins: Libra
   if (!confirm(`Delete “${entry.name}”?\n\nThe ${plural(songCount, "song")} stay in your library. This also removes the playlist from every other app.`)) return false;
   try {
     await deletePlaylist(entry.id);
-    if (offline.isCollectionSaved(`playlist:${entry.id}`)) await offline.removeCollection(`playlist:${entry.id}`);
+    if (offline.collection(`playlist:${entry.id}`)) await offline.removeCollection(`playlist:${entry.id}`);
     if (isPinned(pins, entry)) await togglePin(entry);
     await forget(entry);
     playlistsChanged(entry.id);
