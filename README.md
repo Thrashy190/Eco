@@ -44,7 +44,7 @@
 **Listen**
 
 - A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
-- The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next.
+- The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next. Drag its edge to make it wider, or open the player full screen, as on the TV.
 - Make it yours: a photo of your own or the album playing behind everything (text stays readable on any picture), four player styles (cover, vinyl, backdrop, minimal), glass, card size, fonts and colours. Your look follows you to all your devices.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
 - On a Roku TV: browse with the remote, or send music to the TV from your phone. The player fills the screen with the album, in your colours. You install it yourself, with no store involved ([docs/tv.md](docs/tv.md)).
@@ -54,16 +54,18 @@
 **Find and download**
 
 - One search box finds songs in your library and songs and albums you do not own, from [MusicBrainz](https://musicbrainz.org) with iTunes as a backup. No account, key or subscription.
-- Open an album to see every track in order and which ones you have, then tick the ones to download.
+- Open an album to see every track in order and which ones you have, then tick the ones to download. An artist's songs you do not have yet are chosen the same way.
 - Tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
 - Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest.
 - A song search cannot find? **Library ▸ Songs ▸ Add a song**: paste its YouTube link and say what it is. Pick its album from your library or the catalogue, or describe a new one, with its cover.
+- A song saved under the wrong name or artist? An administrator fixes it from its ⋯ menu ▸ **Edit details**: title, artists, album, year, numbers and genre. Favorites and playlists keep it.
 
 **Take it with you**
 
 - Download your favorites, a playlist, an album or single songs. They play from the device, with no request to the server for the audio.
 - A download does not fail because of a bad moment: failed songs are tried again, and what is left carries on by itself after the connection returns or the app reopens. [What phones allow in the background](#offline-on-a-phone) has limits.
-- Downloaded collections stay in sync, and *Offline mode* in Settings uses only what is on the device.
+- Each song shows whether it is saved, downloading or waiting its turn. Stopping a download keeps what arrived.
+- Downloaded collections stay in sync: songs added to a downloaded playlist or to your favorites are downloaded too. *Offline mode* in Settings uses only what is on the device.
 
 **Make it yours**
 
