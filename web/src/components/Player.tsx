@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { hasCover, songCover, wallpaperUrl } from "../lib/api";
 import { readableDim, shownDim, type Ink } from "../lib/color";
+import { DECK_MAX, DECK_MIN, deckWidthFor, PAGE_ROOM } from "../lib/look";
 import { clock } from "../lib/format";
 import { dominantColor, pixelsOf } from "../lib/image";
 import { useRoomy, useWide } from "../lib/media";
@@ -16,7 +17,7 @@ import { toggleFavorite, useStarred } from "../stores/favorites";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline } from "../stores/saving";
-import { setCoverColor, setSettings, useInk, useSettings } from "../stores/settings";
+import { DEFAULTS, setCoverColor, setSettings, useInk, useSettings } from "../stores/settings";
 import { toast } from "../stores/ui";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
@@ -298,16 +299,60 @@ function DeckNow({ song }: { song: Song }) {
   );
 }
 
+/**
+ * The deck's edge toward the page: dragging it makes the deck wider or narrower, as with a sidebar. The arrow keys do the
+ * same, and a double click goes back to the usual width. The width is saved when the drag ends, not on every pixel.
+ */
+function DeckEdge({ width, onDrag }: { width: number; onDrag: (width: number | null) => void }) {
+  const wanted = (w: number) => deckWidthFor(w, window.innerWidth);
+  const start = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const edge = e.currentTarget;
+    const from = e.clientX;
+    let last = width;
+    edge.setPointerCapture(e.pointerId);
+    document.documentElement.dataset.resizing = "";
+    const move = (ev: PointerEvent) => { last = wanted(width + from - ev.clientX); onDrag(last); };
+    const end = () => {
+      edge.removeEventListener("pointermove", move);
+      edge.removeEventListener("pointerup", end);
+      edge.removeEventListener("pointercancel", end);
+      delete document.documentElement.dataset.resizing;
+      setSettings({ deckWidth: last });
+      onDrag(null);
+    };
+    edge.addEventListener("pointermove", move);
+    edge.addEventListener("pointerup", end);
+    edge.addEventListener("pointercancel", end);
+  };
+  const step = (by: number) => setSettings({ deckWidth: wanted(width + by) });
+  return (
+    <div role="separator" aria-orientation="vertical" aria-label="Resize the deck" aria-valuemin={DECK_MIN} aria-valuemax={DECK_MAX} aria-valuenow={width} tabIndex={0}
+      className="group/edge absolute -left-3 inset-y-0 z-20 w-3 cursor-col-resize touch-none outline-none"
+      onPointerDown={start} onDoubleClick={() => setSettings({ deckWidth: DEFAULTS.deckWidth })}
+      onKeyDown={(e) => { if (e.key === "ArrowLeft") { e.preventDefault(); step(24); } else if (e.key === "ArrowRight") { e.preventDefault(); step(-24); } }}>
+      <i className="absolute left-1/2 top-1/2 h-12 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-text opacity-0 transition-[opacity,height] duration-150 group-hover/edge:opacity-40 group-focus-visible/edge:opacity-70 in-data-resizing:h-20 in-data-resizing:opacity-70" />
+    </div>
+  );
+}
+
 /** A column of its own beside the page, on a screen with room, while something is playing. */
 function Deck({ song, onClose }: { song: Song; onClose: () => void }) {
+  const saved = useSettings((s) => s.deckWidth);
+  const [dragging, setDragging] = useState<number | null>(null);
+  const width = dragging ?? saved;
   return (
-    <aside aria-label="Now playing" className={cx("relative z-10 flex flex-col w-[clamp(320px,27vw,392px)] min-h-0 rounded-[28px] overflow-hidden", glass)}>
-      <header className="flex-none flex items-center gap-1.5 pl-5 pr-2 pt-2 pb-1">
-        <b className="flex-1 min-w-0 truncate font-semibold text-[.88rem] text-muted" title={song.album}>{song.album || "Now playing"}</b>
-        <button type="button" className={ui.iconButton} aria-label="Hide the deck" onClick={onClose}><span className="inline-flex -rotate-90"><Icon name="down" size={20} /></span></button>
-      </header>
-      <DeckNow song={song} />
-    </aside>
+    <div className="relative z-10 flex min-h-0" style={{ width: `clamp(${DECK_MIN}px, min(${width}px, 100vw - ${PAGE_ROOM}px), ${DECK_MAX}px)` }}>
+      <DeckEdge width={width} onDrag={setDragging} />
+      <aside aria-label="Now playing" className={cx("flex-1 min-w-0 flex flex-col min-h-0 rounded-[28px] overflow-hidden", glass)}>
+        <header className="flex-none flex items-center gap-1.5 pl-5 pr-2 pt-2 pb-1">
+          <b className="flex-1 min-w-0 truncate font-semibold text-[.88rem] text-muted" title={song.album}>{song.album || "Now playing"}</b>
+          <button type="button" className={ui.iconButton} aria-label="Hide the deck" onClick={onClose}><span className="inline-flex -rotate-90"><Icon name="down" size={20} /></span></button>
+        </header>
+        <DeckNow song={song} />
+      </aside>
+    </div>
   );
 }
 

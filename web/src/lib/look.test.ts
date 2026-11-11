@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanLook, shareable } from "./look";
+import { cleanLook, DECK_MAX, DECK_MIN, deckWidthFor, shareable } from "./look";
 
 const defaults = {
   theme: "system", accent: "#7cf0c0", tint: true, tabs: ["home", "search"], librarySort: {} as Record<string, string>,
@@ -35,5 +35,18 @@ describe("shareable", () => {
     expect(out).not.toHaveProperty("syncLook");
     expect(out).not.toHaveProperty("wallpaper");
     expect(out.theme).toBe("system");
+  });
+});
+
+describe("deckWidthFor", () => {
+  it("keeps the deck between its limits and leaves the page room", () => {
+    expect(deckWidthFor(420, 1600)).toBe(420);
+    expect(deckWidthFor(100, 1600)).toBe(DECK_MIN);
+    expect(deckWidthFor(2000, 2400)).toBe(DECK_MAX);
+    expect(deckWidthFor(600, 1100)).toBe(540); // a narrow window: the page keeps its room
+    expect(deckWidthFor(600, 700)).toBe(DECK_MIN); // never thinner than readable
+  });
+  it("never travels to other devices", () => {
+    expect(cleanLook({ deckWidth: 500 }, { deckWidth: 360 })).toEqual({});
   });
 });

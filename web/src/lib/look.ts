@@ -17,14 +17,26 @@ export const CHOICES: Record<string, readonly string[]> = {
   favoritesColor: ["classic", "accent"],
 };
 
+/** How narrow and how wide the deck can be dragged, in px. */
+export const DECK_MIN = 300;
+export const DECK_MAX = 640;
+
+/** Room the page keeps beside the deck, in px: past that, dragging the deck wider stops. */
+export const PAGE_ROOM = 560;
+
+/** How wide the deck can be on a window this wide, for the width wanted. */
+export const deckWidthFor = (wanted: number, viewport: number) =>
+  Math.round(Math.max(DECK_MIN, Math.min(wanted, DECK_MAX, viewport - PAGE_ROOM)));
+
 /** The range of each number. */
 export const RANGES: Record<string, [number, number]> = {
   backgroundBlur: [0, 40],
   backgroundDim: [0, 1],
+  deckWidth: [DECK_MIN, DECK_MAX],
 };
 
-/** Settings that belong to one device and never travel: forcing offline, the deck, and the choice to share the look. */
-export const DEVICE_ONLY = ["offlineMode", "nowPanel", "syncLook", "wallpaper"] as const;
+/** Settings that belong to one device and never travel: forcing offline, the deck and its width, and the choice to share the look. */
+export const DEVICE_ONLY = ["offlineMode", "nowPanel", "deckWidth", "syncLook", "wallpaper"] as const;
 
 const isStrings = (value: unknown): value is string[] => Array.isArray(value) && value.length <= 50 && value.every((v) => typeof v === "string" && v.length <= 60);
 

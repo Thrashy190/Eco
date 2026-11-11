@@ -2,7 +2,7 @@
 // they were saved; a device takes them when it opens or comes back to the screen, and sends its own after a change.
 // A change made offline waits ("dirty") and wins over the server once there is a connection again.
 import { deleteWallpaper, getLook, putLook, putWallpaper } from "../lib/api";
-import { cleanLook, shareable } from "../lib/look";
+import { cleanLook, DEVICE_ONLY, shareable } from "../lib/look";
 import { adoptSettings, DEFAULTS, isOnline, onSettingsChanged, settings, settingsUser, setSettings, type Settings } from "./settings";
 
 interface Mark { at: number; dirty: boolean } // when this device last agreed with the server, and whether it has news
@@ -31,7 +31,7 @@ onSettingsChanged((patch) => {
     if (patch.syncLook) { writeMark({ ...readMark(), dirty: true }); void push(); }
     return;
   }
-  if (!settings().syncLook || keys.every((key) => key === "offlineMode" || key === "nowPanel" || key === "wallpaper")) return;
+  if (!settings().syncLook || keys.every((key) => key !== "syncLook" && (DEVICE_ONLY as readonly string[]).includes(key))) return;
   writeMark({ ...readMark(), dirty: true });
   clearTimeout(timer);
   timer = setTimeout(() => void push(), 800); // a slider sends one change, not fifty

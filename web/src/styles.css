@@ -194,3 +194,10 @@
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-motion="full"]) *, :root:not([data-motion="full"]) *::before, :root:not([data-motion="full"]) *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* While the deck's edge is dragged, the pointer stays a resize arrow over everything and nothing gets selected */
+[data-resizing],
+[data-resizing] * {
+  cursor: col-resize !important;
+  user-select: none;
+}
