@@ -13,7 +13,7 @@ import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../comp
 import { BackButton, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
-import { ExternalRow, GetAllButton, PlayButtons, SongList } from "../components/songs";
+import { PickToDownload, PlayButtons, SongList } from "../components/songs";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
 import { remove, removeSong, rename } from "../stores/playlists";
@@ -231,8 +231,7 @@ function Discover({ artist }: { artist: string }) {
       <Section title="Not in your library yet">
         {external.length > 0
           ? <>
-              <div className={ui.actions}><GetAllButton externals={external} /></div>
-              <ul className={ui.rows}>{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
+              <PickToDownload externals={external} />
             </>
           : <Empty>{warning ?? "Nothing else to suggest right now."}</Empty>}
         {external.length > 0 && warning && <p className={ui.note}>{warning}</p>}

@@ -1,7 +1,8 @@
 // Song rows: songs in the library and songs in the catalogue that can be downloaded.
 import type { NavigateFunction } from "react-router";
+import { useState } from "react";
 import { useNavigate } from "react-router";
-import { clock } from "../lib/format";
+import { clock, plural } from "../lib/format";
 import { toSong } from "../lib/api";
 import { queryClient } from "../lib/query";
 import type { ExternalSong, LibraryEntry, LibraryState, Song } from "../lib/types";
@@ -176,5 +177,71 @@ export function GetAllButton({ externals }: { externals: ExternalSong[] }) {
         try { await requestSong(ext.id); } catch (err) { toast((err as Error).message); break; }
       }
     }}><Icon name="download" size={16} />{`Get all ${externals.length}`}</button>
+  );
+}
+
+/**
+ * Catalogue songs to choose from and download together, the same way as on an album page (views/CatalogAlbum.tsx):
+ * tapping a song selects it, and the bar on top downloads what is chosen. A song on its way shows how far it got, and
+ * once downloaded it plays.
+ */
+export function PickToDownload({ externals }: { externals: ExternalSong[] }) {
+  const jobs = useJobs((s) => s.jobs);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const selectable = externals.filter((ext) => { const job = liveJob(jobs[ext.id]); return !job || job.state === "error"; });
+  const chosen = selectable.filter((ext) => selected.has(ext.id));
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length;
+  const toggle = (id: string) => setSelected((now) => {
+    const next = new Set(now);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  async function downloadChosen() {
+    setSelected(new Set());
+    toast(`Downloading ${plural(chosen.length, "song")}`);
+    for (const ext of chosen) {
+      try { await requestSong(ext.id); } catch (e) { toast((e as Error).message); break; }
+    }
+  }
+
+  return (
+    <>
+      {selectable.length > 0 && (
+        <div className={ui.selectBar}>
+          <button type="button" className={ui.pill} onClick={() => setSelected(allChosen ? new Set() : new Set(selectable.map((ext) => ext.id)))}>
+            {allChosen && <Icon name="check" size={16} />}{allChosen ? "Clear selection" : `Select all ${selectable.length}`}
+          </button>
+          <button type="button" className={ui.get} disabled={!chosen.length} onClick={() => void downloadChosen()}>
+            <Icon name="download" size={18} />{chosen.length ? `Download ${plural(chosen.length, "song")}` : "Tap songs to choose"}
+          </button>
+        </div>
+      )}
+      <ul className={ui.rows}>
+        {externals.map((ext) => <PickRow key={ext.id} ext={ext} selected={selected.has(ext.id)} onToggle={() => toggle(ext.id)} />)}
+      </ul>
+    </>
+  );
+}
+
+function PickRow({ ext, selected, onToggle }: { ext: ExternalSong; selected: boolean; onToggle: () => void }) {
+  const job = liveJob(useJobs((s) => s.jobs[ext.id]));
+  const ownedId = job?.state === "ready" ? job.library_id : undefined;
+  const selectable = !job || job.state === "error";
+  const busy = job && job.state !== "error" && job.state !== "ready";
+  const asSong = (id: string): Song => toSong({ id, title: ext.title, artist: ext.artist, album: ext.album, duration: ext.duration, cover: id });
+  const detail = job?.state === "error" ? "Could not download. Tap to select it and try again." : ownedId ? "Downloaded" : [ext.artist, ext.album].filter(Boolean).join(" · ");
+  return (
+    <li className={cx(ui.row, busy && "cursor-default [&>div>b]:text-muted")} data-selected={selected || undefined}
+      onClick={ownedId ? () => player.play([asSong(ownedId)], 0) : selectable ? onToggle : undefined}>
+      {selectable
+        ? <span className={ui.tick} data-on={selected || undefined} role="checkbox" aria-checked={selected} aria-label={`Download ${ext.title}`}>{selected && <Icon name="check" size={16} />}</span>
+        : null}
+      <Picture src={ext.cover_url} external />
+      <div className={ui.text}><b>{ext.title}</b><span title={job?.error}>{detail}</span></div>
+      {busy && <span className={ui.download}><JobProgress state={job.state as "queued"} progress={job.progress} /></span>}
+      {ownedId && <span className={ui.done}><Icon name="check" size={18} /></span>}
+      <span className={ui.time}>{ext.duration ? clock(ext.duration) : ""}</span>
+    </li>
   );
 }
