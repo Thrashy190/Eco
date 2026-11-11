@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -93,11 +94,24 @@ func fields(m catalog.Meta) map[string]string {
 	return f
 }
 
-// SetArtists changes a file's artist and album artist tags ("" leaves one as it is), keeping everything else: other tags,
-// the cover, the audio to the last byte. The original is copied to backup first, and only replaced after the audio of the
-// new file is proven identical.
+// SetArtists changes a file's artist and album artist tags ("" leaves one as it is), keeping everything else (see Set).
 func SetArtists(ctx context.Context, ffmpeg, path, artist, albumArtist, backup string) error {
-	if artist == "" && albumArtist == "" {
+	fields := map[string]string{}
+	if artist != "" {
+		fields["artist"] = artist
+	}
+	if albumArtist != "" {
+		fields["album_artist"] = albumArtist
+	}
+	return Set(ctx, ffmpeg, path, fields, backup)
+}
+
+// Set changes some tags of a file (ffmpeg's names: title, artist, album, album_artist, date, track, disc, genre; an empty
+// value removes that tag), keeping everything else: other tags, the cover, the audio to the last byte. The file stays
+// where it is, so Navidrome keeps its ID, favourites and playlists. The original is copied to backup first, and only
+// replaced after the audio of the new file is proven identical.
+func Set(ctx context.Context, ffmpeg, path string, fields map[string]string, backup string) error {
+	if len(fields) == 0 {
 		return nil
 	}
 	info, err := os.Stat(path)
@@ -114,11 +128,13 @@ func SetArtists(ctx context.Context, ffmpeg, path, artist, albumArtist, backup s
 	defer os.Remove(out)
 
 	args := []string{"-y", "-loglevel", "error", "-i", path, "-map", "0", "-c", "copy", "-map_metadata", "0"}
-	if artist != "" {
-		args = append(args, "-metadata", "artist="+artist)
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		keys = append(keys, k)
 	}
-	if albumArtist != "" {
-		args = append(args, "-metadata", "album_artist="+albumArtist)
+	sort.Strings(keys)
+	for _, k := range keys {
+		args = append(args, "-metadata", k+"="+fields[k])
 	}
 	if strings.EqualFold(ext, ".m4a") {
 		args = append(args, "-movflags", "+faststart")

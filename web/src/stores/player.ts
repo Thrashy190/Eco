@@ -404,6 +404,13 @@ export function applyCommand(action: string, value: unknown): void {
 export const syncTime = () => useTime.setState({ position: audio.currentTime || 0, length: length() });
 
 /** A song no longer exists: take it out of the queue, moving on if it was playing. */
+/** A song's details were edited: the queue shows the new ones, and the music carries on. */
+export function updateSong(id: string, changes: Partial<Song>): void {
+  const { queue } = state();
+  if (!queue.some((s) => s.id === id)) return;
+  usePlayer.setState({ queue: queue.map((s) => (s.id === id ? { ...s, ...changes } : s)) });
+}
+
 export function forgetSong(id: string): void {
   const { queue, index } = state();
   if (!queue.some((s) => s.id === id)) return;

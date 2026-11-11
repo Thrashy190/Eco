@@ -58,6 +58,8 @@ type Server struct {
 	lib            *snapshot            // cached copy of the library
 	youtubeBlocked time.Time            // YouTube said "not a bot": no downloads until then
 	retag          retagTask            // the artist clean-up, if one ran
+
+	editing sync.Mutex // one song edit at a time (editSong)
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -96,6 +98,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/media/{id}/thumb", s.authed(s.mediaFile(true)))
 	mux.HandleFunc("DELETE /api/media/{id}", s.authed(s.adminOnly(s.mediaDelete)))
 	mux.HandleFunc("DELETE /api/admin/songs/{id}", s.authed(s.adminOnly(s.deleteSong)))
+	mux.HandleFunc("GET /api/admin/songs/{id}/tags", s.authed(s.adminOnly(s.songTags)))
+	mux.HandleFunc("PUT /api/admin/songs/{id}/tags", s.authed(s.adminOnly(s.editSong)))
 	mux.HandleFunc("GET /api/admin/cleanup", s.authed(s.adminOnly(s.cleanupReport)))
 	mux.HandleFunc("POST /api/admin/cleanup/duplicates", s.authed(s.adminOnly(s.cleanupDuplicate)))
 	mux.HandleFunc("POST /api/admin/cleanup/artists", s.authed(s.adminOnly(s.cleanupArtists)))

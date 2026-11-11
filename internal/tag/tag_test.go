@@ -51,7 +51,7 @@ func tagsOf(t *testing.T, path string) string {
 	if err != nil {
 		t.Skip("ffprobe is not installed")
 	}
-	out, err := exec.Command(ffprobe, "-v", "error", "-of", "default=nw=1", "-show_entries", "format_tags=title,artist,album_artist,album", path).Output()
+	out, err := exec.Command(ffprobe, "-v", "error", "-of", "default=nw=1", "-show_entries", "format_tags=title,artist,album_artist,album,genre,date,track,disc", path).Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,5 +121,38 @@ func TestSeveralArtistsAreWrittenSoNavidromeSeparatesThem(t *testing.T) {
 	// A CSV row has one string: nobody knows whether its comma separates artists, so it stays
 	if got := fields(catalog.Meta{Artist: "Bad Bunny, Chuwi"}); got["artist"] != "Bad Bunny, Chuwi" {
 		t.Errorf("got %q", got["artist"])
+	}
+}
+
+// Editing a song by hand: what changes is written, an empty value takes the tag away, and the rest stays.
+func TestSetChangesAndRemovesTags(t *testing.T) {
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	ctx := context.Background()
+	path := makeSong(t, ffmpeg)
+	before, err := audioHash(ctx, ffmpeg, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backup := filepath.Join(t.TempDir(), "song.m4a")
+	if err := Set(ctx, ffmpeg, path, map[string]string{"artist": "Calle 13", "album_artist": "Calle 13", "genre": "Hip hop", "album": ""}, backup); err != nil {
+		t.Fatal(err)
+	}
+	tags := strings.ToLower(tagsOf(t, path))
+	for _, want := range []string{"artist=calle 13", "album_artist=calle 13", "genre=hip hop", "title=infeliz"} {
+		if !strings.Contains(tags, want) {
+			t.Errorf("%q not in:\n%s", want, tags)
+		}
+	}
+	if strings.Contains(tags, "album=") {
+		t.Errorf("the album is still there:\n%s", tags)
+	}
+	if after, _ := audioHash(ctx, ffmpeg, path); after != before {
+		t.Error("the audio changed")
+	}
+	if _, err := os.Stat(backup); err != nil {
+		t.Errorf("no backup: %v", err)
 	}
 }

@@ -41,6 +41,7 @@ export function songMenu(song: Song, navigate: NavigateFunction, extra: SheetIte
       : { icon: "offline", label: "Save for offline", run: () => void saveOffline(song) },
     ...artistTargets(song.artist, song.artistId).filter(() => isMusic).map((artist, _, all) => ({ icon: "user" as const, label: all.length > 1 ? `Go to ${artist.name}` : "Go to artist", run: () => navigate(artist.to) })),
     Boolean(song.albumId) && { icon: "library", label: "Go to album", run: () => navigate(`/album/${song.albumId}`) },
+    isMusic && isOnline() && isAdmin() && { icon: "pencil", label: "Edit details", run: () => navigate(`/song/${song.id}/edit`) },
     isMusic && isOnline() && isAdmin() && { icon: "trash", label: "Delete for everyone", danger: true, run: () => void deleteSongForEveryone(song) },
   ]);
 }

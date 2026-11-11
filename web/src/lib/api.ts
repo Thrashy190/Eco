@@ -143,6 +143,11 @@ export const removeDuplicate = (keep: string, remove: string[]) => send<{ delete
 export const setAlbumCover = (id: string, from: { catalog: string } | { picture: string }) => send<{ written: number }>(`admin/cleanup/covers/${part(id)}`, JSON.stringify(from), "PUT");
 export const separateArtists = (names: string[]) => send<CleanupReport["task"]>("admin/cleanup/artists", JSON.stringify({ names }));
 /** `purged` is false when the file is gone but Navidrome still lists the song (under Missing Files there). */
+/** What a song's file says about it, read from the file: several artists stay apart. */
+export interface SongTags { title: string; artists: string[]; album: string; album_artists: string[]; date: string; track: number; tracks: number; disc: number; genre: string }
+export type SongEdit = Omit<SongTags, "tracks"> & { whole_album: boolean };
+export const getSongTags = (id: string) => eco<{ tags: SongTags; album_songs: number }>(`admin/songs/${part(id)}/tags`);
+export const editSongTags = (id: string, edit: SongEdit) => send<{ changed: number; failed: { title: string; error: string }[]; album_id: string }>(`admin/songs/${part(id)}/tags`, JSON.stringify(edit), "PUT");
 export const deleteSong = (id: string) => eco<{ deleted: boolean; file: string; purged: boolean }>(`admin/songs/${part(id)}`, undefined, "DELETE");
 
 // Normalise Subsonic objects into the shape the UI uses everywhere.
