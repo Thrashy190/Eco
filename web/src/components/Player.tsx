@@ -342,16 +342,11 @@ function DeckEdge({ width, onDrag }: { width: number; onDrag: (width: number | n
   );
 }
 
-/** Leave the browser's full screen, if the stage entered it. */
-function leaveFullScreen(): void {
-  if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
-}
-
 /**
  * The stage: the player over the whole screen, as on the TV (roku/components/screens/NowPlayingScreen.xml). The big cover,
- * the song in large type, the controls and what comes next, over the cover's colour. Where the browser allows it, the
- * window goes full screen too, and leaving that (Esc) leaves the stage. After a few seconds without the mouse moving,
- * the controls and the pointer fade away, and only the cover and the song stay.
+ * the song in large type, the controls and what comes next, over the cover's colour. It fills the browser's tab, not the
+ * whole screen (the maintainer's choice), and Esc closes it. After a few seconds without the mouse moving, the controls
+ * and the pointer fade away, and only the cover and the song stay.
  */
 function Stage({ onClose }: { onClose: () => void }) {
   const shown = useShown();
@@ -364,12 +359,9 @@ function Stage({ onClose }: { onClose: () => void }) {
   const [idle, setIdle] = useState(false);
 
   useEffect(() => {
-    let entered = false;
-    const onChange = () => { if (document.fullscreenElement) entered = true; else if (entered) onClose(); };
-    document.addEventListener("fullscreenchange", onChange);
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { leaveFullScreen(); onClose(); } };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("fullscreenchange", onChange); window.removeEventListener("keydown", onKey); };
+    return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
   // Still for a while: only the music stays on screen. Any movement or key brings the controls back
@@ -396,7 +388,7 @@ function Stage({ onClose }: { onClose: () => void }) {
       <header className={cx("flex-none flex items-center gap-3", fade)}>
         <Logo size={34} className="rounded-[9px]" />
         <b className="flex-1 min-w-0 truncate font-title font-bold text-muted text-[1.05rem]">{isRemote ? `Playing on ${deviceName}` : shown.source || "Now playing"}</b>
-        <button type="button" className={ui.iconButton} aria-label="Exit full screen" title="Exit full screen (Esc)" onClick={() => { leaveFullScreen(); onClose(); }}><Icon name="shrink" size={22} /></button>
+        <button type="button" className={ui.iconButton} aria-label="Close the full-screen player" title="Close (Esc)" onClick={onClose}><Icon name="shrink" size={22} /></button>
       </header>
       <div className="flex-1 min-h-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[5vw] py-[3vh]">
         {look === "vinyl"
@@ -478,13 +470,12 @@ export function Player() {
   const openStage = () => {
     setOpen(false);
     setStage(true);
-    void document.documentElement.requestFullscreen?.({ navigationUI: "hide" }).catch(() => undefined); // an iPad has none: the stage still fills the window
   };
   const deck = wide && roomy && panel && Boolean(song);
   const capsule = wide && !deck && Boolean(song);
 
   // Any navigation (Go to artist, Go to album, a link) means the player must get out of the way
-  useEffect(() => { setOpen(false); setStage(false); leaveFullScreen(); }, [location.key]);
+  useEffect(() => { setOpen(false); setStage(false); }, [location.key]);
   const hasSong = Boolean(song);
   useEffect(() => {
     document.body.classList.toggle("has-player", hasSong);

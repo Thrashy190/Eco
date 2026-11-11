@@ -44,7 +44,7 @@
 **Listen**
 
 - A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
-- The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next. Drag its edge to make it wider, or open the player full screen, as on the TV.
+- The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next. Drag its edge to make it wider, or open the player over the whole tab, as on the TV.
 - Make it yours: a photo of your own or the album playing behind everything (text stays readable on any picture), four player styles (cover, vinyl, backdrop, minimal), glass, card size, fonts and colours. Your look follows you to all your devices.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
 - On a Roku TV: browse with the remote, or send music to the TV from your phone. The player fills the screen with the album, in your colours. You install it yourself, with no store involved ([docs/tv.md](docs/tv.md)).
