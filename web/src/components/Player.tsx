@@ -2,7 +2,7 @@
 // floating over the page that opens the same full-screen player. On a computer, the deck: a column of its own with what
 // is playing and what comes next. All of them show this device or, when another is being controlled, that
 // one; the controls go wherever the music is (see stores/connect.ts).
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { hasCover, songCover, wallpaperUrl } from "../lib/api";
 import { readableDim, shownDim, type Ink } from "../lib/color";
@@ -24,6 +24,7 @@ import { SongCover } from "./Cover";
 import { Queue } from "./Queue";
 import { DeviceButton, openDevicePicker } from "./Devices";
 import { Icon, Ring } from "./Icon";
+import { Logo } from "./Logo";
 import { songMenu } from "./songs";
 
 const NEUTRAL = "60 60 70";
@@ -132,7 +133,7 @@ function Backdrop({ src, className }: { src: string; className?: string }) {
   );
 }
 
-function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
+function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: () => void; onFullScreen?: () => void }) {
   const navigate = useNavigate();
   const shown = useShown();
   const { song, playing, loading, shuffle, repeat, speed, upcoming, index } = shown;
@@ -175,7 +176,10 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
         !backdrop && "[background:radial-gradient(130%_75%_at_50%_12%,rgb(var(--tint)/.8),transparent_72%),var(--bg)] wide:[background:radial-gradient(90%_80%_at_20%_30%,rgb(var(--tint)/.75),transparent_70%),var(--bg)]",
         slide,
       )}>
-      <button className="w-11 h-9 self-start grid place-items-center -ml-2 text-text wide:col-span-full" aria-label="Minimise" onClick={onClose}><Icon name="down" size={28} /></button>
+      <div className="self-stretch flex items-center justify-between wide:col-span-full">
+        <button className="w-11 h-9 grid place-items-center -ml-2 text-text" aria-label="Minimise" onClick={onClose}><Icon name="down" size={28} /></button>
+        {onFullScreen && <button className="hidden wide:grid w-11 h-9 place-items-center -mr-2 text-text" aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={22} /></button>}
+      </div>
       <div className="contents wide:flex wide:flex-col wide:gap-4.5 wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
         {look === "minimal"
           ? (
@@ -223,7 +227,7 @@ function NowPlaying({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 /** Where the deck or the full-screen player is not open: the essentials in a capsule floating over the page. */
-function Capsule({ onOpen, expanded }: { onOpen: () => void; expanded: boolean }) {
+function Capsule({ onOpen, expanded, onFullScreen }: { onOpen: () => void; expanded: boolean; onFullScreen: () => void }) {
   const shown = useShown();
   const { song, playing, loading, isRemote, deviceName } = shown;
   const starred = useStarred(song);
@@ -245,6 +249,7 @@ function Capsule({ onOpen, expanded }: { onOpen: () => void; expanded: boolean }
       <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={20} /></button>
       {shown.canVolume && <VolumeSlider volume={shown.volume} className="hidden min-[1000px]:flex w-28 flex-none" />}
       <button className={ghostSmall} aria-label={expanded ? "Show the deck" : "Open the player"} title="Now playing" onClick={onOpen}><Icon name="panel" size={20} /></button>
+      <button className={ghostSmall} aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={19} /></button>
     </footer>
   );
 }
@@ -337,8 +342,111 @@ function DeckEdge({ width, onDrag }: { width: number; onDrag: (width: number | n
   );
 }
 
+/** Leave the browser's full screen, if the stage entered it. */
+function leaveFullScreen(): void {
+  if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+}
+
+/**
+ * The stage: the player over the whole screen, as on the TV (roku/components/screens/NowPlayingScreen.xml). The big cover,
+ * the song in large type, the controls and what comes next, over the cover's colour. Where the browser allows it, the
+ * window goes full screen too, and leaving that (Esc) leaves the stage. After a few seconds without the mouse moving,
+ * the controls and the pointer fade away, and only the cover and the song stay.
+ */
+function Stage({ onClose }: { onClose: () => void }) {
+  const shown = useShown();
+  const { song, playing, loading, shuffle, repeat, upcoming, index, isRemote, deviceName } = shown;
+  const starred = useStarred(song);
+  const tintOn = useSettings((s) => s.tint);
+  const look = useSettings((s) => s.playerStyle);
+  const art = song && hasCover(song) ? songCover(song, 1000) : "";
+  const tint = useTint(art, true);
+  const [idle, setIdle] = useState(false);
+
+  useEffect(() => {
+    let entered = false;
+    const onChange = () => { if (document.fullscreenElement) entered = true; else if (entered) onClose(); };
+    document.addEventListener("fullscreenchange", onChange);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { leaveFullScreen(); onClose(); } };
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("fullscreenchange", onChange); window.removeEventListener("keydown", onKey); };
+  }, [onClose]);
+
+  // Still for a while: only the music stays on screen. Any movement or key brings the controls back
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const wake = () => { setIdle(false); clearTimeout(timer); timer = setTimeout(() => setIdle(true), 3500); };
+    wake();
+    const events = ["pointermove", "pointerdown", "keydown"] as const;
+    events.forEach((name) => window.addEventListener(name, wake));
+    return () => { clearTimeout(timer); events.forEach((name) => window.removeEventListener(name, wake)); };
+  }, []);
+
+  useEffect(() => { if (!song) onClose(); }, [song, onClose]);
+  if (!song) return null;
+  const spoken = player.isSpoken(song);
+  const next = upcoming.slice(0, 8);
+  const fade = cx("transition-opacity duration-500", idle && "opacity-0 pointer-events-none");
+  const bigGhost = "tap relative size-14 grid place-items-center rounded-full text-text opacity-85 hover:opacity-100 data-on:opacity-100 data-on:text-accent data-on:after:content-[''] data-on:after:absolute data-on:after:bottom-1.5 data-on:after:size-1 data-on:after:rounded-full data-on:after:bg-accent data-[mode=one]:data-on:before:content-['1'] data-[mode=one]:data-on:before:absolute data-[mode=one]:data-on:before:top-3 data-[mode=one]:data-on:before:right-3.5 data-[mode=one]:data-on:before:text-[.62rem] data-[mode=one]:data-on:before:font-extrabold";
+  return (
+    <section role="dialog" aria-label="Full-screen player" style={{ "--tint": tintOn ? tint : NEUTRAL } as React.CSSProperties}
+      className={cx("fixed inset-0 z-60 overflow-hidden flex flex-col px-[6vw] pt-[calc(var(--safe-top)+4vh)] pb-[calc(var(--safe-bottom)+4vh)] animate-fade-in",
+        "[background:radial-gradient(80%_90%_at_22%_40%,rgb(var(--tint)/.7),transparent_72%),radial-gradient(60%_60%_at_90%_100%,rgb(var(--tint)/.25),transparent_70%),var(--bg)]",
+        idle && "cursor-none")}>
+      <header className={cx("flex-none flex items-center gap-3", fade)}>
+        <Logo size={34} className="rounded-[9px]" />
+        <b className="flex-1 min-w-0 truncate font-title font-bold text-muted text-[1.05rem]">{isRemote ? `Playing on ${deviceName}` : shown.source || "Now playing"}</b>
+        <button type="button" className={ui.iconButton} aria-label="Exit full screen" title="Exit full screen (Esc)" onClick={() => { leaveFullScreen(); onClose(); }}><Icon name="shrink" size={22} /></button>
+      </header>
+      <div className="flex-1 min-h-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[5vw] py-[3vh]">
+        {look === "vinyl"
+          ? <Vinyl key={art} src={art} playing={playing} className="h-[min(58vh,40vw)] max-h-full" />
+          : art
+            ? <img key={art} src={art} alt="" className="h-[min(58vh,40vw)] max-h-full aspect-square rounded-[min(3vw,32px)] object-cover bg-surface-2 animate-art-in shadow-[0_40px_100px_rgb(var(--tint)/.5),0_8px_30px_rgb(0_0_0/.45)]" />
+            : <div className="h-[min(58vh,40vw)] aspect-square rounded-[min(3vw,32px)] bg-surface-2 grid place-items-center text-muted"><Icon name="play" size={64} /></div>}
+        <div className="min-w-0 grid gap-[1.2vh]">
+          {song.album && <span className="text-[clamp(.9rem,1.3vw,1.3rem)] uppercase tracking-[.14em] font-semibold text-muted truncate">{song.album}</span>}
+          <h2 className="font-title font-bold text-[clamp(2.4rem,5.6vw,6.5rem)] leading-[.98] tracking-[-.04em] wrap-anywhere line-clamp-3" title={song.title}>{song.title}</h2>
+          <ArtistLinks className="text-[clamp(1.1rem,2vw,2.1rem)] text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
+          <div className={cx("min-w-0 grid gap-3 mt-[3vh] max-w-[760px]", fade)}>
+            <SeekBar />
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+              <button className={bigGhost} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" size={24} /></button>
+              <button className={bigGhost} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={32} /></button>
+              <button className="tap size-20 grid place-items-center rounded-full bg-accent text-accent-ink shadow-[0_14px_36px_rgb(var(--glow)/.35)] hover:scale-105 active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={28} /> : <Icon name={playing ? "pause" : "play"} size={28} />}</button>
+              <button className={bigGhost} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={32} /></button>
+              <button className={bigGhost} data-on={repeat !== "off" || undefined} data-mode={repeat} aria-label="Repeat" onClick={player.cycleRepeat}><Icon name="repeat" size={24} /></button>
+              <span className="flex-1 min-w-4" />
+              <span className="flex items-center gap-2">
+                {!spoken && <button className={heartPlain} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} size={24} /></button>}
+                <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={22} /></button>
+                {shown.canVolume && <VolumeSlider volume={shown.volume} className="w-36 flex-none" />}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {next.length > 0 && (
+        <footer className={cx("flex-none grid gap-2.5", fade)}>
+          <b className="font-title font-bold text-[1.05rem]">Up next</b>
+          <ol className="flex gap-4 overflow-hidden">
+            {next.map((s, i) => (
+              <li key={`${s.id}-${i}`} className="flex-none w-[clamp(96px,9vw,150px)]">
+                <button type="button" className="tap group/next grid gap-1.5 w-full text-left" aria-label={`Play ${s.title}`} onClick={() => player.jumpTo(index + 1 + i)}>
+                  <SongCover song={s} size={300} className="w-full aspect-square rounded-2xl object-cover bg-surface-2 transition-transform group-hover/next:scale-[1.03]" />
+                  <span className="truncate text-[.85rem] font-[650]">{s.title}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </footer>
+      )}
+    </section>
+  );
+}
+
 /** A column of its own beside the page, on a screen with room, while something is playing. */
-function Deck({ song, onClose }: { song: Song; onClose: () => void }) {
+function Deck({ song, onClose, onFullScreen }: { song: Song; onClose: () => void; onFullScreen: () => void }) {
   const saved = useSettings((s) => s.deckWidth);
   const [dragging, setDragging] = useState<number | null>(null);
   const width = dragging ?? saved;
@@ -348,6 +456,7 @@ function Deck({ song, onClose }: { song: Song; onClose: () => void }) {
       <aside aria-label="Now playing" className={cx("flex-1 min-w-0 flex flex-col min-h-0 rounded-[28px] overflow-hidden", glass)}>
         <header className="flex-none flex items-center gap-1.5 pl-5 pr-2 pt-2 pb-1">
           <b className="flex-1 min-w-0 truncate font-semibold text-[.88rem] text-muted" title={song.album}>{song.album || "Now playing"}</b>
+          <button type="button" className={ui.iconButton} aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={18} /></button>
           <button type="button" className={ui.iconButton} aria-label="Hide the deck" onClick={onClose}><span className="inline-flex -rotate-90"><Icon name="down" size={20} /></span></button>
         </header>
         <DeckNow song={song} />
@@ -364,11 +473,18 @@ export function Player() {
   const roomy = useRoomy();
   const panel = useSettings((s) => s.nowPanel);
   const [open, setOpen] = useState(false);
+  const [stage, setStage] = useState(false);
+  const closeStage = useCallback(() => setStage(false), []);
+  const openStage = () => {
+    setOpen(false);
+    setStage(true);
+    void document.documentElement.requestFullscreen?.({ navigationUI: "hide" }).catch(() => undefined); // an iPad has none: the stage still fills the window
+  };
   const deck = wide && roomy && panel && Boolean(song);
   const capsule = wide && !deck && Boolean(song);
 
   // Any navigation (Go to artist, Go to album, a link) means the player must get out of the way
-  useEffect(() => setOpen(false), [location.key]);
+  useEffect(() => { setOpen(false); setStage(false); leaveFullScreen(); }, [location.key]);
   const hasSong = Boolean(song);
   useEffect(() => {
     document.body.classList.toggle("has-player", hasSong);
@@ -379,9 +495,10 @@ export function Player() {
   if (wide) {
     return (
       <>
-        {deck && song && <Deck song={song} onClose={() => setSettings({ nowPanel: false })} />}
-        {capsule && <Capsule expanded={roomy} onOpen={roomy ? () => setSettings({ nowPanel: true }) : () => setOpen(true)} />}
-        {!roomy && <NowPlaying open={open} onClose={() => setOpen(false)} />}
+        {deck && song && <Deck song={song} onClose={() => setSettings({ nowPanel: false })} onFullScreen={openStage} />}
+        {capsule && <Capsule expanded={roomy} onOpen={roomy ? () => setSettings({ nowPanel: true }) : () => setOpen(true)} onFullScreen={openStage} />}
+        {!roomy && <NowPlaying open={open} onClose={() => setOpen(false)} onFullScreen={openStage} />}
+        {stage && <Stage onClose={closeStage} />}
       </>
     );
   }
