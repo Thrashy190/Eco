@@ -4,7 +4,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 WEB_SOURCES := $(shell find web/src web/public -type f 2>/dev/null) web/index.html web/vite.config.ts web/tsconfig.json web/package-lock.json
 
-.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean roku roku-install roku-logs roku-check
+.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean roku roku-install roku-logs roku-check android android-check android-install
 
 # The Roku app (roku/): read from .env so `make roku-install` needs no arguments. See docs/tv.md.
 env = $(shell sed -n 's/^$(1)=//p' .env 2>/dev/null | tail -n 1)
@@ -72,6 +72,20 @@ roku-install: roku ## Install the Roku app on a TV in developer mode (ROKU_IP, R
 roku-logs: ## Follow the Roku app's log (what it prints, and its errors)
 	@test -n "$(ROKU_IP)" || { echo "Set ROKU_IP in .env"; exit 1; }
 	nc $(ROKU_IP) 8085
+
+# The Android app (mobile/, Flutter). See docs/android.md.
+FLUTTER ?= flutter
+
+android-check: ## Analyse the Android app and run its tests
+	cd mobile && $(FLUTTER) pub get && $(FLUTTER) analyze && $(FLUTTER) test
+
+android: ## Build bin/eco-android.apk (signed with mobile/android/key.properties when there is one)
+	cd mobile && $(FLUTTER) build apk --release
+	mkdir -p bin && cp mobile/build/app/outputs/flutter-apk/app-release.apk bin/eco-android.apk
+	@echo "bin/eco-android.apk"
+
+android-install: android ## Install the Android app on the phone connected with USB debugging
+	adb install -r bin/eco-android.apk
 
 check: vet test webcheck roku-check ## Everything CI runs
 	@test -z "$$(gofmt -l cmd internal web/embed.go)" || { echo "gofmt needed:"; gofmt -l cmd internal web/embed.go; exit 1; }
