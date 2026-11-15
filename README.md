@@ -47,6 +47,7 @@
 - The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next. Drag its edge to make it wider, or open the player over the whole tab, as on the TV.
 - Make it yours: a photo of your own or the album playing behind everything (text stays readable on any picture), four player styles (cover, vinyl, backdrop, minimal), glass, card size, fonts and colours. Your look follows you to all your devices.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
+- On Android, a native app: music carries on with the screen off, and downloads for offline carry on with the app closed ([docs/android.md](docs/android.md)).
 - On a Roku TV: browse with the remote, or send music to the TV from your phone. The player fills the screen with the album, in your colours. You install it yourself, with no store involved ([docs/tv.md](docs/tv.md)).
 - Make playlists from the songs you have, and add to them from any song's menu.
 - Paste a YouTube link to keep its audio as a podcast or an audiobook. Those remember where you stopped and play at your speed.
@@ -153,6 +154,10 @@ Open Eco in your phone's browser and use **Add to Home Screen** (iPhone: Share, 
 
 To reach your server from outside your home you need HTTPS. Options, easiest first, are described in [docs/deployment.md](docs/deployment.md): a **Cloudflare Tunnel** (`--profile tunnel`), **Tailscale**, or a reverse proxy of your own. Do not expose the port directly to the internet.
 
+### The Android app
+
+On Android you can also install Eco as a native app, an APK you install yourself: it keeps playing in the background, with the controls on the lock screen, and saves music for offline even while closed. See [docs/android.md](docs/android.md).
+
 ### On a TV
 
 A Roku TV or stick can run Eco too, installed from your computer with developer mode (no store involved): use it with the remote, or choose it under **Listen on** to send music there from your phone. See [docs/tv.md](docs/tv.md).
@@ -236,6 +241,7 @@ make check          # gofmt, go vet, go test, TypeScript, web tests and build: t
 make run            # build and serve
 make web-dev        # the web app with hot reload, using the eco running on :8000
 make roku-install   # the Roku app, on a TV in developer mode (docs/tv.md)
+make android        # the Android app, bin/eco-android.apk (docs/android.md)
 ```
 
 The Go code lives in `cmd/` and `internal/`; the web app in `web/src/` is React and TypeScript, built with Vite and embedded into the binary. See [CONTRIBUTING.md](CONTRIBUTING.md). To report a security problem, see [SECURITY.md](SECURITY.md).
