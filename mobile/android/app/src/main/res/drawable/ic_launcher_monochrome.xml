@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="768" android:viewportHeight="768">
+    <group android:translateX="128" android:translateY="138">
+        <path android:fillColor="#FFFFFFFF" android:pathData=" M94,190 a15,15 0 0 1 30,0 v133 a15,15 0 0 1 -30,0 z M136,140 a15,15 0 0 1 30,0 v233 a15,15 0 0 1 -30,0 z M178,116 a15,15 0 0 1 30,0 v56 a15,15 0 0 1 -30,0 z M178,244 a15,15 0 0 1 30,0 v25 a15,15 0 0 1 -30,0 z M178,341 a15,15 0 0 1 30,0 v56 a15,15 0 0 1 -30,0 z M220,105 a15,15 0 0 1 30,0 v45 a15,15 0 0 1 -30,0 z M220,244 a15,15 0 0 1 30,0 v25 a15,15 0 0 1 -30,0 z M220,363 a15,15 0 0 1 30,0 v45 a15,15 0 0 1 -30,0 z M262,105 a15,15 0 0 1 30,0 v45 a15,15 0 0 1 -30,0 z M262,244 a15,15 0 0 1 30,0 v25 a15,15 0 0 1 -30,0 z M262,363 a15,15 0 0 1 30,0 v45 a15,15 0 0 1 -30,0 z M304,116 a15,15 0 0 1 30,0 v56 a15,15 0 0 1 -30,0 z M304,244 a15,15 0 0 1 30,0 v25 a15,15 0 0 1 -30,0 z M304,341 a15,15 0 0 1 30,0 v56 a15,15 0 0 1 -30,0 z M346,140 a15,15 0 0 1 30,0 v129 a15,15 0 0 1 -30,0 z M346,366 a15,15 0 0 1 30,0 v7 a15,15 0 0 1 -30,0 z M388,190 a15,15 0 0 1 30,0 v79 a15,15 0 0 1 -30,0 z" />
+    </group>
+</vector>
