@@ -42,6 +42,19 @@ String normalizeServer(String typed) {
   return Uri(scheme: uri.scheme.toLowerCase(), host: uri.host, port: uri.hasPort ? uri.port : null).toString();
 }
 
+/// What to say when [server] answers Subsonic but has no Eco API, which is what Navidrome itself does. Eco usually runs
+/// next to Navidrome under another name (`music.` for Navidrome, `eco.` for Eco), and typing the one the Subsonic
+/// apps use is the likely mistake, so the message names the address to try when it can guess it.
+String notEcoMessage(String server) {
+  final uri = Uri.tryParse(server);
+  final host = uri?.host ?? '';
+  if (host.startsWith('music.') && !uri!.hasPort) { // with a port, Eco's is anyone's guess
+    final eco = uri.replace(host: 'eco.${host.substring('music.'.length)}').toString();
+    return 'That is Navidrome, not Eco. Try $eco';
+  }
+  return 'That server answers like Navidrome, but it is not Eco. Use the address of Eco instead';
+}
+
 /// A request the server answered with an error.
 class ApiError implements Exception {
   final String message;
@@ -94,7 +107,7 @@ class EcoApi {
       session.value = _candidate;
       await _storage.write(key: _storeKey, value: jsonEncode(_candidate!.toJson()));
     } on ApiError catch (e) {
-      if (e.status == 404) throw const ApiError('That server answers, but it is not Eco');
+      if (e.status == 404) throw ApiError(notEcoMessage(server));
       rethrow;
     } finally {
       _candidate = null;

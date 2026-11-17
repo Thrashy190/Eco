@@ -53,6 +53,17 @@ void main() {
       expect(normalizeServer(''), '');
       expect(normalizeServer('https://'), '');
     });
+    test('a Navidrome address points to the Eco next to it', () {
+      // A real case: the phone was given music.<domain>, the address the Subsonic apps use.
+      expect(notEcoMessage('https://music.example.com'), 'That is Navidrome, not Eco. Try https://eco.example.com');
+    });
+    test('any other address only says it is not Eco', () {
+      for (final server in ['http://192.168.1.20:4533', 'http://music.home.lan:4533', 'https://navidrome.example.com']) {
+        final message = notEcoMessage(server);
+        expect(message, contains('not Eco'));
+        expect(message, isNot(contains('Try')));
+      }
+    });
   });
 
   group('the accent stays readable', () {
