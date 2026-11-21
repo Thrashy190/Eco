@@ -118,6 +118,7 @@ function localStatus() as Object
         upcoming: sliceOf(m.order.queue, m.order.index + 1, m.order.index + 31),
         source: m.source,
         autoplay: m.autoplay,
+        sleep: sleepLeft(),
         blocked: false
     }
 end function
@@ -127,7 +128,7 @@ function handoff() as Dynamic
     if currentSong() = invalid then return invalid
     position = m.audio.position
     if m.pendingSeek > 0 and not isPlaying() then position = m.pendingSeek
-    return {queue: m.order.queue, index: m.order.index, source: m.source, position: position, playing: isPlaying(), shuffle: m.shuffle, repeat: m.repeat}
+    return {queue: m.order.queue, index: m.order.index, source: m.source, position: position, playing: isPlaying(), shuffle: m.shuffle, repeat: m.repeat, sleep: sleepLeft()}
 end function
 
 sub scheduleReport()
@@ -154,7 +155,7 @@ sub report(force as Boolean)
     end for
     songId = ""
     if status.song <> invalid then songId = textOf(status.song["id"])
-    fingerprint = FormatJson({song: songId, playing: status.playing, shuffle: m.shuffle, repeat: m.repeat, index: m.order.index, source: m.source, autoplay: m.autoplay, upcoming: ids.Join(" ")})
+    fingerprint = FormatJson({song: songId, playing: status.playing, shuffle: m.shuffle, repeat: m.repeat, index: m.order.index, source: m.source, autoplay: m.autoplay, sleep: m.sleepFor, sleepSince: m.sleepSince, upcoming: ids.Join(" ")})
     if not force and fingerprint = m.lastReported then return
     m.lastReported = fingerprint
     sendStatus(status)

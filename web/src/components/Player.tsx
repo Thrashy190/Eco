@@ -8,6 +8,7 @@ import { hasCover, songCover, wallpaperUrl } from "../lib/api";
 import { readableDim, shownDim, type Ink } from "../lib/color";
 import { DECK_MAX, DECK_MIN, deckWidthFor, PAGE_ROOM } from "../lib/look";
 import { clock } from "../lib/format";
+import { SLEEP_MINUTES, sleepCountdown, sleepLabel, sleepLeft } from "../lib/sleep";
 import { dominantColor, pixelsOf } from "../lib/image";
 import { useRoomy, useWide } from "../lib/media";
 import type { Song } from "../lib/types";
@@ -18,7 +19,7 @@ import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline } from "../stores/saving";
 import { DEFAULTS, setCoverColor, setSettings, useInk, useSettings } from "../stores/settings";
-import { toast } from "../stores/ui";
+import { openSheet, toast } from "../stores/ui";
 import { ArtistLinks } from "./ArtistLinks";
 import { SongCover } from "./Cover";
 import { Queue } from "./Queue";
@@ -40,6 +41,41 @@ const AUTOPLAY_HINT = "Autoplay: when the queue ends, keep going with random son
 function toggleAutoplay(on: boolean): void {
   player.toggleAutoplay();
   toast(on ? "Autoplay off" : "Autoplay on: random songs follow when the queue ends");
+}
+/** Seconds left on a sleep timer, redrawn each second while one runs. */
+function useSleepLeft(sleepAt: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (sleepAt === null) return;
+    setNow(Date.now());
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [sleepAt]);
+  return sleepLeft(sleepAt, now);
+}
+
+/** The sleep timer's lengths, and a way to turn it off while one runs. */
+function openSleepMenu(left: number): void {
+  const choose = (minutes: number) => { player.setSleepTimer(minutes); player.sleepToast(minutes); };
+  openSheet("Sleep timer", left > 0 ? `Music pauses in ${sleepCountdown(left)}` : "Pause the music after", [
+    ...SLEEP_MINUTES.map((minutes) => ({ icon: "moon" as const, label: sleepLabel(minutes), run: () => choose(minutes) })),
+    left > 0 && { icon: "close" as const, label: "Turn off the timer", run: () => choose(0) },
+  ]);
+}
+
+/**
+ * The sleep timer: a moon, and while it runs the time left beside it in the accent colour. When the queue ends first,
+ * the timer goes with it (stores/player.ts).
+ */
+function SleepButton({ sleepAt, className, size = 20 }: { sleepAt: number | null; className: string; size?: number }) {
+  const left = useSleepLeft(sleepAt);
+  const on = left > 0;
+  return (
+    <button className={cx(className, on && "w-auto! px-3 gap-1.5 flex! items-center")} data-on={on || undefined} aria-label={on ? `Sleep timer, ${sleepCountdown(left)} left` : "Sleep timer"}
+      title={on ? `Music pauses in ${sleepCountdown(left)}` : "Sleep timer"} onClick={() => openSleepMenu(left)}>
+      <Icon name="moon" size={size} />{on && <span className="text-[.82rem] font-bold tabular-nums">{sleepCountdown(left)}</span>}
+    </button>
+  );
 }
 const heartPlain = "tap flex-none size-9 grid place-items-center rounded-full text-muted hover:text-text data-on:text-love data-on:[&_svg]:animate-pop";
 const lines = "min-w-0 grid [&>*]:truncate [&>b]:font-[650] [&>span]:text-muted [&>span]:text-[.82rem]";
@@ -178,7 +214,10 @@ function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: (
       )}>
       <div className="self-stretch flex items-center justify-between wide:col-span-full">
         <button className="w-11 h-9 grid place-items-center -ml-2 text-text" aria-label="Minimise" onClick={onClose}><Icon name="down" size={28} /></button>
-        {onFullScreen && <button className="hidden wide:grid w-11 h-9 place-items-center -mr-2 text-text" aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={22} /></button>}
+        <div className="flex items-center gap-1 -mr-2">
+          <SleepButton sleepAt={shown.sleepAt} className="tap h-9 min-w-11 grid place-items-center rounded-full text-text data-on:text-accent data-on:bg-[rgb(var(--glow)/.16)]" size={22} />
+          {onFullScreen && <button className="hidden wide:grid w-11 h-9 place-items-center text-text" aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={22} /></button>}
+        </div>
       </div>
       <div className="contents wide:flex wide:flex-col wide:gap-4.5 wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
         {look === "minimal"
@@ -293,6 +332,7 @@ function DeckNow({ song }: { song: Song }) {
           <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title={isRemote ? `Playing on ${deviceName}` : "Choose a device"} onClick={openDevicePicker}><Icon name="devices" size={19} /></button>
           <button className={ghostSmall} data-on={saved || undefined} aria-label={saved ? "Remove from this device" : "Save offline"} title={saved ? "Saved on this device" : "Save offline"} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={19} /></button>
           {!spoken && <button className={ghostSmall} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" size={19} /></button>}
+          <SleepButton sleepAt={shown.sleepAt} className={ghostSmall} size={19} />
           {spoken && <button className={ghostSmall} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${shown.speed}×`}</button>}
           {shown.canVolume && <VolumeSlider volume={shown.volume} className="flex-1 min-w-0 pl-1" />}
         </div>
@@ -411,6 +451,7 @@ function Stage({ onClose }: { onClose: () => void }) {
               <span className="flex-1 min-w-4" />
               <span className="flex items-center gap-2">
                 {!spoken && <button className={heartPlain} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} size={24} /></button>}
+                <SleepButton sleepAt={shown.sleepAt} className={ghostSmall} size={22} />
                 <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={22} /></button>
                 {shown.canVolume && <VolumeSlider volume={shown.volume} className="w-36 flex-none" />}
               </span>

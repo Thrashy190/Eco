@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { getRandomSongs, hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
 import * as order from "../lib/queue";
+import { sleepLabel, sleepLeft, sleepMinutes } from "../lib/sleep";
 import type { LibraryEntry, Song } from "../lib/types";
 import { touch } from "./library";
 import * as offline from "./offline";
@@ -23,6 +24,7 @@ interface PlayerState {
   autoplay: boolean; // when the queue runs out, carry on with random songs from the library (off unless chosen)
   blocked: boolean; // the browser refused to start playing until someone taps the screen
   loading: boolean; // asked to play and no sound yet: without showing it, a slow start looks like the app froze
+  sleepAt: number | null; // when the sleep timer pauses the music (Date.now() time), or null with no timer
 }
 
 /** Everything another device needs to take over playback. */
@@ -34,6 +36,7 @@ export interface Handoff {
   playing: boolean;
   shuffle: boolean;
   repeat: Repeat;
+  sleep?: number; // seconds left on the sleep timer, which moves along with the music
 }
 
 /**
@@ -61,7 +64,7 @@ const remember = (key: string, value: number) => { try { localStorage.setItem(ke
 const audio = document.getElementById("audio") as HTMLAudioElement;
 
 export const usePlayer = create<PlayerState>(() => ({
-  queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false,
+  queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false, sleepAt: null,
   speed: SPEEDS.includes(readNumber("eco.speed") ?? 1) ? readNumber("eco.speed") ?? 1 : 1,
   autoplay: readNumber("eco.autoplay") === 1,
   volume: Math.min(Math.max(readNumber("eco.volume") ?? 1, 0), 1),
@@ -266,7 +269,42 @@ export function next(auto = false): void {
   void load();
 }
 
-const stop = () => { audio.pause(); audio.currentTime = 0; };
+/** The queue ran out: the music ends here, and so does a sleep timer that had longer to go. */
+const stop = () => { audio.pause(); audio.currentTime = 0; endSleep(); };
+
+// ---- Sleep timer ----
+// The music pauses after the chosen time, wherever the queue is. It counts time, not songs, so pausing in between does
+// not stop the clock. When the music ends first (one song, the end of the list), the timer ends with it.
+
+let sleepTimer: ReturnType<typeof setTimeout> | undefined;
+
+function endSleep(): void {
+  clearTimeout(sleepTimer);
+  if (state().sleepAt !== null) usePlayer.setState({ sleepAt: null });
+}
+
+/** The time is up: pause, once. */
+function sleepNow(): void {
+  endSleep();
+  if (!audio.paused) { audio.pause(); toast("Sleep timer: music paused"); }
+}
+
+function sleepAfter(ms: number): void {
+  clearTimeout(sleepTimer);
+  usePlayer.setState({ sleepAt: Date.now() + ms });
+  sleepTimer = setTimeout(sleepNow, ms);
+}
+
+/** Pause the music after this many minutes (one of SLEEP_MINUTES), or 0 to turn the timer off. */
+export function setSleepTimer(minutes: number): void {
+  if (remote("sleep", minutes)) return;
+  const wanted = sleepMinutes(minutes);
+  if (!wanted || !current()) { endSleep(); return; }
+  sleepAfter(wanted * 60_000);
+}
+
+/** What the person sees after choosing: the player's button only shows a moon and a countdown. */
+export const sleepToast = (minutes: number) => toast(minutes ? `Music pauses in ${sleepLabel(minutes)}` : "Sleep timer off");
 
 // ---- Autoplay ----
 // When the queue runs out, random songs from the library follow, a few at a time, until someone pauses or chooses
@@ -345,22 +383,25 @@ const length = () => (Number.isFinite(audio.duration) && audio.duration > 0 ? au
 
 /** What this device is playing, as other devices see it. */
 export const localStatus = () => {
-  const { queue, index, source, playing, shuffle, repeat, speed, volume, blocked, autoplay } = state();
+  const { queue, index, source, playing, shuffle, repeat, speed, volume, blocked, autoplay, sleepAt } = state();
   return {
-    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index, source, autoplay,
+    song: queue[index] ?? null, playing, shuffle, repeat, speed, volume, blocked, index, source, autoplay, sleep: sleepLeft(sleepAt, Date.now()),
     position: audio.currentTime || 0, length: length(), upcoming: queue.slice(index + 1, index + 31),
   };
 };
 
 /** Everything needed to continue on another device, or null when nothing is loaded here. */
 export function handoff(): Handoff | null {
-  const { queue, index, source, playing, shuffle, repeat } = state();
-  return queue[index] ? { queue, index, source, position: audio.currentTime || 0, playing, shuffle, repeat } : null;
+  const { queue, index, source, playing, shuffle, repeat, sleepAt } = state();
+  return queue[index] ? { queue, index, source, position: audio.currentTime || 0, playing, shuffle, repeat, sleep: sleepLeft(sleepAt, Date.now()) } : null;
 }
 
 /** Carry on from where another device stopped. */
 function adopt(from: Handoff): void {
   usePlayer.setState({ queue: from.queue, index: from.index, source: from.source ?? "", shuffle: from.shuffle, repeat: from.repeat });
+  // A timer set on the other device goes on counting here: the music moved, the bedtime did not
+  const sleep = Number(from.sleep);
+  if (sleep > 0 && sleep <= 3600) sleepAfter(sleep * 1000); else endSleep();
   void load(from.position, from.playing);
 }
 
@@ -387,6 +428,7 @@ export function applyCommand(action: string, value: unknown): void {
       case "shuffle": toggleShuffle(); break;
       case "repeat": cycleRepeat(); break;
       case "autoplay": toggleAutoplay(); break;
+      case "sleep": setSleepTimer(Number(value)); break;
       case "play_next": playNext(value as Song); break;
       case "enqueue": enqueue(value as Song); break;
       case "move": {
@@ -422,6 +464,7 @@ export function forgetSong(id: string): void {
   audio.removeAttribute("src");
   if (before < rest.length) { usePlayer.setState({ queue: rest, index: before }); void load(); return; }
   usePlayer.setState({ queue: [], index: -1, source: "" });
+  endSleep();
 }
 
 audio.addEventListener("play", () => usePlayer.setState({ playing: true, blocked: false }));
@@ -476,6 +519,9 @@ audio.addEventListener("timeupdate", () => {
   }
   if (song && isSpoken(song) && Math.abs(audio.currentTime - lastSaved) >= 5) { lastSaved = audio.currentTime; savePosition(song.id, audio.currentTime); }
   useTime.setState({ position: audio.currentTime, length: total });
+  // A browser may hold back a timer in a tab out of sight; the music playing on says the time is up all the same
+  const { sleepAt } = state();
+  if (sleepAt !== null && Date.now() >= sleepAt) sleepNow();
   if ("mediaSession" in navigator && navigator.mediaSession.setPositionState && total > 0) {
     try { navigator.mediaSession.setPositionState({ duration: total, position: Math.min(audio.currentTime, total), playbackRate: audio.playbackRate }); } catch { /* out of range */ }
   }

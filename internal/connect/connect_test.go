@@ -193,7 +193,7 @@ func TestDeviceLimitAndNames(t *testing.T) {
 			t.Errorf("ValidID(%q) = true", bad)
 		}
 	}
-	if ValidAction("delete_everything") || !ValidAction("pause") {
+	if ValidAction("delete_everything") || !ValidAction("pause") || !ValidAction("sleep") {
 		t.Error("ValidAction is wrong")
 	}
 }
