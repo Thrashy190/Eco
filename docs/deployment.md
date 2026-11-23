@@ -13,7 +13,7 @@ docker compose up -d --build
 docker compose exec eco eco doctor        # checks yt-dlp, ffmpeg, Navidrome, the catalogue, cookies
 ```
 
-Create your first Navidrome account at `http://<server>:4533` (the first user is the administrator), then add other people under **Settings ▸ Users**. They sign in to Eco with those same accounts. Give them a non-administrator account.
+Create your first Navidrome account at `http://<server>:4533` (the first user is the administrator), then add other people under **Settings ▸ Users** (or from Eco: Settings › Users › Manage, which then gives you a message to send them with the address, their username and their password). They sign in to Eco with those same accounts. Give them a non-administrator account.
 
 By default both ports listen on `127.0.0.1` only. For a quick test from another machine on your network set `ECO_BIND=0.0.0.0` in `.env`; for anything beyond that use one of the options below.
 

@@ -5,12 +5,14 @@ import { useState, type FormEvent } from "react";
 import { createUser, listUsers, unlockAdmin, userAvatarUrl, type Account } from "../lib/api";
 import { initials } from "../lib/format";
 import { cx, ui } from "../lib/ui";
+import { siteAddress, welcomeMessage, type Welcome } from "../lib/welcome";
 import { BackButton, Empty, Section, Skeleton } from "../components/common";
 import { Icon, Ring } from "../components/Icon";
 import { toast } from "../stores/ui";
 
 const KEY = ["users"];
 const FORM = "grid gap-3 px-5 max-w-120 wide:px-8";
+const SECONDARY = "tap inline-flex items-center gap-2 px-5 py-3 rounded-full bg-ghost text-text font-bold active:bg-surface-3 hover:bg-surface-3";
 
 function Unlock() {
   const client = useQueryClient();
@@ -33,19 +35,62 @@ function Unlock() {
 
 const EMPTY = { username: "", name: "", password: "" };
 
+/** Copy text, also where the clipboard API is missing (an address that is not https). */
+async function copyText(text: string, fallback: HTMLTextAreaElement | null): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    if (!fallback) return false;
+    fallback.select();
+    return document.execCommand("copy");
+  }
+}
+
+/**
+ * Right after making an account: a message to send the person, with the address, their username and their password.
+ * Eco does not keep the password, so it stays on screen only until Done, or until leaving the page.
+ */
+function ShareAccount({ welcome, onDone }: { welcome: Welcome; onDone: () => void }) {
+  const text = welcomeMessage(welcome);
+  const [box, setBox] = useState<HTMLTextAreaElement | null>(null);
+  const canShare = typeof navigator.share === "function";
+  const copy = async () => toast((await copyText(text, box)) ? "Message copied" : "Could not copy. Select the text and copy it");
+  return (
+    <div className="grid gap-3 p-4 rounded-[22px] bg-surface shadow-[inset_0_0_0_1px_var(--line)]">
+      <div className="grid gap-0.5">
+        <b>{`${welcome.username} can sign in now`}</b>
+        <span className="text-muted text-[.9rem]">Send them this message. Once you close it, Eco cannot show the password again.</span>
+      </div>
+      <textarea ref={setBox} readOnly value={text} rows={text.split("\n").length + 3} aria-label="Message for the new account"
+        className="w-full resize-none [field-sizing:content] px-4 py-3 rounded-2xl bg-ghost text-[.92rem] leading-normal outline-none focus:shadow-[inset_0_0_0_1px_var(--accent)]"
+        onFocus={(e) => e.currentTarget.select()} />
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={ui.primary} onClick={() => void copy()}><Icon name="check" size={20} />Copy message</button>
+        {canShare && <button type="button" className={SECONDARY} onClick={() => void navigator.share({ text }).catch(() => undefined)}><Icon name="upload" size={20} />Share</button>}
+        <button type="button" className={SECONDARY} onClick={onDone}>Done</button>
+      </div>
+    </div>
+  );
+}
+
 function AddUser() {
   const client = useQueryClient();
   const [form, setForm] = useState(EMPTY);
+  const [created, setCreated] = useState<Welcome | null>(null);
   const add = useMutation({
     mutationFn: () => createUser(form.username, form.name, form.password),
     onSuccess: () => {
-      toast(`${form.username} can sign in now`);
-      setForm(EMPTY); // the password does not stay on screen
+      setCreated({ ...form, url: siteAddress(location.origin, location.pathname) });
+      setForm(EMPTY); // the password stays only in the message to send
     },
     onSettled: () => void client.invalidateQueries({ queryKey: KEY }), // the session may have ended: the page asks again
   });
   const field = (key: keyof typeof EMPTY) => ({ value: form[key], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setForm((now) => ({ ...now, [key]: e.target.value })) });
   const submit = (e: FormEvent) => { e.preventDefault(); add.mutate(); };
+  if (created) {
+    return <Section title="Add someone"><div className={FORM}><ShareAccount welcome={created} onDone={() => setCreated(null)} /></div></Section>;
+  }
   return (
     <Section title="Add someone">
       <form className={FORM} onSubmit={submit}>
