@@ -60,7 +60,7 @@ Several people can each sign the TV in to their own account; one at a time, like
 
 ## From the phone
 
-Open **Listen on** (the devices button in the player) and choose the TV. What plays moves there, and every control on the phone (play, skip, the queue, shuffle, repeat, Autoplay) acts on the TV. Choosing the phone again brings the music back, at the same second. Volume stays with the TV's remote: a Roku app cannot change it, so the phone hides that slider.
+Open **Listen on** (the devices button in the player) and choose the TV. What plays moves there, and every control on the phone (play, skip, the queue, shuffle, repeat, Autoplay, the sleep timer) acts on the TV. Choosing the phone again brings the music back, at the same second. Volume stays with the TV's remote: a Roku app cannot change it, so the phone hides that slider.
 
 ## Good to know
 

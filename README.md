@@ -43,7 +43,7 @@
 
 **Listen**
 
-- A fast web app you can install on your phone, with a queue, lock-screen controls and playlists.
+- A fast web app you can install on your phone, with a queue, lock-screen controls, a sleep timer and playlists.
 - The whole app takes the colour of the music, and on a computer a deck beside the page holds the song and what plays next. Drag its edge to make it wider, or open the player over the whole tab, as on the TV.
 - Make it yours: a photo of your own or the album playing behind everything (text stays readable on any picture), four player styles (cover, vinyl, backdrop, minimal), glass, card size, fonts and colours. Your look follows you to all your devices.
 - Play on any of your devices from any other: pause, skip, change the volume or move the music across. Only your own devices.
@@ -72,7 +72,7 @@
 - Themes, any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list.
 - Pin songs, albums, playlists and artists, and give playlists their own cover.
 - Choose a picture for your profile, and let the colours follow the album playing.
-- Administrators can see and add accounts from Eco.
+- Administrators can see and add accounts from Eco, and copy a message with the address, username and password to send the new person.
 - Administrators can delete songs for everyone and review songs held twice and artists that are really several people.
 - Your files, your server. [Navidrome](https://www.navidrome.org) is underneath, so any Subsonic app also works.
 

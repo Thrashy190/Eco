@@ -22,6 +22,9 @@ sub initPlayer()
     m.wasPlaying = false
     m.toppingUp = false
     m.advanceWhenToppedUp = false
+    m.sleepClock = CreateObject("roTimespan")
+    m.sleepFor = 0 ' seconds until the sleep timer pauses the music, counted from m.sleepClock; 0 with no timer
+    m.sleepSince = 0 ' when it was set, so a new timer of the same length is news to the other devices
 end sub
 
 function currentSong() as Dynamic
@@ -92,6 +95,8 @@ sub applyCommand(action as String, value as Dynamic)
         if m.autoplay then saved.Write("autoplay", "1") else saved.Write("autoplay", "0")
         saved.Flush()
         if m.autoplay then topUpIfLast() else m.order = withoutAutoplay(m.order)
+    else if action = "sleep"
+        setSleep(numberOf(value) * 60)
     else if action = "play_next" or action = "enqueue"
         addSong(objectOf(value), action = "play_next")
     else if action = "move"
@@ -134,6 +139,7 @@ sub adopt(from as Object)
     m.shuffle = isTrue(from["shuffle"])
     m.repeat = textOf(from["repeat"])
     if m.repeat <> "all" and m.repeat <> "one" then m.repeat = "off"
+    setSleep(numberOf(from["sleep"])) ' a timer set on the other device goes on counting here
     load(numberOf(from["position"]), isTrue(from["playing"]), false)
 end sub
 
@@ -179,6 +185,7 @@ end sub
 
 sub stopPlayback()
     m.audio.control = "stop"
+    setSleep(0)
     m.order = makeOrder([], -1)
     m.source = ""
     themeForSong()
@@ -201,6 +208,7 @@ sub skipNext(auto as Boolean)
         topUp()
     else
         m.audio.control = "stop"
+        setSleep(0) ' the music ended before the timer did
     end if
 end sub
 
@@ -278,9 +286,40 @@ sub onToppedUp(event as Object)
             load(0, true, false)
         else
             m.audio.control = "stop"
+            setSleep(0)
         end if
     end if
     publish()
+end sub
+
+' ---- Sleep timer: the music pauses after a chosen time (setSleepTimer in web/src/stores/player.ts) ----
+
+' Start the timer for this many seconds, or end it with 0. At most an hour, the longest the web app offers (lib/sleep.ts).
+sub setSleep(seconds as Float)
+    if seconds < 0 or seconds > 3600 or currentSong() = invalid then seconds = 0
+    m.sleepFor = Int(seconds)
+    m.sleepClock.Mark()
+    m.sleepSince = CreateObject("roDateTime").AsSeconds()
+    m.forceReport = true
+end sub
+
+function sleepLeft() as Integer
+    if m.sleepFor <= 0 then return 0
+    left = m.sleepFor - m.sleepClock.TotalSeconds()
+    if left < 0 then return 0
+    return left
+end function
+
+' The time is up: pause, once. Time that ran out while paused just ends the timer.
+sub checkSleep()
+    if m.sleepFor <= 0 or sleepLeft() > 0 then return
+    m.sleepFor = 0
+    if isPlaying()
+        m.audio.control = "pause"
+        toast("Sleep timer: music paused")
+    end if
+    m.forceReport = true
+    scheduleReport()
 end sub
 
 ' ---- What the Audio node says ----
@@ -295,6 +334,7 @@ sub onAudioState()
         m.loading = false
         m.failedInARow = 0
         m.retried = ""
+        if m.sleepFor > 0 and sleepLeft() = 0 then m.sleepFor = 0
         ' Sound starting here, whatever asked for it, means here is where the music plays now (Connect.brs)
         if not m.wasPlaying then startedHere()
         m.wasPlaying = true
@@ -337,6 +377,7 @@ sub onAudioError()
 end sub
 
 sub onAudioPosition()
+    checkSleep()
     position = m.audio.position
     length = songLength()
     m.global.position = {position: position, length: length}

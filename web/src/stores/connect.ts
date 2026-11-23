@@ -11,6 +11,7 @@
 import { create } from "zustand";
 import { connectEventsUrl, sendJson } from "../lib/api";
 import { deviceName } from "../lib/format";
+import { remoteSleepEnd } from "../lib/sleep";
 import type { Song } from "../lib/types";
 import * as player from "./player";
 import { toast } from "./ui";
@@ -28,6 +29,7 @@ export interface DeviceStatus {
   upcoming: Song[];
   source?: string; // the album or playlist playing, when known
   autoplay?: boolean;
+  sleep?: number; // seconds left on its sleep timer when it reported, 0 or missing with none
   blocked: boolean;
 }
 
@@ -107,7 +109,8 @@ async function report(force = false): Promise<void> {
   const status = player.localStatus();
   // The position moves all the time: only that changing is no news, the periodic report covers it. A song dragged
   // to another place in the queue is news, so the order counts, not only the length
-  const fingerprint = JSON.stringify({ ...status, position: 0, upcoming: status.upcoming.map((s) => (s.queued ? "+" : "") + s.id).join(" ") });
+  // The sleep timer's seconds count down too: what is news is when it ends
+  const fingerprint = JSON.stringify({ ...status, position: 0, sleep: player.usePlayer.getState().sleepAt, upcoming: status.upcoming.map((s) => (s.queued ? "+" : "") + s.id).join(" ") });
   if (!force && fingerprint === lastReported) return;
   lastReported = fingerprint;
   await sendJson("connect/state", { device: selfId }, status).catch(() => undefined);
@@ -361,19 +364,20 @@ export function renameDevice(name: string): void {
 export function useShown() {
   const target = useConnect((s) => s.target);
   const remote = useConnect((s) => s.devices.find((d) => d.id === s.target));
+  const heardAt = useConnect((s) => (s.target ? s.heardAt[s.target] : undefined));
   const song = player.useCurrentSong();
   const local = player.usePlayer();
   if (target && remote?.state) {
     const s = remote.state;
     return { song: s.song, playing: s.playing, shuffle: s.shuffle, repeat: s.repeat, speed: s.speed, volume: s.volume, upcoming: s.upcoming, source: s.source ?? "", autoplay: Boolean(s.autoplay), index: s.index, loading: false,
-      canVolume: remote.can_volume, deviceName: remote.name, isRemote: true };
+      sleepAt: remoteSleepEnd(s.sleep, heardAt), canVolume: remote.can_volume, deviceName: remote.name, isRemote: true };
   }
   if (target) {
     return { song: null, playing: false, shuffle: false, repeat: "off" as const, speed: 1, volume: 1, upcoming: [] as Song[], source: "", autoplay: false, index: -1, loading: false,
-      canVolume: remote?.can_volume ?? false, deviceName: remote?.name ?? "", isRemote: true };
+      sleepAt: null as number | null, canVolume: remote?.can_volume ?? false, deviceName: remote?.name ?? "", isRemote: true };
   }
   return { song, playing: local.playing, shuffle: local.shuffle, repeat: local.repeat, speed: local.speed, volume: local.volume,
-    upcoming: local.queue.slice(local.index + 1, local.index + 51), source: local.source, autoplay: local.autoplay, index: local.index, loading: local.loading, canVolume: player.canSetVolume, deviceName: "", isRemote: false };
+    upcoming: local.queue.slice(local.index + 1, local.index + 51), source: local.source, autoplay: local.autoplay, index: local.index, loading: local.loading, sleepAt: local.sleepAt, canVolume: player.canSetVolume, deviceName: "", isRemote: false };
 }
 
 /** Whether a song is the one playing, wherever that is. */
