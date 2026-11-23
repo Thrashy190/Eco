@@ -32,7 +32,7 @@ const NEUTRAL = "60 60 70";
 
 const ghost = "tap relative size-13 grid place-items-center rounded-full text-text opacity-85 data-on:opacity-100 data-on:text-accent data-on:after:content-[''] data-on:after:absolute data-on:after:bottom-1.5 data-on:after:size-1 data-on:after:rounded-full data-on:after:bg-accent data-[mode=one]:data-on:before:content-['1'] data-[mode=one]:data-on:before:absolute data-[mode=one]:data-on:before:top-3 data-[mode=one]:data-on:before:right-3.5 data-[mode=one]:data-on:before:text-[.62rem] data-[mode=one]:data-on:before:font-extrabold";
 const ghostSmall = "tap relative size-9 grid place-items-center rounded-full text-muted hover:text-text data-on:text-accent data-on:after:content-[''] data-on:after:absolute data-on:after:bottom-0.5 data-on:after:size-1 data-on:after:rounded-full data-on:after:bg-accent data-[mode=one]:data-on:before:content-['1'] data-[mode=one]:data-on:before:absolute data-[mode=one]:data-on:before:top-1.25 data-[mode=one]:data-on:before:right-1.5 data-[mode=one]:data-on:before:text-[.62rem] data-[mode=one]:data-on:before:font-extrabold";
-const ghostWide = "tap flex-1 h-11.5 inline-flex items-center justify-center gap-2 rounded-full bg-ghost text-text font-bold text-[.9rem] hover:brightness-125";
+const ghostWide = "tap flex-1 min-w-0 px-3 whitespace-nowrap h-11.5 inline-flex items-center justify-center gap-2 rounded-full bg-ghost text-text font-bold text-[.9rem] hover:brightness-125";
 const heart = "tap flex-none size-11.5 grid place-items-center rounded-full bg-ghost text-text data-on:text-love data-on:[&_svg]:animate-pop";
 const roundToggle = "tap flex-none size-11.5 grid place-items-center rounded-full bg-ghost text-text data-on:text-accent data-on:bg-[rgb(var(--glow)/.16)] data-on:[&_svg]:animate-pop";
 const AUTOPLAY_HINT = "Autoplay: when the queue ends, keep going with random songs from your library";
@@ -254,7 +254,8 @@ function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: (
           {!spoken && <button className={roundToggle} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" /></button>}
           {spoken && <button className={ghostWide} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${speed}×`}</button>}
           <button className={ghostWide} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={20} />{saved ? "Saved offline" : "Save offline"}</button>
-          <button className={ghostWide} onClick={() => songMenu(song, navigate)}><Icon name="more" size={20} />More</button>
+          {/* Round, like the heart: as a wide button it left "Save offline" too little room, and the label broke in two */}
+          <button className={roundToggle} aria-label="More" title="More" onClick={() => songMenu(song, navigate)}><Icon name="more" size={20} /></button>
         </div>
       </div>
       <div className="contents wide:block wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
