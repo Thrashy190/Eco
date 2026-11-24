@@ -1,6 +1,6 @@
 // Making and changing playlists, from wherever a menu offers it. They are real Navidrome playlists, so they show up in every
 // other Subsonic app too. Only the owner of a playlist can change it.
-import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylist, getPlaylists, removeFromPlaylist, renamePlaylist, username } from "../lib/api";
+import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylist, getPlaylists, removeFromPlaylist, renamePlaylist } from "../lib/api";
 import { plural } from "../lib/format";
 import { queryClient } from "../lib/query";
 import type { LibraryEntry, Song } from "../lib/types";
@@ -19,8 +19,8 @@ export function playlistsChanged(id?: string): void {
 
 const askName = (current = "") => prompt("Playlist name", current)?.trim() ?? "";
 
-/** The playlists this person can add songs to. Others may share theirs, but those are only for listening. */
-const myPlaylists = async () => (await queryClient.fetchQuery({ queryKey: ["playlists"], queryFn: getPlaylists })).filter((p) => p.owner === username());
+/** The playlists this person can add songs to: only their own, which is all getPlaylists lists. */
+const myPlaylists = () => queryClient.fetchQuery({ queryKey: ["playlists"], queryFn: getPlaylists });
 
 /**
  * Navidrome keeps a playlist imported from a .m3u file identical to that file and refuses to change its songs, even for

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
-import { artistSongs, coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, username } from "../lib/api";
+import { artistSongs, coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, ownsPlaylist } from "../lib/api";
 import { plural, splitOwn } from "../lib/format";
 import { pictureToCover } from "../lib/image";
 import type { CollectionSpec, LibraryEntry, Song } from "../lib/types";
@@ -190,7 +190,7 @@ function RegularPlaylist({ id }: { id: string }) {
   useEffect(() => { if (playlist) void syncCollectionIfSaved(key, playlist.songs); }, [playlist, key]);
 
   if (playlist) {
-    const mine = playlist.owner === username();
+    const mine = ownsPlaylist(playlist.owner);
     const editable = mine && !playlist.readonly; // the name of a playlist that follows a file can change, its songs cannot
     const menu = () => openSheet(playlist.name, "Playlist", [
       { icon: "pencil", label: "Rename", run: () => void rename(id, playlist.name) },
