@@ -195,9 +195,16 @@ export async function getAlbums(): Promise<Album[]> {
   }
 }
 
+/** Whether a playlist belongs to the person signed in. Navidrome keeps the username's capitals, a sign-in may not. */
+export const ownsPlaylist = (owner?: string) => (owner ?? "").toLowerCase() === username().toLowerCase();
+
+/**
+ * This person's playlists. Navidrome also lists every other account's public playlist (and to an administrator, all of
+ * them), which filled the Library with other people's; one shared by link still opens at /playlist/{id}.
+ */
 export async function getPlaylists(): Promise<Playlist[]> {
   const list = (await subsonic("getPlaylists")).playlists as { playlist?: { id: string; name: string; owner?: string; songCount: number; coverArt?: string; readonly?: boolean; changed?: string }[] };
-  return (list.playlist ?? []).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt, readonly: p.readonly, changed: p.changed ? Date.parse(p.changed) : undefined }));
+  return (list.playlist ?? []).filter((p) => ownsPlaylist(p.owner)).map((p) => ({ id: p.id, name: p.name, owner: p.owner, songCount: p.songCount, cover: p.coverArt, readonly: p.readonly, changed: p.changed ? Date.parse(p.changed) : undefined }));
 }
 
 export async function getPlaylist(id: string): Promise<PlaylistDetail> {
