@@ -38,7 +38,7 @@ data/backup/edits-<date>/                                             the origin
 ## A download, step by step
 
 1. The web app calls `POST /api/download?id=…`. Eco queues a job and answers at once.
-2. A worker (one at a time, to be kind to YouTube) reads the track from the catalogue: title, artists, album, cover, length.
+2. A worker (one at a time, to be kind to YouTube) reads the track from the catalogue: title, artists, album, cover, length and genres. MusicBrainz's genres come in the same request as the rest (`inc=genres` on the release): the recording's own, or its album's when people voted for none, keeping those with at least half the votes of the top one (at most three). iTunes gives one, `primaryGenreName`. Several are written as `Latin Pop; Reggaeton`, which Navidrome splits.
 3. **Choosing the video.** A plain YouTube search runs first (one cheap call that already returns length and channel). Only if that result is not clearly right does Eco also search YouTube Music, which is slower and rate-limited sooner. Each candidate is scored by how far its length is from the catalogue's, penalised for unwanted versions (live, remix, sped up…) unless the song itself is one, and rewarded for official channels. The title must also match: a different song of the same length is rejected.
 4. A candidate is accepted automatically only if it is within 10 s and has nothing odd about its title; otherwise the job fails with the reason, so a wrong song never reaches your library.
 5. yt-dlp downloads the audio (progress is reported), ffmpeg tags it and embeds the cover, and the file is moved into place.
@@ -68,6 +68,8 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `POST /api/imports` · `GET /api/imports`, `/api/imports/{id}` | make or update a playlist from a list (JSON: `name`, `rows`); list them; one, with each song and whether you have it |
 | `POST /api/imports/{id}/sync`, `/download` · `DELETE /api/imports/{id}` | bring its playlist up to date; queue the songs you lack; forget it (the playlist stays) |
 | `GET /api/admin/cleanup` | administrators: `duplicates`, combined `artists`, `albums` with no cover or doubtful tags, and the `task` running |
+| `POST /api/admin/cleanup/genres` · `DELETE /api/admin/cleanup/task` | administrators: give songs with no genre their album's, from the catalogue (the report's `genres` counts them); stop the clean-up running |
+| `GET /api/stats?range=7d\|30d\|90d\|365d\|all&user=&tz=` | statistics: an administrator's are everyone's, or one person's with `user`; anyone else always gets their own. `summary` (totals and the period before, a timeline, hours, weekdays, top songs, artists, albums and genres, `listeners`, recent plays), `people` for an administrator, and `library` |
 | `POST /api/admin/cleanup/duplicates`, `/artists` | administrators: delete other copies (JSON: `keep`, `remove`); separate artists (JSON: `names`, and optionally `parts`, where a name splits when a comma belongs to a name: `{"Tyler, The Creator, Kali Uchis": ["Tyler, The Creator", "Kali Uchis"]}`; the parts must give the name back joined with commas) |
 | `PUT /api/admin/cleanup/covers/{album}` | administrators: give an album with no cover one (JSON: `catalog`, a catalogue album whose cover the server fetches, or `picture`, a JPEG in base64); written as `cover.jpg` next to its songs, never over a cover that is there |
 | `GET /api/media/preview?url=` | what a YouTube link is (title, channel, length, thumbnail), whether it is already imported, and `music` (title, artists, album, year) when YouTube Music says what song it is |
@@ -88,7 +90,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `POST /api/tv/pair` · `GET /api/tv/pair/{code}?secret=` | a TV asks for a code to show, then collects the sign-in once someone approves it (no sign-in needed) |
 | `POST /api/tv/approve` | `{code}`: sign the TV showing it in to your account |
 | `GET /api/covers/accent?id=` · `GET /api/covers/shaped?id=&size=&shape=` | for the TV, which cannot read or mask pictures: a cover's dynamic colour (the web app's maths) and the cover cut to the account's corners |
-| `/rest/*` | Navidrome's Subsonic API, passed through |
+| `/rest/*` | Navidrome's Subsonic API, passed through; `/rest/scrobble` is also counted for statistics |
 | `GET /healthz` | liveness |
 
 ## Imported media
@@ -110,6 +112,8 @@ An album looks the same however you reach it. `/catalog-album/{id}` starts from 
 ## Keeping the library tidy
 
 Administrators get **Library clean-up** in Settings. Eco proposes and an administrator decides. *Copies* are songs with the same title, version and first artist within 3 s of each other; deleting one goes through the same identification as any deletion, and the person's favourite and playlists move to the copy that stays. *Artists*: Navidrome treats `Bad Bunny, Chuwi` as one artist, because a comma can be part of a name, but splits `Bad Bunny; Chuwi`. Eco rewrites those tags, keeping a copy of each file in `data/backup/` and only replacing a file once the audio of the new one is proven identical. New downloads are tagged that way from the start. Song IDs, favourites and playlists survive this (checked on a real Navidrome); an album whose album artist changes gets a new ID. *Albums* (`cleanupalbums.go`) lists albums with no cover (no `cover`/`folder`/`front`/`album` picture next to the songs and none inside the files, found with one walk of the music folder, `library.IndexFiles`), no year, songs without a track number or two with the same one, no album artist, titles that still say "(Official Video)", and one album shown twice because its songs disagree. Eco only adds covers: a picture from the catalogue (the server fetches it from the album's ID, never from an address the app sends) or one the person chooses, written as `cover.jpg` in each of the album's folders, which Navidrome prefers to anything else. Other tags are changed one song at a time, below.
+
+*Genres* (`cleanupgenres.go`): songs with no genre get their album's. Asking song by song would take hours at MusicBrainz's one request per second, so the catalogue is asked once per album (`catalog.GenreFinder`: a release-group search and its lookup, or iTunes when MusicBrainz knows none), the biggest albums first, waiting a minute when a catalogue is busy. Only the `genre` tag is added, with `tag.Set` (a copy in `data/backup/genres-<date>/`, the audio proven identical), and a song that has a genre keeps it. It runs in the background and can be stopped.
 
 **Editing a song** (`songtags.go`, administrators only, from the song's ⋯ menu) changes its title, artists, album, album artist, date, track, disc and genre. The form starts from what the file says (`library.ReadSongTags`), not from Navidrome, whose values are for display (`A • B` where the tag says `A; B`), and the server writes only what differs, with `tag.Set`: in place, never moving the file, so the song keeps its ID, favourites and playlists. A copy of each file goes to `data/backup/edits-<date>/` first, and a file is only replaced once its audio is proven identical. A new album, album artist or date makes Navidrome see another album, so the form offers to give the album's other songs the same three tags; without that the song becomes an album of its own.
 
@@ -137,7 +141,7 @@ Styles are Tailwind utilities in the components, with the ones several screens s
 
 ## Who can see and change what
 
-Songs, podcasts and audiobooks are one shared library. Everything personal stays with its account: recents, pins, playlist covers, the profile picture, the download queue (`jobs.List(user)`) and connected devices. Deleting from the shared library needs a Navidrome administrator, which the server asks Navidrome on every request rather than trusting the app or a remembered sign-in.
+Songs, podcasts and audiobooks are one shared library. Everything personal stays with its account (statistics too: only an administrator sees other people's listening): recents, pins, playlist covers, the profile picture, the download queue (`jobs.List(user)`) and connected devices. Deleting from the shared library needs a Navidrome administrator, which the server asks Navidrome on every request rather than trusting the app or a remembered sign-in.
 
 Deleting a song has to find its file, and Navidrome's `path` is synthetic. `library.FindSongFile` looks for the exact size in bytes and extension, then confirms the title in the file's tags. Anything other than exactly one match refuses to delete. It is logged, the empty folders left behind are removed, the song leaves everyone's pins and recents, and a Navidrome scan runs.
 
@@ -171,6 +175,14 @@ For bulk downloads the CSV is the source of truth. Each step reads it, works, an
 
 Liked songs end up as **Navidrome favourites**: `eco likes favorites` stars every downloaded song for the user in `ND_USER`, oldest like first, so Navidrome's newest-first favourites list matches the order of your likes. Songs are matched by title, artist, album and length (Navidrome's `path` is not the file name). Spotify playlists, in contrast, become `.m3u` playlists.
 
+## Statistics
+
+Navidrome only tells each person their own play counts, so Eco counts plays itself (`internal/stats`, `server/stats.go`). The web app and the TV report a song played past its half (or 30 seconds) with `/rest/scrobble`; Eco passes it to Navidrome as before and, once Navidrome has accepted it (which proves who sent it), writes down the song, its artists, album, genres and length in `data/stats/plays.jsonl`, one line of JSON per play, read once into memory. The same song from the same person within a minute counts once. Turning off *Count my plays* stops the scrobbles, so nothing is counted. Apps connected to Navidrome directly are not seen.
+
+Before the first play Eco counts for a person, it imports what they played before from their own Navidrome counts (a count per song and the time of the last play, read with their own sign-in), once (`data/stats/imported.json`). Those have no date for each play, so only *All time* includes them, and plays Eco counted before the import are left out, since the counts already hold them. Minutes are songs' lengths added up: a play counted, not how much of it was heard.
+
+The page (`views/Stats.tsx`) shows minutes, plays, listeners, songs, first listens, minutes a day and genres, each compared with the period before; minutes over time, by hour and by weekday; top songs, artists, albums and genres; and for an administrator, who listens to what, what was just played, and the library itself (songs, hours, genres, how many songs have none). The server decides whose numbers anyone gets, on every request: everyone's only for an administrator.
+
 ## Code map
 
 | Path | |
@@ -189,6 +201,7 @@ Liked songs end up as **Navidrome favourites**: `eco likes favorites` stars ever
 | `internal/jobs` | the download queue |
 | `internal/media` | imported audio on disk |
 | `internal/userdata` | each user's recents, pins and playlist covers |
+| `internal/stats` | what people play, and the summaries of the statistics page |
 | `internal/connect` | devices of one account seeing and controlling each other |
 | `internal/pairing` | signing a TV in with a code shown on it and typed on a phone |
 | `internal/palette` · `internal/coverart` | a cover's accent colour, and covers cut round, for the TV |

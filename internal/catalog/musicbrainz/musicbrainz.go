@@ -35,6 +35,8 @@ const (
 	maxCached   = 2048
 	maxAttempts = 3
 	pageLimit   = 50
+	// groupInc is what a release group lookup asks for. Album and AlbumGenres ask the same, so they share the answer.
+	groupInc = "artist-credits+genres"
 )
 
 // Client talks to MusicBrainz.
@@ -189,6 +191,7 @@ type releaseGroup struct {
 	SecondaryTypes []string `json:"secondary-types"`
 	FirstRelease   string   `json:"first-release-date"`
 	Credit         []credit `json:"artist-credit"`
+	Genres         []genre  `json:"genres"` // only with inc=genres
 }
 
 type track struct {
@@ -201,6 +204,7 @@ type track struct {
 		ISRCs  []string `json:"isrcs"`
 		Length int      `json:"length"`
 		Credit []credit `json:"artist-credit"`
+		Genres []genre  `json:"genres"` // only with inc=genres
 	} `json:"recording"`
 }
 
@@ -221,6 +225,7 @@ type release struct {
 	TrackCount   int          `json:"track-count"`
 	ReleaseGroup releaseGroup `json:"release-group"`
 	Media        []medium     `json:"media"`
+	Genres       []genre      `json:"genres"` // only with inc=genres
 }
 
 type recording struct {
@@ -287,6 +292,7 @@ func (c *Client) trackOnRelease(rel release, disc medium, t track, group string)
 		AlbumArtist: strings.Join(albumArtists, ", "), AlbumArtists: albumArtists, Album: rel.Title, Date: rel.Date,
 		Track: t.Position, Tracks: disc.TrackCount, Disc: disc.Position, DurationMs: length,
 		CoverURL: c.coverOf(group), SourceURL: "https://musicbrainz.org/recording/" + t.Recording.ID,
+		Genres: songGenres(t.Recording.Genres, rel.ReleaseGroup.Genres, rel.Genres),
 	}
 	if len(t.Recording.ISRCs) > 0 {
 		m.ISRC = t.Recording.ISRCs[0]
@@ -433,7 +439,8 @@ func (c *Client) Track(ctx context.Context, id string) (catalog.Track, error) {
 		rel = best.ID
 	}
 	var full release
-	err := c.get(ctx, "release/"+rel, url.Values{"inc": {"recordings+artist-credits+isrcs+release-groups"}}, lookupTTL, &full)
+	// genres come in the same answer, for the release, its release group and every recording on it: no extra request
+	err := c.get(ctx, "release/"+rel, url.Values{"inc": {"recordings+artist-credits+isrcs+release-groups+genres"}}, lookupTTL, &full)
 	if err != nil {
 		return catalog.Track{}, err
 	}
@@ -450,7 +457,7 @@ func (c *Client) Track(ctx context.Context, id string) (catalog.Track, error) {
 // Album implements catalog.Source. An album here is a release group; the page shows its most representative release.
 func (c *Client) Album(ctx context.Context, id string) (catalog.Album, error) {
 	var group releaseGroup
-	if err := c.get(ctx, "release-group/"+id, url.Values{"inc": {"artist-credits"}}, lookupTTL, &group); err != nil {
+	if err := c.get(ctx, "release-group/"+id, url.Values{"inc": {groupInc}}, lookupTTL, &group); err != nil {
 		return catalog.Album{}, err
 	}
 	var page struct {
@@ -461,6 +468,7 @@ func (c *Client) Album(ctx context.Context, id string) (catalog.Album, error) {
 		return catalog.Album{}, err
 	}
 	album := c.albumOf(group)
+	album.Genres = pickGenres(group.Genres)
 	rel := bestEdition(page.Releases)
 	for _, disc := range rel.Media {
 		for _, t := range disc.Tracks {

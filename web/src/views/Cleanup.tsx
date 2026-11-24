@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { coverUrl, getCleanup, removeDuplicate, searchExternal, separateArtists, setAlbumCover } from "../lib/api";
+import { addGenres, coverUrl, getCleanup, removeDuplicate, searchExternal, separateArtists, setAlbumCover, stopCleanup } from "../lib/api";
 import { clock, plural } from "../lib/format";
 import { blobToBase64, pictureToCover } from "../lib/image";
 import type { AlbumIssue, CleanupReport, DuplicateSong } from "../lib/types";
@@ -60,7 +60,10 @@ function DuplicateCard({ group, onDone }: { group: CleanupReport["duplicates"][n
 }
 
 function Artists({ report, onStart }: { report: CleanupReport; onStart: () => void }) {
-  const { artists, task } = report;
+  const { artists } = report;
+  const mine = (report.task.kind ?? "artists") === "artists";
+  const task = mine ? report.task : { running: false, done: 0, total: 0, failed: null }; // the genre clean-up shows its own
+  const busy = report.task.running && !mine;
   const [chosen, setChosen] = useState(() => new Set(artists.filter((a) => a.sure).map((a) => a.name)));
   const { visible, sentinel } = useIncremental(artists, 60);
   const picked = useMemo(() => artists.filter((a) => chosen.has(a.name)), [artists, chosen]);
@@ -79,7 +82,7 @@ function Artists({ report, onStart }: { report: CleanupReport; onStart: () => vo
         : artists.length > 0 && (
           <div className={ui.selectBar}>
             <button type="button" className={ui.pill} onClick={() => setChosen(picked.length === artists.length ? new Set() : new Set(artists.map((a) => a.name)))}>{picked.length === artists.length ? "Clear selection" : "Select all"}</button>
-            <button type="button" className={ui.get} disabled={!picked.length} onClick={() => void start()}><Icon name="check" size={18} />{`Separate ${picked.length} (${plural(songs, "song")})`}</button>
+            <button type="button" className={ui.get} disabled={!picked.length || busy} onClick={() => void start()}><Icon name="check" size={18} />{`Separate ${picked.length} (${plural(songs, "song")})`}</button>
           </div>
         )}
       {task.backup && !task.running && task.total > 0 && <p className={ui.note}>{`Last run: ${task.done - (task.failed?.length ?? 0)} of ${plural(task.total, "song")} done. The original files are in ${task.backup}.`}</p>}
@@ -96,6 +99,50 @@ function Artists({ report, onStart }: { report: CleanupReport; onStart: () => vo
         })}
       </ul>
       {sentinel}
+    </Section>
+  );
+}
+
+/** Songs with no genre get their album's, from the catalogue: Navidrome then has genres to browse, and statistics can say what people like. */
+function Genres({ report, onStart }: { report: CleanupReport; onStart: () => void }) {
+  const missing = report.genres;
+  const mine = report.task.kind === "genres";
+  const task = report.task;
+  const [stopping, setStopping] = useState(false);
+  if (!missing) return null;
+  // About two requests a second per album at MusicBrainz's pace, and a moment per song to rewrite its file
+  const minutes = Math.max(1, Math.round((missing.albums * 2.3 + missing.songs * 0.4) / 60));
+
+  async function start() {
+    if (!confirm(`Add a genre to ${plural(missing!.songs, "song")} on ${plural(missing!.albums, "album")}?\n\nEach album is looked up in the catalogue, and its songs get the genres people gave it there. Only the genre tag is added, and a copy of every file is kept first. Songs keep their favorites and playlists. It takes about ${plural(minutes, "minute")}; you can leave this page.`)) return;
+    try { await addGenres(); onStart(); } catch (e) { toast((e as Error).message); }
+  }
+  async function stop() {
+    setStopping(true);
+    try { await stopCleanup(); onStart(); } catch (e) { toast((e as Error).message); } finally { setStopping(false); }
+  }
+
+  return (
+    <Section title={`Songs with no genre (${missing.songs})`}>
+      <p className={ui.note}>Without a genre, Navidrome has nothing to browse by and the statistics cannot say what people like. New downloads get theirs from the catalogue; this gives the songs you already have their album's genre. Songs that have one keep it.</p>
+      {mine && task.running
+        ? (
+          <div className={ui.actions}>
+            <span className={ui.pill}><Ring percent={task.total ? (task.done / task.total) * 100 : -1} size={18} />{`${task.done} of ${plural(task.total, "song")}…`}</span>
+            <button type="button" className={ui.pill} disabled={stopping} onClick={() => void stop()}><Icon name="close" size={16} />Stop</button>
+          </div>
+        )
+        : missing.songs > 0
+          ? <div className={ui.actions}><button type="button" className={ui.get} disabled={task.running} onClick={() => void start()}><Icon name="sparkle" size={18} />{`Add genres (${plural(missing.albums, "album")})`}</button></div>
+          : <Empty>Every song has a genre.</Empty>}
+      {mine && !task.running && task.total > 0 && (
+        <p className={ui.note}>{[
+          `Last run${task.stopped ? ", stopped" : ""}: ${task.done - (task.failed?.length ?? 0) - (task.unknown ?? 0)} of ${plural(task.total, "song")} got a genre.`,
+          (task.unknown ?? 0) > 0 ? `The catalogue knows none for ${plural(task.unknown!, "song")}; you can type one in when editing a song.` : "",
+          task.backup ? `The original files are in ${task.backup}.` : "",
+        ].filter(Boolean).join(" ")}</p>
+      )}
+      {mine && (task.failed?.length ?? 0) > 0 && <ul className={cx(ui.note, "grid gap-1 text-danger!")}>{task.failed!.slice(0, 20).map((f, i) => <li key={i}>{`${f.title}: ${f.error}`}</li>)}</ul>}
     </Section>
   );
 }
@@ -220,6 +267,7 @@ export function Cleanup() {
               ? <Empty>No duplicates. Same title and artist, and about the same length, is what counts as one.</Empty>
               : groups.map((group) => <DuplicateCard key={groupKey(group)} group={group} onDone={() => changed(group)} />)}
           </Section>
+          <Genres report={data} onStart={() => { setPolling(true); void refetch(); }} />
           <Artists report={data} onStart={() => { setPolling(true); void refetch(); }} />
           {data.albums && <Albums albums={data.albums} onChange={() => { for (const key of ["albums", "album", "home"]) void client.invalidateQueries({ queryKey: [key] }); }} />}
         </div>

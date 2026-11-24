@@ -55,7 +55,7 @@
 
 - One search box finds songs in your library and songs and albums you do not own, from [MusicBrainz](https://musicbrainz.org) with iTunes as a backup. No account, key or subscription.
 - Open an album to see every track in order and which ones you have, then tick the ones to download. An artist's songs you do not have yet are chosen the same way.
-- Tapped songs are fetched, tagged with proper metadata and cover art, and appear in your library in seconds.
+- Tapped songs are fetched, tagged with proper metadata, genres and cover art, and appear in your library in seconds.
 - Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest.
 - A song search cannot find? **Library ▸ Songs ▸ Add a song**: paste its YouTube link and say what it is. Pick its album from your library or the catalogue, or describe a new one, with its cover.
 - A song saved under the wrong name or artist? An administrator fixes it from its ⋯ menu ▸ **Edit details**: title, artists, album, year, numbers and genre. Favorites and playlists keep it.
@@ -73,7 +73,8 @@
 - Pin songs, albums, playlists and artists, and give playlists their own cover.
 - Choose a picture for your profile, and let the colours follow the album playing.
 - Administrators can see and add accounts from Eco, and copy a message with the address, username and password to send the new person.
-- Administrators can delete songs for everyone and review songs held twice and artists that are really several people.
+- Administrators can delete songs for everyone and review songs held twice, artists that are really several people, and songs with no genre (Eco finds their album's in the catalogue).
+- **Statistics**: minutes listened, plays, top songs, artists, albums and genres, when people listen, and for administrators who listens to what on the server. Everyone else sees their own.
 - Your files, your server. [Navidrome](https://www.navidrome.org) is underneath, so any Subsonic app also works.
 
 ## How it fits together

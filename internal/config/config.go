@@ -16,6 +16,7 @@ type Config struct {
 	MusicDir string // DataDir/music: the library Navidrome reads
 	MediaDir string // DataDir/media: podcasts, audiobooks (not music; Navidrome never sees it)
 	UsersDir string // DataDir/users: each user's recents, pins and playlist covers
+	StatsDir string // DataDir/stats: what people play, for the statistics page
 
 	NavidromeURL string // where eco reaches Navidrome
 	Listen       string // address eco serves on
@@ -52,6 +53,7 @@ func Load() *Config {
 		MusicDir: filepath.Join(data, "music"),
 		MediaDir: filepath.Join(data, "media"),
 		UsersDir: filepath.Join(data, "users"),
+		StatsDir: filepath.Join(data, "stats"),
 
 		NavidromeURL: strings.TrimRight(env("ECO_NAVIDROME_URL", "http://127.0.0.1:4533"), "/"),
 		Listen:       env("ECO_LISTEN", "127.0.0.1:8000"),

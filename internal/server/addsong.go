@@ -179,6 +179,7 @@ func (s *Server) addSong(w http.ResponseWriter, r *http.Request, cred subsonic.C
 			return
 		}
 		m.Album, m.AlbumArtists, m.AlbumArtist, m.Date, m.Tracks, m.CoverURL = album.Name, album.Artists, album.Artist(), album.Date, album.TotalTracks, album.CoverURL
+		m.Genres = album.Genres
 	default:
 		if m, err = newAlbumMeta(m, a); err != nil {
 			fail(w, http.StatusBadRequest, err.Error())
@@ -259,6 +260,7 @@ func (s *Server) joinLibraryAlbum(ctx context.Context, cred subsonic.Cred, id st
 			continue
 		}
 		m.Album, m.AlbumArtist, m.Date, m.Tracks = tags.Album, tags.AlbumArtist, tags.Date, tags.Tracks
+		m.Genres = library.SplitArtists(tags.Genre) // the album's genre, split on "; " like artists
 		if rel, err := filepath.Rel(s.eng.DestDir(), path); err == nil && !strings.HasPrefix(rel, "..") {
 			folder = filepath.Dir(path)
 		}

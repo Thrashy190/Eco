@@ -91,6 +91,10 @@ func fields(m catalog.Meta) map[string]string {
 	if m.ISRC != "" {
 		f["isrc"] = m.ISRC
 	}
+	if len(m.Genres) > 0 {
+		// Navidrome splits genre on ";", so each one counts on its own
+		f["genre"] = strings.Join(m.Genres, Separator)
+	}
 	return f
 }
 

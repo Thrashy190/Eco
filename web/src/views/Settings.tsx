@@ -369,7 +369,7 @@ export function Settings() {
         </Group>
 
         <Group title="Playback">
-          <Setting title="Count my plays" description="Lets “Recently played” and “Most played” work on the home screen"><Toggle name="scrobble" /></Setting>
+          <Setting title="Count my plays" description="Lets “Recently played”, “Most played” and Statistics count what you play"><Toggle name="scrobble" /></Setting>
         </Group>
 
         <DeviceSettings />
@@ -392,13 +392,16 @@ export function Settings() {
           <Setting title="Import a playlist" description="Make playlists from a file exported from Spotify or anywhere else">
             <Link className={ui.pill} to="/import"><Icon name="upload" size={16} />Import</Link>
           </Setting>
+          <Setting title="Statistics" description={me?.admin ? "Who listens to what on this server: top songs, artists, genres and minutes" : "What you listen to most, and how much"}>
+            <Link className={ui.pill} to="/stats"><Icon name="chart" size={16} />Open</Link>
+          </Setting>
           {me?.admin && (
             <Setting title="Users" description="See who has an account and add someone">
               <Link className={ui.pill} to="/users"><Icon name="user" size={16} />Manage</Link>
             </Setting>
           )}
           {me?.admin && (
-            <Setting title="Library clean-up" description="Songs you have twice, and artists that are really several people">
+            <Setting title="Library clean-up" description="Songs you have twice, songs with no genre, and artists that are really several people">
               <Link className={ui.pill} to="/cleanup"><Icon name="sparkle" size={16} />Review</Link>
             </Setting>
           )}

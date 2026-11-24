@@ -27,6 +27,7 @@ import (
 	"github.com/Thrashy190/eco/internal/jobs"
 	"github.com/Thrashy190/eco/internal/media"
 	"github.com/Thrashy190/eco/internal/pairing"
+	"github.com/Thrashy190/eco/internal/stats"
 	"github.com/Thrashy190/eco/internal/subsonic"
 	"github.com/Thrashy190/eco/internal/userdata"
 )
@@ -44,6 +45,7 @@ type Server struct {
 	admins adminSessions
 	hub    *connect.Hub
 	pairs  *pairing.Store
+	stats  *stats.Store
 	// accents remembers the dynamic colour of covers (coverAccent)
 	accents accentCache
 	// shapes keeps covers cut for the TV (shapedCover)
@@ -57,9 +59,11 @@ type Server struct {
 	valid          map[string]time.Time // credentials verified recently
 	lib            *snapshot            // cached copy of the library
 	youtubeBlocked time.Time            // YouTube said "not a bot": no downloads until then
-	retag          retagTask            // the artist clean-up, if one ran
+	retag          retagTask            // the last tag clean-up, if one ran
+	stopRetag      context.CancelFunc   // stops the genre clean-up while it runs
 
-	editing sync.Mutex // one song edit at a time (editSong)
+	editing sync.Mutex             // one song edit at a time (editSong)
+	imports map[string]*sync.Mutex // one history import per person at a time (importHistory)
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -68,7 +72,7 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 	if err != nil {
 		return nil, err
 	}
-	s := &Server{cfg: cfg, eng: eng, nd: subsonic.New(cfg.NavidromeURL), web: web, ctx: ctx, valid: map[string]time.Time{}, media: media.Store{Root: cfg.MediaDir}, users: &userdata.Store{Root: cfg.UsersDir}, hub: connect.NewHub(), pairs: pairing.New()}
+	s := &Server{cfg: cfg, eng: eng, nd: subsonic.New(cfg.NavidromeURL), web: web, ctx: ctx, valid: map[string]time.Time{}, media: media.Store{Root: cfg.MediaDir}, users: &userdata.Store{Root: cfg.UsersDir}, hub: connect.NewHub(), pairs: pairing.New(), stats: &stats.Store{Dir: cfg.StatsDir}}
 	s.proxy = httputil.NewSingleHostReverseProxy(target)
 	s.proxy.FlushInterval = -1 // stream audio as it arrives
 	director := s.proxy.Director
@@ -81,6 +85,8 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("/rest/", s.proxy)
+	mux.HandleFunc("/rest/scrobble", s.scrobble) // passed through too, and counted (stats.go)
+	mux.HandleFunc("/rest/scrobble.view", s.scrobble)
 	mux.HandleFunc("/api/search", s.authed(s.search))
 	mux.HandleFunc("/api/search/external", s.authed(s.searchExternal))
 	mux.HandleFunc("GET /api/artists/lookup", s.authed(s.artistLookup))
@@ -103,6 +109,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/cleanup", s.authed(s.adminOnly(s.cleanupReport)))
 	mux.HandleFunc("POST /api/admin/cleanup/duplicates", s.authed(s.adminOnly(s.cleanupDuplicate)))
 	mux.HandleFunc("POST /api/admin/cleanup/artists", s.authed(s.adminOnly(s.cleanupArtists)))
+	mux.HandleFunc("POST /api/admin/cleanup/genres", s.authed(s.adminOnly(s.cleanupGenres)))
+	mux.HandleFunc("DELETE /api/admin/cleanup/task", s.authed(s.adminOnly(s.stopCleanup)))
 	mux.HandleFunc("PUT /api/admin/cleanup/covers/{id}", s.authed(s.adminOnly(s.cleanupCover)))
 	mux.HandleFunc("POST /api/imports/parse", s.authed(s.importParse))
 	mux.HandleFunc("GET /api/imports", s.authed(s.importList))
@@ -112,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/imports/{id}/download", s.authed(s.importDownload))
 	mux.HandleFunc("DELETE /api/imports/{id}", s.authed(s.importForget))
 	mux.HandleFunc("GET /api/me", s.authed(s.me))
+	mux.HandleFunc("GET /api/stats", s.authed(s.statsSummary))
 	mux.HandleFunc("GET /api/connect/events", s.authed(s.connectEvents))
 	mux.HandleFunc("POST /api/connect/state", s.authed(s.connectState))
 	mux.HandleFunc("POST /api/connect/command", s.authed(s.connectCommand))

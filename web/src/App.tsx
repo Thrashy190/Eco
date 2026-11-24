@@ -32,6 +32,7 @@ import { Login } from "./views/Login";
 import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
+import { Stats } from "./views/Stats";
 import { Users } from "./views/Users";
 
 function Tabs() {
@@ -142,6 +143,7 @@ function SignedIn({ user }: { user: string }) {
           <Route path="cleanup" element={<Cleanup />} />
           <Route path="settings" element={<Settings />} />
           <Route path="users" element={<Users />} />
+          <Route path="stats" element={<Stats />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Route>
       </Routes>

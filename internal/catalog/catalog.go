@@ -16,6 +16,8 @@ type Meta struct {
 	Artists, AlbumArtists                   []string
 	Track, Tracks, Disc, DurationMs         int
 	ISRC, CoverURL, SourceURL               string
+	// Genres are the catalogue's, most voted first. They may be missing: the tag is then left out.
+	Genres []string
 }
 
 // Track is a song in the catalogue. ID is whatever Source.Track needs to find it again.
@@ -33,6 +35,7 @@ type Album struct {
 	Date        string
 	TotalTracks int
 	CoverURL    string
+	Genres      []string // only filled by Source.Album and Source.FindAlbum, and may be empty
 	Tracks      []Track
 }
 
@@ -65,6 +68,14 @@ type Source interface {
 	FindTrack(ctx context.Context, want Wanted) (Track, bool, error)
 	// ByArtist lists what the catalogue has by the artist called name.
 	ByArtist(ctx context.Context, name string) ([]Track, []Album, error)
+}
+
+// GenreFinder is a source that can say an album's genres from its name, for songs already in the library. Downloads
+// get theirs with the rest of the metadata, in the requests they already make.
+type GenreFinder interface {
+	// AlbumGenres returns the genres of the album with this name by this artist, most voted first. It returns none,
+	// and no error, when the catalogue does not have the album or knows no genre for it.
+	AlbumGenres(ctx context.Context, album, artist string) ([]string, error)
 }
 
 // Wanted describes a song to look for.

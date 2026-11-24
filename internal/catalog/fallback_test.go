@@ -175,3 +175,35 @@ func TestAnAlbumMainCouldNotCheckIsNotMissing(t *testing.T) {
 		t.Errorf("neither has it: %v %v", ok, err)
 	}
 }
+
+// genreFake is a catalogue that also knows albums' genres.
+type genreFake struct {
+	fake
+	genres []string
+}
+
+func (g *genreFake) AlbumGenres(context.Context, string, string) ([]string, error) {
+	g.asked++
+	return g.genres, g.err
+}
+
+// MusicBrainz knows no genre for many little-known albums; iTunes files every album under one.
+func TestAlbumGenresComeFromTheBackupWhenTheMainHasNone(t *testing.T) {
+	main := &genreFake{fake: fake{prefix: "mb"}}
+	backup := &genreFake{fake: fake{prefix: "it"}, genres: []string{"Latin Urban"}}
+	got, err := (&Fallback{main, backup}).AlbumGenres(context.Background(), "Album", "Artist")
+	if err != nil || len(got) != 1 || got[0] != "Latin Urban" {
+		t.Errorf("got %q, %v", got, err)
+	}
+	main.genres = []string{"Reggaeton"}
+	backup.asked = 0
+	got, _ = (&Fallback{main, backup}).AlbumGenres(context.Background(), "Album", "Artist")
+	if len(got) != 1 || got[0] != "Reggaeton" || backup.asked != 0 {
+		t.Errorf("the main catalogue's answer should do: %q, backup asked %d times", got, backup.asked)
+	}
+	// Neither could answer: that is not "no genre", and the caller must hear it
+	main.genres, main.err, backup.err = nil, busy{}, busy{}
+	if _, err := (&Fallback{main, backup}).AlbumGenres(context.Background(), "Album", "Artist"); err == nil {
+		t.Error("no error")
+	}
+}

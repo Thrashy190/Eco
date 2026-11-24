@@ -47,6 +47,7 @@ const ICONS = {
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
   moon: <path d="M20 14.6A8.5 8.5 0 0 1 9.4 4a8.5 8.5 0 1 0 10.6 10.6z" />,
   panel: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M15 4.5v15" /></>,
+  chart: <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" />,
   history: <><path d="M4 12a8 8 0 1 0 2.6-5.9L4 8.5V4m8 4v4.5l3 1.8" /></>,
 } satisfies Record<string, ReactElement>;
 

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { readableArtists } from "./format";
 import { md5 } from "./md5";
 import type {
-  AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, ExternalAlbum, ExternalSearch, HomeResponse,
+  AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, StatsResponse, ExternalAlbum, ExternalSearch, HomeResponse,
   ImportDetail, ImportedList, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
   PlaylistDetail, RawAlbum, RawSong, Song,
 } from "./types";
@@ -142,6 +142,13 @@ export const getCleanup = () => eco<CleanupReport>("admin/cleanup");
 export const removeDuplicate = (keep: string, remove: string[]) => send<{ deleted: string[] }>("admin/cleanup/duplicates", JSON.stringify({ keep, remove }));
 export const setAlbumCover = (id: string, from: { catalog: string } | { picture: string }) => send<{ written: number }>(`admin/cleanup/covers/${part(id)}`, JSON.stringify(from), "PUT");
 export const separateArtists = (names: string[]) => send<CleanupReport["task"]>("admin/cleanup/artists", JSON.stringify({ names }));
+export const addGenres = () => send<CleanupReport["task"]>("admin/cleanup/genres", "{}");
+export const stopCleanup = () => eco<CleanupReport["task"]>("admin/cleanup/task", undefined, "DELETE");
+
+// ---- Statistics ----
+/** What people play: everyone's for an administrator (or one person's, with `user`), your own for anyone else. */
+export const getStats = (range: string, user: string, signal?: AbortSignal) =>
+  eco<StatsResponse>("stats", { range, user, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }, "GET", signal);
 /** `purged` is false when the file is gone but Navidrome still lists the song (under Missing Files there). */
 /** What a song's file says about it, read from the file: several artists stay apart. */
 export interface SongTags { title: string; artists: string[]; album: string; album_artists: string[]; date: string; track: number; tracks: number; disc: number; genre: string }

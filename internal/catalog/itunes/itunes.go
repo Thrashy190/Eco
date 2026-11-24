@@ -133,6 +133,15 @@ type item struct {
 	Milliseconds     int    `json:"trackTimeMillis"`
 	Explicitness     string `json:"trackExplicitness"`
 	TrackURL         string `json:"trackViewUrl"`
+	Genre            string `json:"primaryGenreName"`
+}
+
+// genresOf is an item's genre as a list. Apple files some things under "Music", which says nothing.
+func genresOf(it item) []string {
+	if g := strings.TrimSpace(it.Genre); g != "" && !strings.EqualFold(g, "Music") {
+		return []string{g}
+	}
+	return nil
 }
 
 func (c *Client) get(ctx context.Context, path string, q url.Values, ttl time.Duration) ([]item, error) {
@@ -215,7 +224,7 @@ func trackOf(it item) catalog.Track {
 		Meta: catalog.Meta{
 			Title: it.TrackName, Artist: it.ArtistName, AlbumArtist: albumArtist, Album: album, Date: day(it.ReleaseDate),
 			Track: it.TrackNumber, Tracks: it.TrackCount, Disc: it.DiscNumber, DurationMs: it.Milliseconds,
-			CoverURL: bigCover(it.Artwork), SourceURL: it.TrackURL,
+			CoverURL: bigCover(it.Artwork), SourceURL: it.TrackURL, Genres: genresOf(it),
 		},
 	}
 }
@@ -229,7 +238,7 @@ func albumOf(it item) catalog.Album {
 	if it.CollectionArtist != "" {
 		who = it.CollectionArtist
 	}
-	return catalog.Album{ID: idPrefix + strconv.FormatInt(it.CollectionID, 10), Name: name, Artists: []string{who}, Type: kind, Date: day(it.ReleaseDate), TotalTracks: it.TrackCount, CoverURL: bigCover(it.Artwork)}
+	return catalog.Album{ID: idPrefix + strconv.FormatInt(it.CollectionID, 10), Name: name, Artists: []string{who}, Type: kind, Date: day(it.ReleaseDate), TotalTracks: it.TrackCount, CoverURL: bigCover(it.Artwork), Genres: genresOf(it)}
 }
 
 var reNotTheSong = regexp.MustCompile(`(?i)\b(karaoke|tribute|lullaby|lullabies|in the style of|originally performed|made famous|rendition|8-bit|piano version|kidz bop)\b`)
@@ -412,6 +421,15 @@ func (c *Client) FindAlbum(ctx context.Context, name, artist string) (catalog.Al
 		return catalog.Album{}, false, nil
 	}
 	return album, err == nil, err
+}
+
+// AlbumGenres implements catalog.GenreFinder. It costs one request, the same as FindCover's.
+func (c *Client) AlbumGenres(ctx context.Context, album, artist string) ([]string, error) {
+	best, ok, err := c.findAlbumItem(ctx, album, artist)
+	if err != nil || !ok {
+		return nil, err
+	}
+	return genresOf(best), nil
 }
 
 // FindCover implements catalog.CoverFinder.

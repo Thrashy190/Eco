@@ -124,6 +124,16 @@ func TestSeveralArtistsAreWrittenSoNavidromeSeparatesThem(t *testing.T) {
 	}
 }
 
+// Navidrome splits genre on ";", so two genres are two genres. With none, no genre tag is written at all.
+func TestGenresAreWrittenSoNavidromeSeparatesThem(t *testing.T) {
+	if got := fields(catalog.Meta{Title: "x", Genres: []string{"Latin Pop", "Reggaeton"}}); got["genre"] != "Latin Pop; Reggaeton" {
+		t.Errorf("genre = %q", got["genre"])
+	}
+	if _, ok := fields(catalog.Meta{Title: "x"})["genre"]; ok {
+		t.Error("an empty genre tag was written")
+	}
+}
+
 // Editing a song by hand: what changes is written, an empty value takes the tag away, and the rest stays.
 func TestSetChangesAndRemovesTags(t *testing.T) {
 	ffmpeg, err := exec.LookPath("ffmpeg")
