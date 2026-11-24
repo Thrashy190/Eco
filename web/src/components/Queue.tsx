@@ -31,10 +31,12 @@ function scrollerOf(node: HTMLElement): HTMLElement {
 }
 
 /**
+ * `fill` makes the list as wide as its box (the deck, which can be dragged wider) instead of the phone's column.
  * `heading` styles the headings: "Up next", or, when songs come from more than one place, "Next in queue" over those
  * added by hand, "Next from" the album or playlist, and "Autoplay" over the random songs that follow.
  */
-export function Queue({ upcoming, index, source, heading, autoplay }: { upcoming: Song[]; index: number; source: string; heading: string; autoplay: boolean }) {
+export function Queue({ upcoming, index, source, heading, autoplay, fill = false }: { upcoming: Song[]; index: number; source: string; heading: string; autoplay: boolean; fill?: boolean }) {
+  const rows = fill ? "w-full p-0" : ui.rowsPlain;
   const list = useRef<HTMLUListElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   // What a drag needs between pointer events, without redrawing for it
@@ -121,11 +123,11 @@ export function Queue({ upcoming, index, source, heading, autoplay }: { upcoming
     line = drag.to === 0 ? others[0].top : others[drag.to - 1].top + others[drag.to - 1].height;
   }
 
-  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={ui.rowsPlain}><li className={ui.empty}>{autoplay ? "Autoplay picks something when this one ends" : "The queue is empty"}</li></ul></>;
+  if (upcoming.length === 0) return <><h3 className={heading}>Up next</h3><ul className={rows}><li className={ui.empty}>{autoplay ? "Autoplay picks something when this one ends" : "The queue is empty"}</li></ul></>;
   const title = (kind: Kind, start: number) =>
     kind === "queued" ? "Next in queue" : kind === "auto" ? "Autoplay" : !mixedKinds ? "Up next" : source ? `Next from ${source}` : start === 0 ? "Up next" : "Then";
   return (
-    <ul ref={list} className={cx(ui.rowsPlain, "relative", drag && "select-none")}>
+    <ul ref={list} className={cx(rows, "relative", drag && "select-none")}>
       {parts.map((part) => [
         (mixedKinds || part.start === 0) && (
           <li key={`h-${part.start}`} className={cx(heading, "list-none", part.kind === "queued" && "text-accent!")} role="presentation">{title(part.kind, part.start)}</li>

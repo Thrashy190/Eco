@@ -339,7 +339,7 @@ function DeckNow({ song }: { song: Song }) {
         </div>
       </div>
       <div className="flex-1 min-h-24 overflow-y-auto px-2 pb-3 border-t border-line [scrollbar-width:thin]">
-        <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" />
+        <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" fill />
       </div>
     </div>
   );
