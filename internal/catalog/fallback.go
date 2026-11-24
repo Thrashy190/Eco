@@ -269,6 +269,27 @@ func (f *Fallback) FindCover(ctx context.Context, album, artist string) string {
 	return ""
 }
 
+// AlbumGenres implements GenreFinder: Main's genres, or Backup's when Main has none or could not answer.
+func (f *Fallback) AlbumGenres(ctx context.Context, album, artist string) ([]string, error) {
+	var err error
+	if finder, ok := f.Main.(GenreFinder); ok {
+		var genres []string
+		if genres, err = finder.AlbumGenres(ctx, album, artist); err == nil && len(genres) > 0 {
+			return genres, nil
+		}
+	}
+	if finder, ok := f.Backup.(GenreFinder); ok {
+		genres, errBackup := finder.AlbumGenres(ctx, album, artist)
+		if errBackup == nil {
+			return genres, nil
+		}
+		if err == nil {
+			err = errBackup
+		}
+	}
+	return nil, err
+}
+
 // FirstName is the first artist of "A, B", "A; B" or "A & B", as written.
 func FirstName(artists string) string {
 	if i := strings.IndexAny(artists, ",;&"); i > 0 {

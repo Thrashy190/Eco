@@ -69,6 +69,39 @@ type Song struct {
 	Disc     int    `json:"discNumber"`
 	// AlbumArtist is the artist of the album the song is on (an OpenSubsonic field).
 	AlbumArtist string `json:"displayAlbumArtist"`
+	// Participants are the song's artists one by one (an OpenSubsonic field).
+	Participants []ArtistRef `json:"artists"`
+	// Genre is the first genre; Genres lists them all (an OpenSubsonic field).
+	Genre  string      `json:"genre"`
+	Genres []GenreName `json:"genres"`
+	// PlayCount and Played are the asking user's: how often they played the song, and when last.
+	PlayCount int64  `json:"playCount"`
+	Played    string `json:"played"`
+}
+
+// ArtistRef is one of a song's artists.
+type ArtistRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GenreName is one of a song's genres.
+type GenreName struct {
+	Name string `json:"name"`
+}
+
+// GenreList is every genre of the song, the first one alone on servers that do not list them.
+func (s Song) GenreList() []string {
+	var out []string
+	for _, g := range s.Genres {
+		if g.Name != "" {
+			out = append(out, g.Name)
+		}
+	}
+	if len(out) == 0 && s.Genre != "" {
+		out = append(out, s.Genre)
+	}
+	return out
 }
 
 // Album is an album in the library.

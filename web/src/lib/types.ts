@@ -317,5 +317,81 @@ export interface CleanupReport {
   artists: { name: string; parts: string[]; songs: number; sure: boolean }[];
   /** Albums with no cover or doubtful tags. Older servers do not send it. */
   albums?: AlbumIssue[];
-  task: { running: boolean; done: number; total: number; failed: { title: string; error: string }[] | null; backup?: string };
+  task: CleanupTask;
+  /** Songs with no genre, and on how many albums. Older servers do not send it. */
+  genres?: { songs: number; albums: number };
+}
+
+/** A clean-up that rewrites tags. Only one runs at a time. */
+export interface CleanupTask {
+  /** Older servers only had the artist clean-up, and do not say. */
+  kind?: "artists" | "genres";
+  running: boolean;
+  done: number;
+  total: number;
+  failed: { title: string; error: string }[] | null;
+  backup?: string;
+  /** Songs the catalogue knows no genre for. */
+  unknown?: number;
+  stopped?: boolean;
+}
+
+// ---- Statistics (/api/stats) ----
+export interface StatsTotals {
+  plays: number;
+  /** Songs' lengths added up: Eco knows a play counted, not how much of it was heard. */
+  minutes: number;
+  songs: number;
+  artists: number;
+  albums: number;
+  genres: number;
+  listeners: number;
+  first_listens: number;
+  active_days: number;
+  no_genre: number;
+}
+
+export interface StatsRanked { id?: string; name: string; artist?: string; cover?: string; plays: number; minutes: number; listeners: number }
+export interface StatsBucket { start: string; plays: number; minutes: number }
+export interface StatsListener { user: string; plays: number; minutes: number; songs: number; top_song?: string; top_artist?: string; top_genre?: string; last: string }
+export interface StatsRecent { at: string; user: string; id: string; title: string; artist: string; cover?: string }
+
+export interface StatsSummary {
+  totals: StatsTotals;
+  previous?: StatsTotals;
+  step: "day" | "week" | "month";
+  timeline: StatsBucket[];
+  hours: number[];
+  /** Monday first. */
+  weekdays: number[];
+  songs: StatsRanked[];
+  artists: StatsRanked[];
+  albums: StatsRanked[];
+  genres: StatsRanked[];
+  /** Only when the numbers are about everyone. */
+  listeners?: StatsListener[];
+  recent: StatsRecent[];
+  /** The first play Eco counted itself. */
+  since?: string;
+  with_history: boolean;
+}
+
+export interface LibraryStats {
+  songs: number;
+  albums: number;
+  artists: number;
+  hours: number;
+  with_genre: number;
+  /** The genres with most songs: `plays` holds how many songs. */
+  genres: StatsRanked[];
+}
+
+export interface StatsResponse {
+  admin: boolean;
+  /** Whose numbers these are; empty for everyone. */
+  user: string;
+  summary: StatsSummary;
+  /** Everyone who has played something, for an administrator to choose from. */
+  people?: string[];
+  library?: LibraryStats;
 }

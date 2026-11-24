@@ -168,3 +168,29 @@ func TestARefusalStopsAsking(t *testing.T) {
 		t.Errorf("%d requests after a refusal", calls.Load())
 	}
 }
+
+func TestSongsCarryApplesGenre(t *testing.T) {
+	song := songResult(1, "Tití Me Preguntó", "Bad Bunny", "Un Verano Sin Ti", 243000)
+	song["primaryGenreName"] = "Latin Urban"
+	vague := songResult(2, "Something", "Bad Bunny", "Un Verano Sin Ti", 243000)
+	vague["primaryGenreName"] = "Music"
+	c, _ := serve(t, song, vague)
+	got, err := c.Track(context.Background(), "it-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Genres) != 1 || got.Genres[0] != "Latin Urban" {
+		t.Errorf("genres = %q", got.Genres)
+	}
+	if g := genresOf(item{Genre: "Music"}); len(g) != 0 {
+		t.Errorf("“Music” says nothing: %q", g)
+	}
+}
+
+func TestAlbumGenres(t *testing.T) {
+	c, _ := serve(t, map[string]any{"wrapperType": "collection", "collectionId": 50, "collectionName": "Un Verano Sin Ti", "artistName": "Bad Bunny", "trackCount": 23, "primaryGenreName": "Latin Urban"})
+	got, err := c.AlbumGenres(context.Background(), "Un Verano Sin Ti", "Bad Bunny")
+	if err != nil || len(got) != 1 || got[0] != "Latin Urban" {
+		t.Errorf("got %q, %v", got, err)
+	}
+}

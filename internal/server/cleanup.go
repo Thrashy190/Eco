@@ -279,13 +279,18 @@ func findCombinedArtists(songs []subsonic.Song) []artistFix {
 	return out
 }
 
-// retagTask is the artist clean-up: it can take minutes, longer than a tunnel keeps a request open.
+// retagTask is a clean-up that rewrites tags, of artists or genres (cleanupgenres.go): it can take minutes, longer than a
+// tunnel keeps a request open. Only one runs at a time, since both can change the same files.
 type retagTask struct {
+	Kind    string       `json:"kind,omitempty"` // "artists" or "genres"
 	Running bool         `json:"running"`
 	Done    int          `json:"done"`
 	Total   int          `json:"total"`
 	Failed  []retagError `json:"failed"`
 	Backup  string       `json:"backup,omitempty"`
+	// Unknown counts songs the catalogue knows no genre for. They stay without one.
+	Unknown int  `json:"unknown,omitempty"`
+	Stopped bool `json:"stopped,omitempty"`
 }
 
 type retagError struct {
@@ -302,7 +307,9 @@ func (s *Server) cleanupReport(w http.ResponseWriter, r *http.Request, cred subs
 	s.mu.Lock()
 	task := s.retag
 	s.mu.Unlock()
-	respond(w, http.StatusOK, map[string]any{"songs": len(songs), "duplicates": findDuplicates(songs), "artists": findCombinedArtists(songs), "albums": s.albumIssues(songs), "task": task})
+	missing, albums := songsWithoutGenre(songs)
+	respond(w, http.StatusOK, map[string]any{"songs": len(songs), "duplicates": findDuplicates(songs), "artists": findCombinedArtists(songs), "albums": s.albumIssues(songs), "task": task,
+		"genres": map[string]int{"songs": missing, "albums": albums}})
 }
 
 // separated writes a chosen name with the separator Navidrome splits on, between the parts chosen for it. Anything
@@ -372,7 +379,7 @@ func (s *Server) cleanupArtists(w http.ResponseWriter, r *http.Request, cred sub
 		fail(w, http.StatusConflict, "A clean-up is already running")
 		return
 	}
-	s.retag = retagTask{Running: true, Total: len(todo), Failed: []retagError{}, Backup: library.Rel(s.cfg.DataDir, backup)}
+	s.retag = retagTask{Kind: "artists", Running: true, Total: len(todo), Failed: []retagError{}, Backup: library.Rel(s.cfg.DataDir, backup)}
 	task := s.retag
 	s.mu.Unlock()
 	log.Printf("admin %s is separating the artists of %d songs (backup in %s)", cred.User, len(todo), backup)
