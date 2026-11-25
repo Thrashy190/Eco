@@ -5,6 +5,10 @@
 #   docker compose --profile downloads up -d              + Lidarr / Prowlarr / qBittorrent (album downloads)
 #
 # Set COMPOSE_PROFILES=tunnel in .env to make profiles the default. See README.md.
+#
+# Eco's image is published with each release (ghcr.io/thrashy190/eco), so this file and a .env are all a server needs:
+# update with `docker compose pull && docker compose up -d`. To run an image you built (`make docker`), set
+# ECO_IMAGE=eco:local in .env.
 name: eco
 
 services:
@@ -26,8 +30,7 @@ services:
       - ${DATA_DIR:-./data}/music:/music:ro # read-only: Navidrome never changes your files
 
   eco:
-    build: .
-    image: eco:local
+    image: ${ECO_IMAGE:-ghcr.io/thrashy190/eco:latest}
     container_name: eco
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"

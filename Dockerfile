@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1
 
+# The web app and the binary are built on the machine running the build, whatever the target: the web app is the same
+# everywhere and Go cross-compiles, so an arm64 image costs no emulated compiling. Only the last stage is the target's.
+
 # ---- Build the web app (React + TypeScript) ----
-FROM node:26-bookworm-slim AS web
+FROM --platform=$BUILDPLATFORM node:26-bookworm-slim AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -9,14 +12,15 @@ COPY web/ ./
 RUN npm run build
 
 # ---- Build the eco binary (the web app is embedded in it) ----
-FROM golang:1.27-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.27-bookworm AS build
 WORKDIR /src
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
 COPY --from=web /web/dist ./web/dist
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/eco ./cmd/eco
+ARG TARGETOS TARGETARCH
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" -o /out/eco ./cmd/eco
 
 # ---- Runtime: eco + the tools it shells out to ----
 FROM debian:bookworm-slim

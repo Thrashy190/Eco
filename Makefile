@@ -76,11 +76,11 @@ roku-logs: ## Follow the Roku app's log (what it prints, and its errors)
 check: vet test webcheck roku-check ## Everything CI runs
 	@test -z "$$(gofmt -l cmd internal web/embed.go)" || { echo "gofmt needed:"; gofmt -l cmd internal web/embed.go; exit 1; }
 
-docker: ## Build the Docker image
+docker: ## Build the Docker image as eco:local (run it with ECO_IMAGE=eco:local in .env)
 	docker build -t eco:local --build-arg VERSION=$(VERSION) .
 
-up: ## Start the stack (docker compose up -d --build)
-	docker compose up -d --build
+up: ## Start the stack with the published image (docker compose up -d)
+	docker compose up -d
 
 down: ## Stop the stack
 	docker compose down

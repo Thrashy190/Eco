@@ -6,10 +6,11 @@ How to run Eco on a home server and reach it safely from anywhere.
 
 ```bash
 curl -fsSL https://get.docker.com | sh && sudo usermod -aG docker $USER   # log out and in afterwards
-git clone https://github.com/Thrashy190/eco.git ~/eco && cd ~/eco
-cp .env.example .env                      # then edit: PUID/PGID (run `id`), TZ
+mkdir ~/eco && cd ~/eco
+curl -fsSLO https://raw.githubusercontent.com/Thrashy190/eco/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Thrashy190/eco/main/.env.example -o .env   # then edit: PUID/PGID (run `id`), TZ
 mkdir -p data/music navidrome secrets
-docker compose up -d --build
+docker compose up -d
 docker compose exec eco eco doctor        # checks yt-dlp, ffmpeg, Navidrome, the catalogue, cookies
 ```
 
@@ -92,4 +93,5 @@ Run it from a systemd timer or cron.
 - Strong, unique passwords for every Navidrome account; non-admin for guests.
 - Only HTTPS is reachable from outside; `ECO_BIND`, `ND_BIND` stay on `127.0.0.1` unless you know why not.
 - `.env` and `secrets/` are private (they hold API keys and your YouTube session). They are git-ignored; keep it that way.
-- Keep images fresh: `docker compose pull --ignore-buildable && docker compose up -d --build`. A plain `docker compose pull` fails on Eco's image, which is built here rather than downloaded.
+- Keep images fresh: `docker compose pull && docker compose up -d`. Eco's image is rebuilt every week with the latest yt-dlp.
+- Keep the server's folder apart from a clone of the repository: the folder holds `docker-compose.yml`, `.env` and your data, and the clone is only for development. A checkout of another branch then never touches what is running.
