@@ -35,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.released.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -46,3 +48,19 @@ jobs:
       - run: npx --yes semantic-release@25.0.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # The tag semantic-release put on this commit, if this push made a release. A tag pushed with GITHUB_TOKEN starts
+      # no workflow by itself, so the image is published from here.
+      - id: released
+        run: |
+          tag=$(git ls-remote --tags origin 'v*' | awk -v sha="$GITHUB_SHA" '$1 == sha { sub("refs/tags/", "", $2); sub(/\^\{\}$/, "", $2); print $2 }' | head -n 1)
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+
+  image:
+    needs: release
+    if: needs.release.outputs.version != ''
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/image.yml
+    with:
+      version: ${{ needs.release.outputs.version }}

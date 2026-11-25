@@ -90,11 +90,14 @@ More in [docs/architecture.md](docs/architecture.md).
 You need a machine that is always on (a PC, a Raspberry Pi 4 or newer, a home server, a VPS) with [Docker](https://docs.docker.com/engine/install/) and Docker Compose v2.
 
 ```bash
-git clone https://github.com/Thrashy190/eco.git && cd eco
-cp .env.example .env
+mkdir eco && cd eco
+curl -fsSLO https://raw.githubusercontent.com/Thrashy190/eco/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Thrashy190/eco/main/.env.example -o .env
 mkdir -p data/music navidrome secrets       # folders the containers use
-docker compose up -d --build
+docker compose up -d
 ```
+
+Nothing is built: Eco's image comes ready from `ghcr.io/thrashy190/eco` (amd64 and arm64), so the folder only holds that file, your `.env` and your data. Cloning the repository is for working on Eco.
 
 Then:
 
@@ -206,16 +209,15 @@ Eco reads `.env` from the current directory. Point it at your Navidrome with `EC
 ## Updating
 
 ```bash
-git pull
-make docker             # builds the image and records its release
+docker compose pull
 docker compose up -d
 ```
 
-`docker compose up -d --build` also works, but `eco version` and the logs then say `dev`.
+`latest` is the newest release. To stay on one, set `ECO_IMAGE=ghcr.io/thrashy190/eco:1` in `.env` (any `1.x`) or a full version such as `ghcr.io/thrashy190/eco:1.12.0`.
 
 Each feature and fix is a [release](https://github.com/Thrashy190/eco/releases) with its notes, numbered with [semantic versioning](https://semver.org): `v1.2.3` is a fix over `v1.2.2`, `v1.3.0` adds something, and `v2.0.0` asks you to change something when updating.
 
-yt-dlp changes whenever YouTube does. If downloads start failing everywhere, rebuild without cache to get the latest: `docker compose build --no-cache eco && docker compose up -d`.
+yt-dlp changes whenever YouTube does, so the newest release's image is built again every week with the latest yt-dlp. If downloads start failing everywhere, `docker compose pull && docker compose up -d` usually fixes it.
 
 ## Troubleshooting
 

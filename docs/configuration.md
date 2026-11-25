@@ -9,6 +9,7 @@ Everything is configured with environment variables, normally in a `.env` file n
 | [`PUID`, `PGID`](#puid-pgid) | Docker | the user that owns your music files |
 | [`TZ`](#tz) | no | time zone of the logs |
 | [`DATA_DIR`](#data_dir) | no | where music and state live |
+| [`ECO_IMAGE`](#eco_image) | no | which Eco image to run |
 | [`COMPOSE_PROFILES`](#compose_profiles) | no | optional parts to start |
 | [`CATALOG`, `MUSICBRAINZ_URL`, `CATALOG_BACKUP`, `ITUNES_COUNTRY`](#where-song-information-comes-from) | no | where song information comes from |
 | [`SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`](#spotify) | only `eco likes export` | a Spotify developer app |
@@ -37,6 +38,13 @@ A [tz database name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zone
 The folder that holds `music/` (the library), `media/` (imported podcasts and audiobooks) and Eco's state (`likes.csv`, `playlists/`, `users/`, `backup/`). Default `./data`
 (next to the compose file). On a server `/srv/data` is a common choice; create it first and make your user the
 owner: `sudo mkdir -p /srv/data/music && sudo chown -R $(id -u):$(id -g) /srv/data`.
+
+## ECO_IMAGE
+
+The Eco image `docker compose` runs. Default `ghcr.io/thrashy190/eco:latest`, the newest release, published by the
+project for amd64 and arm64; `docker compose pull` updates it. To stay on a major version use
+`ghcr.io/thrashy190/eco:1`; to pin one, `ghcr.io/thrashy190/eco:1.12.0`. An image you built from a clone with
+`make docker` is `eco:local`.
 
 ## COMPOSE_PROFILES
 
