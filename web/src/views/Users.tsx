@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { createUser, listUsers, unlockAdmin, userAvatarUrl, type Account } from "../lib/api";
 import { initials } from "../lib/format";
+import { generatePassword } from "../lib/password";
 import { cx, ui } from "../lib/ui";
 import { siteAddress, welcomeMessage, type Welcome } from "../lib/welcome";
 import { BackButton, Empty, Section, Skeleton } from "../components/common";
@@ -74,6 +75,26 @@ function ShareAccount({ welcome, onDone }: { welcome: Welcome; onDone: () => voi
   );
 }
 
+/** The new account's password, with a button to show or hide it and one to make a random one (shown, to be read). */
+function NewPassword({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="flex gap-2 items-center">
+      <div className="relative flex-1 min-w-0">
+        <input className={cx(ui.input, "pr-12")} type={shown ? "text" : "password"} placeholder="Their password, at least 8 characters" aria-label="Their password"
+          autoComplete="new-password" autoCapitalize="none" autoCorrect="off" spellCheck={false} required minLength={8} value={value} onChange={(e) => onChange(e.target.value)} />
+        <button type="button" className="tap absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center size-10 rounded-full text-muted hover:text-text active:bg-surface-3"
+          aria-label={shown ? "Hide password" : "Show password"} aria-pressed={shown} title={shown ? "Hide password" : "Show password"} onClick={() => setShown(!shown)}>
+          <Icon name={shown ? "eyeOff" : "eye"} size={20} />
+        </button>
+      </div>
+      <button type="button" className={cx(SECONDARY, "shrink-0 px-4")} title="Make a random password" onClick={() => { onChange(generatePassword()); setShown(true); }}>
+        <Icon name="dice" size={20} />Generate
+      </button>
+    </div>
+  );
+}
+
 function AddUser() {
   const client = useQueryClient();
   const [form, setForm] = useState(EMPTY);
@@ -96,7 +117,7 @@ function AddUser() {
       <form className={FORM} onSubmit={submit}>
         <input className={ui.input} placeholder="Username" aria-label="Username" autoComplete="off" autoCapitalize="none" autoCorrect="off" required maxLength={64} {...field("username")} />
         <input className={ui.input} placeholder="Full name (optional)" aria-label="Full name" autoComplete="off" maxLength={120} {...field("name")} />
-        <input className={ui.input} type="password" placeholder="Their password, at least 8 characters" aria-label="Their password" autoComplete="new-password" required minLength={8} {...field("password")} />
+        <NewPassword value={form.password} onChange={(password) => setForm((now) => ({ ...now, password }))} />
         {add.error && <p className="text-danger text-[.9rem]" role="alert">{add.error.message}</p>}
         <div><button type="submit" className={ui.primary} disabled={add.isPending}>{add.isPending ? <Ring percent={-1} size={20} /> : <Icon name="plus" size={20} />}Create account</button></div>
         <p className="text-muted text-[.85rem]">They get a regular account that can sign in here and in any Subsonic app. Eco does not keep the password. To remove someone or change a password, use Navidrome.</p>
