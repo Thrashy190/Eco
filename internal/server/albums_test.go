@@ -112,7 +112,7 @@ func fakeNavidrome(t *testing.T) *httptest.Server {
 func newTestServer(t *testing.T) http.Handler {
 	t.Helper()
 	cfg := &config.Config{NavidromeURL: fakeNavidrome(t).URL, MediaDir: t.TempDir(), UsersDir: t.TempDir()}
-	web := fstest.MapFS{"index.html": {Data: []byte("<!doctype html>")}, "assets/app-abc.js": {Data: []byte("1")}, "manifest.webmanifest": {Data: []byte("{}")}}
+	web := fstest.MapFS{"index.html": {Data: []byte(`<!doctype html><meta property="og:image" content="/og-image.png">`)}, "assets/app-abc.js": {Data: []byte("1")}, "manifest.webmanifest": {Data: []byte("{}")}}
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	s, err := New(ctx, cfg, engine.New(cfg), web)

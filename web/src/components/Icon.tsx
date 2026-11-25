@@ -49,6 +49,9 @@ const ICONS = {
   panel: <><rect x="3.5" y="4.5" width="17" height="15" rx="2" /><path d="M15 4.5v15" /></>,
   chart: <path d="M4 20h16M7 16v-5M12 16V6M17 16v-8" />,
   history: <><path d="M4 12a8 8 0 1 0 2.6-5.9L4 8.5V4m8 4v4.5l3 1.8" /></>,
+  eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
+  eyeOff: <path d="M4 4l16 16M10.6 6a9.6 9.6 0 0 1 1.4-.1c6 0 9.5 6.1 9.5 6.1a17 17 0 0 1-2.6 3.3M6.6 7.1C4 8.9 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.7 0 3.2-.5 4.4-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2" />,
+  dice: <><rect x="4" y="4" width="16" height="16" rx="3" /><circle className="fill-current stroke-none" cx="9" cy="9" r="1.4" /><circle className="fill-current stroke-none" cx="15" cy="15" r="1.4" /><circle className="fill-current stroke-none" cx="15" cy="9" r="1.4" /><circle className="fill-current stroke-none" cx="9" cy="15" r="1.4" /></>,
 } satisfies Record<string, ReactElement>;
 
 export type IconName = keyof typeof ICONS;

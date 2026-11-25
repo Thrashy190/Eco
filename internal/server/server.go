@@ -154,7 +154,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/admin/users/{name}/avatar", s.authed(s.adminOnly(s.userAvatar)))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	static := http.FileServerFS(s.web)
-	_, statErr := fs.Stat(s.web, "index.html")
+	index, statErr := fs.ReadFile(s.web, "index.html")
 	built := statErr == nil
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !built {
@@ -169,6 +169,13 @@ func (s *Server) Handler() http.Handler {
 		}
 		if strings.HasSuffix(r.URL.Path, ".webmanifest") { // Go does not know this type and would send text/plain
 			w.Header().Set("Content-Type", "application/manifest+json")
+		}
+		if r.URL.Path == "/" && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			if r.Method == http.MethodGet {
+				w.Write(withShareImage(index, r))
+			}
+			return
 		}
 		static.ServeHTTP(w, r)
 	}))
