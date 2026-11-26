@@ -253,8 +253,15 @@ export const getHome = () => eco<HomeResponse>("home");
 export const getSongs = (offset: number, limit: number, sort = "added") => eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit, sort });
 export const discover = (artist: string) => eco<DiscoverResponse>("discover", { artist });
 export const lookupArtist = (name: string) => eco<{ id: string; name: string }>("artists/lookup", { name });
-/** Every song in the library that names this artist, featured or not, in album order. */
-export const artistSongs = async (name: string) => (await eco<{ songs: RawSong[] }>("artists/songs", { name })).songs.map(toSong);
+/**
+ * Every song in the library that names this artist, featured or not, in album order, and the IDs of their popular ones,
+ * the most played on the server first. A server older than that sends no `popular`.
+ */
+export async function artistSongs(name: string): Promise<{ songs: Song[]; popular?: string[] }> {
+  const answer = await eco<{ songs: RawSong[]; popular?: unknown }>("artists/songs", { name });
+  const popular = Array.isArray(answer.popular) ? answer.popular.filter((id): id is string => typeof id === "string") : undefined;
+  return { songs: answer.songs.map(toSong), popular };
+}
 export const requestDownload = (id: string) => eco<Job>("download", { id }, "POST");
 export const getJobs = () => eco<Job[]>("jobs");
 

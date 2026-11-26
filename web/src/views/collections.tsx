@@ -4,11 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { artistSongs, coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, ownsPlaylist } from "../lib/api";
-import { plural, splitOwn } from "../lib/format";
+import { ARTIST_PREVIEW, pickPopular, plural, splitOwn } from "../lib/format";
 import { pictureToCover } from "../lib/image";
-import type { CollectionSpec, LibraryEntry, Song } from "../lib/types";
+import type { Album, CollectionSpec, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
-import { ArtistLinks } from "../components/ArtistLinks";
+import { ArtistLinks, artistPath } from "../components/ArtistLinks";
 import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../components/cards";
 import { BackButton, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
@@ -229,13 +229,59 @@ function Discover({ artist }: { artist: string }) {
     <>
       {albums.length > 0 && <Section title="More albums"><Shelf>{albums.map((a) => <ExternalAlbumCard key={a.id} album={a} />)}</Shelf></Section>}
       <Section title="Not in your library yet">
-        {external.length > 0
-          ? <>
-              <PickToDownload externals={external} />
-            </>
-          : <Empty>{warning ?? "Nothing else to suggest right now."}</Empty>}
+        {external.length > 0 ? <PickToDownload externals={external} /> : <Empty>{warning ?? "Nothing else to suggest right now."}</Empty>}
         {external.length > 0 && warning && <p className={ui.note}>{warning}</p>}
       </Section>
+    </>
+  );
+}
+
+interface ArtistSongs {
+  /** On the artist's own albums, in the order of the albums. */
+  own: Song[];
+  /** On other people's, where they are one of several artists. */
+  elsewhere: Song[];
+  /** The most played of both on this server. */
+  popular: Song[];
+}
+
+/** An artist's songs. Someone with no album of their own (no `albums`) only appears on other people's. */
+function useArtistSongs(name: string | undefined, albums?: Album[]) {
+  const online = useOnline();
+  const albumIds = albums?.map((a) => a.id);
+  return useQuery({
+    queryKey: ["artist-songs", name, albumIds?.join(",")],
+    queryFn: async (): Promise<ArtistSongs> => {
+      const { songs, popular } = await artistSongs(name!);
+      const parts = albumIds ? splitOwn(songs, albumIds) : { own: [], elsewhere: songs };
+      return { ...parts, popular: pickPopular(songs, popular) };
+    },
+    enabled: online && Boolean(name),
+  });
+}
+
+/** The first songs of a list, with the whole list a tap away on a page of its own. */
+function SongsPreview({ title, songs, to, from }: { title: string; songs: Song[]; to: string; from?: LibraryEntry }) {
+  if (songs.length === 0) return null;
+  const more = songs.length > ARTIST_PREVIEW && <Link className={ui.pill} to={to}>{`Show all ${songs.length}`}</Link>;
+  return <Section title={title} action={more}><SongList songs={songs} limit={ARTIST_PREVIEW} from={from} /></Section>;
+}
+
+/**
+ * Everything under an artist's name: their popular songs, their songs, the ones they appear on, their albums in the
+ * library, then what the catalogue has that the library does not. `base` is the artist's address, for "Show all".
+ */
+function ArtistLists({ name, base, albums, songs, from }: { name: string; base: string; albums: Album[]; songs: ReturnType<typeof useArtistSongs>; from?: LibraryEntry }) {
+  const lists = songs.data;
+  return (
+    <>
+      {songs.isPending && <Section title="Popular"><Skeleton rows={5} /></Section>}
+      {songs.error && <Section title="Songs"><Empty>{songs.error.message}</Empty></Section>}
+      {lists && lists.popular.length > 0 && <Section title="Popular"><SongList songs={lists.popular} ranked from={from} /></Section>}
+      {lists && <SongsPreview title="Songs" songs={lists.own} to={`${base}/songs`} from={from} />}
+      {lists && <SongsPreview title="Appears on" songs={lists.elsewhere} to={`${base}/appears-on`} from={from} />}
+      {albums.length > 0 && <Section title="Discography"><Shelf>{albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></Section>}
+      <Discover artist={name} />
     </>
   );
 }
@@ -254,16 +300,15 @@ export function ArtistByName() {
 
 /** Someone with no album of their own in the library, who may still sing on other people's songs. */
 function FeaturedOnly({ name }: { name: string }) {
-  const { data: songs } = useQuery({ queryKey: ["artist-songs", "name", name], queryFn: () => artistSongs(name) });
-  const count = songs?.length ?? 0;
+  const songs = useArtistSongs(name);
+  const all = songs.data?.elsewhere ?? [];
   return (
     <>
       <BackButton />
       <DetailPage art={<ArtistAvatar name={name} size={300} className={ui.avatarBig} />}
-        info={<><h1>{name}</h1><p>{count > 0 ? `${plural(count, "song")} in your library` : "Nothing in your library yet"}</p></>}
-        actions={count > 0 ? <PlayButtons songs={songs!} /> : null}>
-        {count > 0 && <Section title={`Appears on (${count})`}><SongList songs={songs!} /></Section>}
-        <Discover artist={name} />
+        info={<><h1>{name}</h1><p>{all.length > 0 ? `${plural(all.length, "song")} in your library` : "Nothing in your library yet"}</p></>}
+        actions={all.length > 0 ? <PlayButtons songs={all} /> : null}>
+        <ArtistLists name={name} base={artistPath(name)} albums={[]} songs={songs} />
       </DetailPage>
     </>
   );
@@ -273,12 +318,8 @@ export function ArtistView() {
   const { id = "" } = useParams();
   const online = useOnline();
   const { data: artist, error, isPending } = useQuery({ queryKey: ["artist", id], queryFn: () => getArtist(id), enabled: online });
-  const { data: songs } = useQuery({
-    queryKey: ["artist-songs", id, artist?.name, artist?.albums.length],
-    queryFn: async () => splitOwn(await artistSongs(artist!.name), artist!.albums.map((a) => a.id)),
-    enabled: online && Boolean(artist),
-  });
-  const all = songs ? [...songs.own, ...songs.elsewhere] : [];
+  const songs = useArtistSongs(artist?.name, artist?.albums);
+  const all = songs.data ? [...songs.data.own, ...songs.data.elsewhere] : [];
   const entry = artist ? artistEntry(artist) : null;
   useRecent(entry);
 
@@ -293,11 +334,39 @@ export function ArtistView() {
         actions={all.length > 0
           ? <PlayButtons songs={all} from={entry!}><PinButton entry={entry!} /></PlayButtons>
           : <div className={ui.actions}><PinButton entry={entry!} /></div>}>
-        {artist.albums.length > 0 && <Section title="Albums"><Shelf>{artist.albums.map((a) => <AlbumCard key={a.id} album={a} />)}</Shelf></Section>}
-        {songs && songs.own.length > 0 && <Section title={`Songs (${songs.own.length})`}><SongList songs={songs.own} /></Section>}
-        {songs && songs.elsewhere.length > 0 && <Section title={`Appears on (${songs.elsewhere.length})`}><SongList songs={songs.elsewhere} /></Section>}
-        <Discover artist={artist.name} />
+        <ArtistLists name={artist.name} base={artistPath(artist.name, artist.id)} albums={artist.albums} songs={songs} from={entry!} />
       </DetailPage>
     </>
   );
+}
+
+/**
+ * The whole of one of an artist's lists, behind "Show all": the songs on their own albums, or the ones they appear on.
+ * Someone with no album in the library is reached by name and only has the second.
+ */
+export function ArtistSongsView({ part }: { part: "songs" | "appears-on" }) {
+  const { id, name: named } = useParams();
+  const online = useOnline();
+  const { data: artist, error, isPending } = useQuery({ queryKey: ["artist", id], queryFn: () => getArtist(id!), enabled: online && Boolean(id) });
+  const name = id ? artist?.name : named;
+  const songs = useArtistSongs(name, id ? artist?.albums : undefined);
+  const list = part === "songs" ? songs.data?.own : songs.data?.elsewhere;
+  const entry = artist ? artistEntry(artist) : undefined;
+
+  let body;
+  if (!online) body = <Empty>Artist pages need a connection.</Empty>;
+  else if (error || songs.error) body = <Empty>{(error ?? songs.error)!.message}</Empty>;
+  else if ((id && isPending) || !name || !list) body = <Skeleton />;
+  else {
+    body = (
+      <DetailPage art={<ArtistAvatar name={name} cover={artist?.cover} size={300} className={ui.avatarBig} />}
+        info={<><h1>{name}</h1><p>{plural(list.length, "song")}</p></>}
+        actions={list.length > 0 ? <PlayButtons songs={list} from={entry} /> : null}>
+        <Section title={part === "songs" ? "Songs" : "Appears on"}>
+          {list.length > 0 ? <SongList songs={list} from={entry} /> : <Empty>Nothing here yet.</Empty>}
+        </Section>
+      </DetailPage>
+    );
+  }
+  return <><BackButton />{body}</>;
 }

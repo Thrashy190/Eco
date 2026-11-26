@@ -108,7 +108,7 @@ func libraryServer(t *testing.T, songs ...map[string]any) (*fakeLibrary, http.Ha
 	nd := httptest.NewServer(fake)
 	t.Cleanup(nd.Close)
 	dir := t.TempDir()
-	cfg := &config.Config{NavidromeURL: nd.URL, MediaDir: filepath.Join(dir, "media"), UsersDir: filepath.Join(dir, "users"), MusicDir: filepath.Join(dir, "music"), DataDir: dir, FFmpeg: "ffmpeg"}
+	cfg := &config.Config{NavidromeURL: nd.URL, MediaDir: filepath.Join(dir, "media"), UsersDir: filepath.Join(dir, "users"), StatsDir: filepath.Join(dir, "stats"), MusicDir: filepath.Join(dir, "music"), DataDir: dir, FFmpeg: "ffmpeg"}
 	os.MkdirAll(cfg.MusicDir, 0o755)
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)

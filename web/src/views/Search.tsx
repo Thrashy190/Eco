@@ -5,7 +5,7 @@ import { isYoutubeLink } from "../lib/format";
 import { AlbumCard, ArtistCard, ExternalAlbumCard } from "../components/cards";
 import { Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { Icon } from "../components/Icon";
-import { ExternalRow, GetAllButton, SongList } from "../components/songs";
+import { PickToDownload, SongList } from "../components/songs";
 import { isWide } from "../lib/media";
 import { ui } from "../lib/ui";
 import * as offline from "../stores/offline";
@@ -60,9 +60,7 @@ function Results({ query }: { query: string }) {
       )}
       {songs.length > 0 && <Section title="In your library"><SongList songs={songs} /></Section>}
       {external.length > 0 && (
-        <Section title="Not in your library yet" action={<GetAllButton externals={external} />}>
-          <ul className={ui.rows}>{external.map((ext) => <ExternalRow key={ext.id} ext={ext} />)}</ul>
-        </Section>
+        <Section title="Not in your library yet"><PickToDownload externals={external} underSearch /></Section>
       )}
       {looking && <p className={ui.note}>Looking in the catalogue…</p>}
       {warning && <p className={ui.note}>{warning}</p>}

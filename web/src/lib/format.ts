@@ -89,6 +89,19 @@ export function splitOwn(songs: Song[], albumIds: string[]): { own: Song[]; else
   return { own, elsewhere: songs.filter((s) => s.albumId === undefined || !place.has(s.albumId)) };
 }
 
+/** How many songs an artist page shows in each of its lists before "Show all", and as popular. */
+export const ARTIST_PREVIEW = 10;
+
+/**
+ * An artist's popular songs, in the order the server gives (the most played on it first, filled with the rest). A
+ * server older than that sends no order: then the first songs stand in for them.
+ */
+export function pickPopular(songs: Song[], popular: string[] | undefined, count = ARTIST_PREVIEW): Song[] {
+  if (!popular) return songs.slice(0, count);
+  const byId = new Map(songs.map((s) => [s.id, s]));
+  return popular.flatMap((id) => byId.get(id) ?? []).slice(0, count);
+}
+
 /**
  * The release notes of a published version ("v1.3.0"). A build between releases ("v1.3.0-2-gabc123") or a local one
  * ("dev") has none.

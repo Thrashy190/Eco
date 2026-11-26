@@ -24,7 +24,7 @@ import { AddSong } from "./views/AddSong";
 import { AlbumLookup, CatalogAlbumView } from "./views/CatalogAlbum";
 import { Cleanup } from "./views/Cleanup";
 import { EditSong } from "./views/EditSong";
-import { AlbumView, ArtistByName, ArtistView, PlaylistView } from "./views/collections";
+import { AlbumView, ArtistByName, ArtistSongsView, ArtistView, PlaylistView } from "./views/collections";
 import { Home } from "./views/Home";
 import { ImportDetailView, ImportView } from "./views/Import";
 import { Library } from "./views/Library";
@@ -128,7 +128,10 @@ function SignedIn({ user }: { user: string }) {
           <Route path="library" element={<Library />} />
           <Route path="library/:tab" element={<Library />} />
           <Route path="artist/name/:name" element={<ArtistByName />} />
+          <Route path="artist/name/:name/appears-on" element={<ArtistSongsView part="appears-on" />} />
           <Route path="artist/:id" element={<ArtistView />} />
+          <Route path="artist/:id/songs" element={<ArtistSongsView part="songs" />} />
+          <Route path="artist/:id/appears-on" element={<ArtistSongsView part="appears-on" />} />
           <Route path="album/:id" element={<AlbumView />} />
           <Route path="catalog-album/:id" element={<CatalogAlbumView />} />
           <Route path="album-lookup" element={<AlbumLookup />} />
