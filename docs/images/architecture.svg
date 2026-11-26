@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 780" width="1280" height="780" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1150" width="1600" height="1150" role="img" aria-labelledby="title desc">
   <title id="title">How Eco fits together</title>
-  <desc id="desc">Phones, computers and Subsonic apps reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder that Navidrome reads.</desc>
+  <desc id="desc">Phones and computers in a browser, the desktop app, a Roku TV and Subsonic apps reach Eco over HTTPS. The desktop app carries the web app inside and passes only /api and /rest to the server, through a small server of its own. Eco passes audio and library requests to Navidrome, which reads the music folder; asks MusicBrainz and iTunes for song information; lets your devices control each other with Connect; and downloads songs with yt-dlp and ffmpeg into the music folder, and podcasts and audiobooks into a folder of their own. Spotify, for the eco likes command, and Lidarr with Prowlarr and qBittorrent are optional. Every release publishes the Docker image and the desktop installers.</desc>
   <defs>
     <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#1f2430"/></pattern>
     <linearGradient id="mint" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a9f8d9"/><stop offset="1" stop-color="#3fd0a2"/></linearGradient>
@@ -8,6 +8,7 @@
     <marker id="a-mint" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#3fd0a2"/></marker>
     <marker id="a-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#6ea8fe"/></marker>
     <marker id="a-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#f5b65b"/></marker>
+    <marker id="a-violet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#b18cff"/></marker>
     <marker id="a-grey" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" fill="#8b93a7"/></marker>
   </defs>
   <style>
@@ -18,141 +19,211 @@
     .t { font-size: 15px; font-weight: 650; fill: #f2f4f8; }
     .d { font-size: 12.5px; fill: #a4abbc; }
     .label { font-size: 12px; font-weight: 600; }
+    .inner { font-size: 13.5px; font-weight: 650; fill: #a9f8d9; }
     .card { fill: #181b24; stroke: #2c3240; stroke-width: 1.2; filter: url(#lift); }
     .box { fill: none; stroke: #2c3240; stroke-width: 1.2; stroke-dasharray: 5 5; }
     .edge { fill: none; stroke-width: 2; stroke-linejoin: round; }
-    .mint { stroke: #3fd0a2; } .blue { stroke: #6ea8fe; } .amber { stroke: #f5b65b; } .grey { stroke: #8b93a7; }
-    .fmint { fill: #3fd0a2; } .fblue { fill: #6ea8fe; } .famber { fill: #f5b65b; } .fgrey { fill: #a4abbc; }
+    .mint { stroke: #3fd0a2; } .blue { stroke: #6ea8fe; } .amber { stroke: #f5b65b; } .violet { stroke: #b18cff; } .grey { stroke: #8b93a7; }
+    .fmint { fill: #3fd0a2; } .fblue { fill: #6ea8fe; } .famber { fill: #f5b65b; } .fviolet { fill: #b18cff; } .fgrey { fill: #a4abbc; }
     .tag { fill: #0e1016; }
   </style>
 
-  <rect width="1280" height="780" rx="24" fill="#0e1016"/>
-  <rect width="1280" height="780" rx="24" fill="url(#dots)"/>
+  <rect width="1600" height="1150" rx="24" fill="#0e1016"/>
+  <rect width="1600" height="1150" rx="24" fill="url(#dots)"/>
 
   <text x="40" y="52" class="h">How Eco fits together</text>
-  <text x="40" y="76" class="sub">Your devices talk to one server. Navidrome keeps the library, Eco adds search, downloads and the app.</text>
+  <text x="40" y="76" class="sub">Your devices talk to one server. Navidrome keeps the library; Eco adds search, downloads, the apps and control between your devices.</text>
 
   <!-- Devices -->
-  <rect x="32" y="104" width="248" height="596" rx="16" class="box"/>
+  <rect x="32" y="104" width="300" height="832" rx="16" class="box"/>
   <text x="50" y="132" class="group">YOUR DEVICES</text>
 
-  <rect x="50" y="148" width="212" height="176" rx="12" class="card"/>
+  <rect x="50" y="148" width="264" height="170" rx="12" class="card"/>
   <text x="68" y="178" class="t">Phone</text>
   <text x="68" y="198" class="d">Installed from the browser,</text>
   <text x="68" y="214" class="d">lock-screen controls</text>
-  <rect x="68" y="232" width="176" height="74" rx="9" fill="#10231e" stroke="#3fd0a2" stroke-width="1.2"/>
-  <text x="82" y="256" font-size="13.5" font-weight="650" fill="#a9f8d9">Saved songs</text>
+  <rect x="68" y="232" width="228" height="70" rx="9" fill="#10231e" stroke="#3fd0a2" stroke-width="1.2"/>
+  <text x="82" y="256" class="inner">Saved songs</text>
   <text x="82" y="274" class="d">In the app's own storage.</text>
   <text x="82" y="291" class="d">They play with no request.</text>
 
-  <rect x="50" y="356" width="212" height="128" rx="12" class="card"/>
-  <text x="68" y="396" class="t">Computer or tablet</text>
-  <text x="68" y="416" class="d">Panels: library, page,</text>
-  <text x="68" y="432" class="d">player bar, what plays next</text>
+  <rect x="50" y="334" width="264" height="100" rx="12" class="card"/>
+  <text x="68" y="366" class="t">Computer, in a browser</text>
+  <text x="68" y="386" class="d">The deck beside the page holds</text>
+  <text x="68" y="402" class="d">the song and what plays next</text>
 
-  <rect x="50" y="516" width="212" height="128" rx="12" class="card"/>
-  <text x="68" y="556" class="t">Any Subsonic app</text>
-  <text x="68" y="576" class="d">Optional. Sees the same library</text>
-  <text x="68" y="592" class="d">through Navidrome's own API</text>
+  <rect x="50" y="450" width="264" height="204" rx="12" class="card"/>
+  <text x="68" y="480" class="t">Desktop app</text>
+  <text x="68" y="500" class="d">Linux, macOS and Windows: the</text>
+  <text x="68" y="516" class="d">same app in its own window, with</text>
+  <text x="68" y="532" class="d">saved songs. Closing it keeps the</text>
+  <text x="68" y="548" class="d">music on, and it updates itself</text>
+  <rect x="68" y="566" width="228" height="72" rx="9" fill="#10231e" stroke="#3fd0a2" stroke-width="1.2"/>
+  <text x="82" y="590" class="inner">The app travels inside</text>
+  <text x="82" y="608" class="d">It asks your server only for</text>
+  <text x="82" y="625" class="d">/api and /rest, through 127.0.0.1</text>
+
+  <rect x="50" y="670" width="264" height="120" rx="12" class="card"/>
+  <text x="68" y="700" class="t">Roku TV</text>
+  <text x="68" y="720" class="d">Browse with the remote, or send</text>
+  <text x="68" y="736" class="d">music to it from your phone. It</text>
+  <text x="68" y="752" class="d">signs in with a code</text>
+
+  <rect x="50" y="806" width="264" height="100" rx="12" class="card"/>
+  <text x="68" y="836" class="t">Any Subsonic app</text>
+  <text x="68" y="856" class="d">Optional. Sees the same library</text>
+  <text x="68" y="872" class="d">through Navidrome's own API</text>
 
   <!-- HTTPS -->
-  <rect x="316" y="148" width="46" height="552" rx="12" fill="#14171f" stroke="#2c3240" stroke-width="1.2"/>
-  <text transform="translate(345 424) rotate(-90)" text-anchor="middle" class="d" font-weight="600">HTTPS: Cloudflare Tunnel, Tailscale or your own proxy</text>
+  <rect x="360" y="148" width="46" height="788" rx="12" fill="#14171f" stroke="#2c3240" stroke-width="1.2"/>
+  <text transform="translate(389 542) rotate(-90)" text-anchor="middle" class="d" font-weight="600">HTTPS: Cloudflare Tunnel, Tailscale or your own proxy</text>
 
-  <path d="M262 236H316" class="edge grey" marker-end="url(#a-grey)"/>
-  <path d="M262 420H316" class="edge grey" marker-end="url(#a-grey)"/>
-  <path d="M262 580H316" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M314 236H360" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M314 384H360" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M314 520H360" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M314 730H360" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M314 856H360" class="edge grey" marker-end="url(#a-grey)"/>
 
-  <!-- eco -->
-  <rect x="400" y="104" width="372" height="596" rx="16" fill="#12151c" stroke="#3fd0a2" stroke-width="1.6"/>
-  <g transform="translate(420 118) scale(.0625)"><rect width="512" height="512" rx="112" fill="#08080c"/><g fill="url(#mint)"><rect x="94" y="175" width="30" height="163" rx="15"/><rect x="136" y="125" width="30" height="263" rx="15"/><rect x="178" y="101" width="30" height="86" rx="15"/><rect x="178" y="229" width="30" height="55" rx="15"/><rect x="178" y="326" width="30" height="86" rx="15"/><rect x="220" y="90" width="30" height="75" rx="15"/><rect x="220" y="229" width="30" height="55" rx="15"/><rect x="220" y="348" width="30" height="75" rx="15"/><rect x="262" y="90" width="30" height="75" rx="15"/><rect x="262" y="229" width="30" height="55" rx="15"/><rect x="262" y="348" width="30" height="75" rx="15"/><rect x="304" y="101" width="30" height="86" rx="15"/><rect x="304" y="229" width="30" height="55" rx="15"/><rect x="304" y="326" width="30" height="86" rx="15"/><rect x="346" y="125" width="30" height="159" rx="15"/><rect x="346" y="351" width="30" height="37" rx="15"/><rect x="388" y="175" width="30" height="109" rx="15"/></g></g>
-  <text x="464" y="134" font-size="18" font-weight="700" fill="#f2f4f8">Eco</text>
-  <text x="464" y="152" class="d">One Go binary with the app inside</text>
+  <!-- Eco -->
+  <rect x="440" y="104" width="480" height="832" rx="16" fill="#12151c" stroke="#3fd0a2" stroke-width="1.6"/>
+  <g transform="translate(460 118) scale(.0625)"><rect width="512" height="512" rx="112" fill="#08080c"/><g fill="url(#mint)"><rect x="94" y="175" width="30" height="163" rx="15"/><rect x="136" y="125" width="30" height="263" rx="15"/><rect x="178" y="101" width="30" height="86" rx="15"/><rect x="178" y="229" width="30" height="55" rx="15"/><rect x="178" y="326" width="30" height="86" rx="15"/><rect x="220" y="90" width="30" height="75" rx="15"/><rect x="220" y="229" width="30" height="55" rx="15"/><rect x="220" y="348" width="30" height="75" rx="15"/><rect x="262" y="90" width="30" height="75" rx="15"/><rect x="262" y="229" width="30" height="55" rx="15"/><rect x="262" y="348" width="30" height="75" rx="15"/><rect x="304" y="101" width="30" height="86" rx="15"/><rect x="304" y="229" width="30" height="55" rx="15"/><rect x="304" y="326" width="30" height="86" rx="15"/><rect x="346" y="125" width="30" height="159" rx="15"/><rect x="346" y="351" width="30" height="37" rx="15"/><rect x="388" y="175" width="30" height="109" rx="15"/></g></g>
+  <text x="504" y="134" font-size="18" font-weight="700" fill="#f2f4f8">Eco</text>
+  <text x="504" y="152" class="d">One Go binary with the app inside, run with Docker</text>
 
-  <rect x="420" y="172" width="332" height="80" rx="12" class="card"/>
-  <text x="438" y="204" class="t">The web app</text>
-  <text x="438" y="224" class="d">React and TypeScript, built into the binary</text>
+  <rect x="460" y="172" width="440" height="88" rx="12" class="card"/>
+  <text x="478" y="204" class="t">The web app</text>
+  <text x="478" y="224" class="d">React and TypeScript, built into the binary</text>
+  <text x="478" y="240" class="d">and into the desktop app</text>
 
-  <rect x="420" y="268" width="332" height="80" rx="12" class="card"/>
-  <text x="438" y="300" class="t">/rest/*</text>
-  <text x="438" y="320" class="d">Audio, covers, playlists: passed straight on</text>
+  <rect x="460" y="276" width="440" height="80" rx="12" class="card"/>
+  <text x="478" y="308" class="t">/rest/*</text>
+  <text x="478" y="328" class="d">Audio, covers, playlists: passed straight on</text>
 
-  <rect x="420" y="364" width="332" height="96" rx="12" class="card"/>
-  <text x="438" y="396" class="t">/api/*</text>
-  <text x="438" y="416" class="d">Search everywhere, whole albums, imported lists,</text>
-  <text x="438" y="433" class="d">library clean-up, control of your other devices</text>
+  <rect x="460" y="372" width="440" height="96" rx="12" class="card"/>
+  <text x="478" y="404" class="t">/api/*</text>
+  <text x="478" y="424" class="d">Search everywhere, albums, artists, statistics,</text>
+  <text x="478" y="441" class="d">imported lists, song editing, library clean-up</text>
 
-  <rect x="420" y="476" width="332" height="96" rx="12" class="card"/>
-  <text x="438" y="508" class="t">Download queue</text>
-  <text x="438" y="528" class="d">One song at a time. Refuses a doubtful match,</text>
-  <text x="438" y="545" class="d">pauses when YouTube blocks</text>
+  <rect x="460" y="484" width="440" height="96" rx="12" class="card"/>
+  <text x="478" y="516" class="t">Connect</text>
+  <text x="478" y="536" class="d">Play on any of your devices from any other: live</text>
+  <text x="478" y="553" class="d">events to apps and browsers, polling for the TV</text>
 
-  <rect x="420" y="588" width="332" height="92" rx="12" class="card"/>
-  <text x="438" y="620" class="t">Per-user data</text>
-  <text x="438" y="640" class="d">Recents, pins, covers, imported lists.</text>
-  <text x="438" y="657" class="d">No database, and no user sees another's</text>
+  <rect x="460" y="596" width="440" height="96" rx="12" class="card"/>
+  <text x="478" y="628" class="t">Download queue</text>
+  <text x="478" y="648" class="d">One song at a time. Refuses a doubtful match,</text>
+  <text x="478" y="665" class="d">pauses when YouTube blocks</text>
 
-  <path d="M362 212H420" class="edge grey" marker-end="url(#a-grey)"/>
-  <path d="M362 308H420" class="edge mint" marker-end="url(#a-mint)"/>
-  <path d="M362 412H420" class="edge blue" marker-end="url(#a-blue)"/>
-  <path d="M362 524H420" class="edge amber" marker-end="url(#a-amber)"/>
+  <rect x="460" y="708" width="440" height="96" rx="12" class="card"/>
+  <text x="478" y="740" class="t">Podcasts and audiobooks</text>
+  <text x="478" y="760" class="d">The audio of a YouTube link, kept apart from</text>
+  <text x="478" y="777" class="d">the music and served by Eco itself</text>
 
-  <!-- Right column -->
-  <text x="852" y="132" class="group">THE LIBRARY</text>
-  <rect x="852" y="148" width="388" height="84" rx="12" class="card"/>
-  <text x="870" y="180" class="t">Navidrome</text>
-  <text x="870" y="200" class="d">Accounts, playlists, favorites, play counts, streaming</text>
+  <rect x="460" y="820" width="440" height="96" rx="12" class="card"/>
+  <text x="478" y="852" class="t">Per-user data</text>
+  <text x="478" y="872" class="d">Recents, pins, covers, look, imported lists, plays.</text>
+  <text x="478" y="889" class="d">No database, and no user sees another's</text>
 
-  <!-- Music folder, as a cylinder -->
+  <path d="M406 216H460" class="edge grey" marker-end="url(#a-grey)"/>
+  <path d="M406 316H460" class="edge mint" marker-end="url(#a-mint)"/>
+  <path d="M406 420H460" class="edge blue" marker-end="url(#a-blue)"/>
+  <path d="M406 532H460" class="edge violet" marker-end="url(#a-violet)"/>
+  <path d="M406 644H460" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M406 756H460" class="edge amber" marker-end="url(#a-amber)"/>
+
+  <!-- The library -->
+  <text x="980" y="132" class="group">THE LIBRARY</text>
+  <rect x="980" y="148" width="588" height="84" rx="12" class="card"/>
+  <text x="998" y="180" class="t">Navidrome</text>
+  <text x="998" y="200" class="d">Accounts, playlists, favorites, play counts, streaming</text>
+
   <g filter="url(#lift)">
-    <path d="M852 278v44c0 11 87 20 194 20s194-9 194-20v-44z" fill="#181b24" stroke="#2c3240" stroke-width="1.2"/>
-    <ellipse cx="1046" cy="278" rx="194" ry="20" fill="#20242f" stroke="#2c3240" stroke-width="1.2"/>
+    <path d="M980 278v52c0 11 132 20 294 20s294-9 294-20v-52z" fill="#181b24" stroke="#2c3240" stroke-width="1.2"/>
+    <ellipse cx="1274" cy="278" rx="294" ry="20" fill="#20242f" stroke="#2c3240" stroke-width="1.2"/>
   </g>
-  <text x="1046" y="284" text-anchor="middle" class="t">data/music</text>
-  <text x="1046" y="322" text-anchor="middle" class="d">Your files. Navidrome only reads them; Eco writes downloads</text>
+  <text x="1274" y="284" text-anchor="middle" class="t">data/music</text>
+  <text x="1274" y="322" text-anchor="middle" class="d">Your files. Navidrome only reads them; Eco writes the downloads</text>
 
-  <text x="852" y="376" class="group">SONG INFORMATION</text>
-  <rect x="842" y="386" width="408" height="118" rx="14" class="box"/>
-  <rect x="852" y="396" width="186" height="98" rx="12" class="card"/>
-  <text x="868" y="427" class="t">MusicBrainz</text>
-  <text x="868" y="447" class="d">Main catalogue, with the</text>
-  <text x="868" y="464" class="d">Cover Art Archive</text>
-  <rect x="1054" y="396" width="186" height="98" rx="12" class="card"/>
-  <text x="1070" y="427" class="t">iTunes Search</text>
-  <text x="1070" y="447" class="d">Backup, and a second</text>
-  <text x="1070" y="464" class="d">opinion on every search</text>
+  <!-- Song information -->
+  <text x="980" y="390" class="group">SONG INFORMATION</text>
+  <rect x="970" y="402" width="608" height="118" rx="14" class="box"/>
+  <rect x="980" y="412" width="290" height="98" rx="12" class="card"/>
+  <text x="996" y="443" class="t">MusicBrainz</text>
+  <text x="996" y="463" class="d">Main catalogue, with the</text>
+  <text x="996" y="480" class="d">Cover Art Archive</text>
+  <rect x="1278" y="412" width="290" height="98" rx="12" class="card"/>
+  <text x="1294" y="443" class="t">iTunes Search</text>
+  <text x="1294" y="463" class="d">Backup, and a second</text>
+  <text x="1294" y="480" class="d">opinion on every search</text>
 
-  <text x="852" y="532" class="group">DOWNLOADING</text>
-  <rect x="852" y="548" width="168" height="92" rx="12" class="card"/>
-  <text x="868" y="578" class="t">yt-dlp</text>
-  <text x="868" y="598" class="d">Finds the audio on</text>
-  <text x="868" y="615" class="d">YouTube, fetches it</text>
-  <rect x="1072" y="548" width="168" height="92" rx="12" class="card"/>
-  <text x="1088" y="578" class="t">ffmpeg</text>
-  <text x="1088" y="598" class="d">Tags and cover,</text>
-  <text x="1088" y="615" class="d">no re-encoding</text>
+  <!-- Downloading -->
+  <text x="980" y="556" class="group">DOWNLOADING</text>
+  <rect x="980" y="572" width="250" height="92" rx="12" class="card"/>
+  <text x="996" y="602" class="t">yt-dlp</text>
+  <text x="996" y="622" class="d">Finds the audio on</text>
+  <text x="996" y="639" class="d">YouTube, fetches it</text>
+  <rect x="1318" y="572" width="250" height="92" rx="12" class="card"/>
+  <text x="1334" y="602" class="t">ffmpeg</text>
+  <text x="1334" y="622" class="d">Tags and cover,</text>
+  <text x="1334" y="639" class="d">no re-encoding</text>
+
+  <g filter="url(#lift)">
+    <path d="M980 718v52c0 11 56 20 125 20s125-9 125-20v-52z" fill="#181b24" stroke="#2c3240" stroke-width="1.2"/>
+    <ellipse cx="1105" cy="718" rx="125" ry="18" fill="#20242f" stroke="#2c3240" stroke-width="1.2"/>
+  </g>
+  <text x="1105" y="724" text-anchor="middle" class="t">data/media</text>
+  <text x="1105" y="756" text-anchor="middle" class="d">Podcasts and audiobooks,</text>
+  <text x="1105" y="772" text-anchor="middle" class="d">which Navidrome never sees</text>
+
+  <!-- Optional -->
+  <text x="1272" y="692" class="group">OPTIONAL</text>
+  <rect x="1262" y="702" width="316" height="178" rx="14" class="box"/>
+  <rect x="1272" y="712" width="296" height="76" rx="12" class="card"/>
+  <text x="1288" y="738" class="t">Spotify</text>
+  <text x="1288" y="758" class="d">Only for eco likes: your liked songs</text>
+  <text x="1288" y="774" class="d">and playlists, downloaded in bulk</text>
+  <rect x="1272" y="794" width="296" height="76" rx="12" class="card"/>
+  <text x="1288" y="820" class="t">Lidarr, Prowlarr, qBittorrent</text>
+  <text x="1288" y="840" class="d">Whole albums into data/music/Lidarr,</text>
+  <text x="1288" y="856" class="d">with Docker's downloads profile</text>
 
   <!-- Connections on the right -->
-  <path d="M752 308H806Q812 308 812 302V196Q812 190 818 190H852" class="edge mint" marker-end="url(#a-mint)"/>
-  <path d="M1046 232V256" class="edge mint" marker-end="url(#a-mint)"/>
-  <path d="M752 412H842" class="edge blue" marker-end="url(#a-blue)"/>
-  <path d="M752 524H812Q818 524 818 530V588Q818 594 824 594H852" class="edge amber" marker-end="url(#a-amber)"/>
-  <path d="M1020 594H1072" class="edge amber" marker-end="url(#a-amber)"/>
-  <path d="M1240 594H1254Q1260 594 1260 588V306Q1260 300 1254 300H1242" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M900 316H934Q940 316 940 310V196Q940 190 946 190H980" class="edge mint" marker-end="url(#a-mint)"/>
+  <path d="M1274 232V256" class="edge mint" marker-end="url(#a-mint)"/>
+  <path d="M900 420H970" class="edge blue" marker-end="url(#a-blue)"/>
+  <path d="M900 644H980" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M900 756H946Q952 756 952 750V662Q952 656 958 656H980" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M1230 618H1318" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M1568 618H1582Q1588 618 1588 612V320Q1588 314 1582 314H1570" class="edge amber" marker-end="url(#a-amber)"/>
+  <path d="M1105 664V696" class="edge amber" marker-end="url(#a-amber)"/>
 
   <!-- Labels on the lines -->
-  <rect x="770" y="232" width="84" height="20" rx="5" class="tag"/>
-  <text x="812" y="246" text-anchor="middle" class="label fmint">library, audio</text>
-  <rect x="1056" y="238" width="44" height="18" rx="5" class="tag"/>
-  <text x="1078" y="251" text-anchor="middle" class="label fmint">reads</text>
-  <rect x="1224" y="436" width="72" height="20" rx="5" class="tag" transform="rotate(-90 1260 446)"/>
-  <text transform="translate(1264 446) rotate(-90)" text-anchor="middle" class="label famber">tagged file</text>
+  <rect x="898" y="242" width="84" height="20" rx="5" class="tag"/>
+  <text x="940" y="256" text-anchor="middle" class="label fmint">library, audio</text>
+  <rect x="1284" y="236" width="44" height="18" rx="5" class="tag"/>
+  <text x="1306" y="249" text-anchor="middle" class="label fmint">reads</text>
+  <rect x="1552" y="456" width="72" height="20" rx="5" class="tag" transform="rotate(-90 1588 466)"/>
+  <text transform="translate(1592 466) rotate(-90)" text-anchor="middle" class="label famber">tagged file</text>
+  <rect x="1114" y="671" width="70" height="18" rx="5" class="tag"/>
+  <text x="1149" y="684" text-anchor="middle" class="label famber">audio only</text>
+
+  <!-- Around the server -->
+  <rect x="32" y="968" width="760" height="96" rx="12" class="card"/>
+  <text x="52" y="1000" class="t">The eco command</text>
+  <text x="52" y="1020" class="d">On the server: eco doctor checks the set-up, eco get makes a song of one YouTube link,</text>
+  <text x="52" y="1037" class="d">and eco likes downloads your Spotify liked songs and playlists in bulk</text>
+
+  <rect x="808" y="968" width="760" height="96" rx="12" class="card"/>
+  <text x="828" y="1000" class="t">Releases</text>
+  <text x="828" y="1020" class="d">Every fix and feature is a release: the Docker image on GitHub Container Registry, and</text>
+  <text x="828" y="1037" class="d">the desktop app's installers, with the signed list it checks to update itself</text>
 
   <!-- Legend -->
-  <g transform="translate(40 738)">
+  <g transform="translate(40 1108)">
     <path d="M0 0H30" class="edge mint" marker-end="url(#a-mint)"/><text x="40" y="4" class="d">Listening</text>
     <path d="M120 0H150" class="edge blue" marker-end="url(#a-blue)"/><text x="160" y="4" class="d">Finding songs</text>
-    <path d="M270 0H300" class="edge amber" marker-end="url(#a-amber)"/><text x="310" y="4" class="d">Downloading to the library</text>
-    <path d="M500 0H530" class="edge grey" marker-end="url(#a-grey)"/><text x="540" y="4" class="d">The app itself</text>
+    <path d="M270 0H300" class="edge amber" marker-end="url(#a-amber)"/><text x="310" y="4" class="d">Downloading</text>
+    <path d="M410 0H440" class="edge violet" marker-end="url(#a-violet)"/><text x="450" y="4" class="d">Your devices controlling each other</text>
+    <path d="M690 0H720" class="edge grey" marker-end="url(#a-grey)"/><text x="730" y="4" class="d">The app itself</text>
   </g>
 </svg>

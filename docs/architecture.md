@@ -2,7 +2,7 @@
 
 Eco has three moving parts. Navidrome is the music server; Eco sits in front of it; yt-dlp and ffmpeg do the downloading.
 
-![How Eco fits together: devices reach Eco over HTTPS; Eco passes audio to Navidrome, asks MusicBrainz and iTunes for song information, and downloads with yt-dlp and ffmpeg into the music folder.](images/architecture.svg)
+![How Eco fits together. Phones and computers in a browser, the desktop app, a Roku TV and Subsonic apps reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, which reads the music folder; asks MusicBrainz and iTunes for song information; lets your devices control each other; and downloads songs with yt-dlp and ffmpeg into the music folder, and podcasts and audiobooks into a folder of their own.](images/architecture.svg)
 
 ## Why these choices
 

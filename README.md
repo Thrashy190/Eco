@@ -80,7 +80,7 @@
 ## How it fits together
 
 <p align="center">
-  <img src="docs/images/architecture.svg" alt="Your devices reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, asks MusicBrainz and iTunes for song information, and downloads songs with yt-dlp and ffmpeg into the music folder Navidrome reads." width="100%">
+  <img src="docs/images/architecture.svg" alt="Phones and computers in a browser, the desktop app, a Roku TV and Subsonic apps reach Eco over HTTPS. Eco passes audio and library requests to Navidrome, which reads the music folder; asks MusicBrainz and iTunes for song information; lets your devices control each other; and downloads songs with yt-dlp and ffmpeg into the music folder, and podcasts and audiobooks into a folder of their own." width="100%">
 </p>
 
 More in [docs/architecture.md](docs/architecture.md).
