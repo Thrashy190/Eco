@@ -10,6 +10,7 @@
 // the other device was a forgotten tab, a phone asleep, or a browser that refuses to start without a tap of its own.
 import { create } from "zustand";
 import { connectEventsUrl, sendJson } from "../lib/api";
+import { bridge, desktopName, isDesktop } from "../lib/desktop";
 import { deviceName } from "../lib/format";
 import { remoteSleepEnd } from "../lib/sleep";
 import type { Song } from "../lib/types";
@@ -65,8 +66,10 @@ function makeDeviceId(): string {
 export const selfId = makeDeviceId();
 
 const NAME_KEY = "eco.device.name";
+/** In the desktop app the window would read as the browser engine inside it ("Safari on Mac"), so it says what it is. */
+const defaultName = () => (isDesktop ? desktopName(bridge()?.platform) : deviceName(navigator.userAgent));
 export function myDeviceName(): string {
-  try { return localStorage.getItem(NAME_KEY) || deviceName(navigator.userAgent); } catch { return deviceName(navigator.userAgent); }
+  try { return localStorage.getItem(NAME_KEY) || defaultName(); } catch { return defaultName(); }
 }
 
 const device = (id: string | null) => state().devices.find((d) => d.id === id);

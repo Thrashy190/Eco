@@ -4,11 +4,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { createUser, listUsers, unlockAdmin, userAvatarUrl, type Account } from "../lib/api";
 import { initials } from "../lib/format";
+import { isDesktop } from "../lib/desktop";
 import { generatePassword } from "../lib/password";
 import { cx, ui } from "../lib/ui";
 import { siteAddress, welcomeMessage, type Welcome } from "../lib/welcome";
 import { BackButton, Empty, Section, Skeleton } from "../components/common";
 import { Icon, Ring } from "../components/Icon";
+import { serverAddress } from "../stores/desktop";
 import { toast } from "../stores/ui";
 
 const KEY = ["users"];
@@ -102,7 +104,8 @@ function AddUser() {
   const add = useMutation({
     mutationFn: () => createUser(form.username, form.name, form.password),
     onSuccess: () => {
-      setCreated({ ...form, url: siteAddress(location.origin, location.pathname) });
+      // The address to open Eco at: in the desktop app the page lives on this computer, so it is the server's
+      setCreated({ ...form, url: isDesktop ? serverAddress() ?? "" : siteAddress(location.origin, location.pathname) });
       setForm(EMPTY); // the password stays only in the message to send
     },
     onSettled: () => void client.invalidateQueries({ queryKey: KEY }), // the session may have ended: the page asks again

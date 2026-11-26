@@ -4,7 +4,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 
 WEB_SOURCES := $(shell find web/src web/public -type f 2>/dev/null) web/index.html web/vite.config.ts web/tsconfig.json web/package-lock.json
 
-.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean roku roku-install roku-logs roku-check
+.PHONY: help web web-dev build run doctor tools test check fmt vet webcheck docker up down clean roku roku-install roku-logs roku-check desktop desktop-dev desktop-check
 
 # The Roku app (roku/): read from .env so `make roku-install` needs no arguments. See docs/tv.md.
 env = $(shell sed -n 's/^$(1)=//p' .env 2>/dev/null | tail -n 1)
@@ -73,7 +73,24 @@ roku-logs: ## Follow the Roku app's log (what it prints, and its errors)
 	@test -n "$(ROKU_IP)" || { echo "Set ROKU_IP in .env"; exit 1; }
 	nc $(ROKU_IP) 8085
 
-check: vet test webcheck roku-check ## Everything CI runs
+# The desktop app (desktop/): Rust and Tauri around the same web app. Needs Rust and WebKitGTK; see docs/desktop.md.
+# A build by hand carries what git describes (1.12.0-3-gabc123), which never updates itself from a release.
+DESKTOP_VERSION ?= $(patsubst v%,%,$(VERSION))
+
+desktop/node_modules/.package-lock.json: desktop/package-lock.json
+	cd desktop && npm ci
+
+desktop: web/node_modules/.package-lock.json desktop/node_modules/.package-lock.json ## Build the desktop app for this computer (desktop/src-tauri/target/release/bundle)
+	cd desktop && npx tauri build --config '{"version":"$(DESKTOP_VERSION)","bundle":{"createUpdaterArtifacts":false}}'
+
+desktop-dev: web/node_modules/.package-lock.json desktop/node_modules/.package-lock.json ## Run the desktop app from the source
+	cd desktop && npx tauri dev
+
+desktop-check: web/node_modules/.package-lock.json ## Format, lints and tests of the desktop app (CI runs it too)
+	cd web && npm run build:desktop
+	cd desktop/src-tauri && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test
+
+check: vet test webcheck roku-check ## Everything CI runs, except desktop-check
 	@test -z "$$(gofmt -l cmd internal web/embed.go)" || { echo "gofmt needed:"; gofmt -l cmd internal web/embed.go; exit 1; }
 
 docker: ## Build the Docker image as eco:local (run it with ECO_IMAGE=eco:local in .env)

@@ -309,6 +309,9 @@ export async function removeOffline(song: Song): Promise<void> {
   toast("Removed from this device");
 }
 
+/** Forget every download still waiting, as when the desktop app leaves its server for another (stores/desktop.ts). */
+export const forgetQueue = () => clearQueue();
+
 /** Stop a collection's download. The songs saved so far stay on the device; the one arriving now is kept too. */
 async function stopCollection(id: string): Promise<void> {
   setCollection(id, null);

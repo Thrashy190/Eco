@@ -12,4 +12,5 @@ secrets/
 .venv/
 **/node_modules
 web/dist
+desktop/
 *.md

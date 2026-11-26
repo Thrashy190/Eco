@@ -1,0 +1,40 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Eco",
+  "version": "0.0.0",
+  "identifier": "eco.music.thrashy",
+  "build": {
+    "frontendDist": "../dist",
+    "beforeBuildCommand": { "script": "npm run build:desktop", "cwd": "../../web" },
+    "beforeDevCommand": { "script": "npm run build:desktop", "cwd": "../../web" }
+  },
+  "app": {
+    "windows": [],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "appimage", "app", "dmg", "nsis"],
+    "category": "Music",
+    "shortDescription": "Your own music app, on your desktop",
+    "longDescription": "Eco on your computer: the same app as on the web, in its own window. Sign in to your Eco server, listen to your library, search for any song and download what you do not have yet.",
+    "publisher": "Eco contributors",
+    "copyright": "Copyright (c) 2026 eco contributors",
+    "homepage": "https://github.com/Thrashy190/eco",
+    "license": "MIT",
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "linux": {
+      "deb": { "depends": ["gstreamer1.0-libav", "gstreamer1.0-plugins-good"] },
+      "appimage": { "bundleMediaFramework": true }
+    },
+    "macOS": { "signingIdentity": "-" }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEIxMUY0MzcyRUY5REU0QzUKUldURjVKM3Zja01mc2N5ajM1Y24wSjE3Uk90VTBQNUJUNjdyMGVHcGZQK1A1cGZrQ0o2U09iNEsK",
+      "endpoints": ["https://github.com/Thrashy190/eco/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  }
+}

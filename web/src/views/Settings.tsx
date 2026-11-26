@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { approveTV, getSongs, signOut, username, wallpaperUrl, whoAmI } from "../lib/api";
 import { plural, releaseUrl } from "../lib/format";
 import { pictureToCover, pictureToWallpaper } from "../lib/image";
+import { bridge, isDesktop, serverHost, serverIsOlder } from "../lib/desktop";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx, ui } from "../lib/ui";
 import { Credit } from "../components/common";
@@ -13,6 +14,7 @@ import { openDevicePicker } from "../components/Devices";
 import { ME_KEY } from "../stores/admin";
 import { removeAvatar, setAvatar, useLibraryState } from "../stores/library";
 import { myDeviceName, renameDevice, useConnect } from "../stores/connect";
+import { leaveServer, useServer } from "../stores/desktop";
 import * as offline from "../stores/offline";
 import { removeWallpaper, setWallpaper } from "../stores/look";
 import { ACCENTS, resetSettings, setSettings, useOnline, useSettings, type Settings as SettingValues } from "../stores/settings";
@@ -309,6 +311,32 @@ function DeviceSettings() {
   );
 }
 
+/** In the desktop app: which Eco server it uses, and its own version, which can be ahead of the server's (lib/desktop.ts). */
+function DesktopServer({ serverVersion }: { serverVersion?: string }) {
+  const address = useServer((s) => s.address);
+  const app = bridge()?.version ?? "";
+  const behind = serverVersion !== undefined && serverIsOlder(serverVersion, app);
+  async function change() {
+    const saved = offline.count();
+    const question = saved > 0
+      ? `Songs saved on this computer come from this server. Changing it removes ${plural(saved, "saved song")} from this computer. Change the server?`
+      : "Sign out to choose another server?";
+    if (confirm(question)) await leaveServer();
+  }
+  return (
+    <>
+      <Setting title="Server" description={address ? serverHost(address) : undefined}>
+        <button type="button" className={ui.pill} onClick={() => void change()}>Change</button>
+      </Setting>
+      {app && (
+        <Setting title="This app" description={behind ? `Your server runs an older Eco, ${serverVersion}: update it so that everything here works` : undefined}>
+          <span className="text-muted">v{app}</span>
+        </Setting>
+      )}
+    </>
+  );
+}
+
 export function Settings() {
   const user = username();
   const version = offline.useOfflineVersion();
@@ -409,7 +437,7 @@ export function Settings() {
 
         <Group title="About">
           <Setting title="Library" description="Songs in your library"><span>{library.data ? plural(library.data.total, "song") : library.error ? "—" : "…"}</span></Setting>
-          <Setting title="Server"><span className="text-muted">{location.host}</span></Setting>
+          {isDesktop ? <DesktopServer serverVersion={me?.version} /> : <Setting title="Server"><span className="text-muted">{location.host}</span></Setting>}
           {me?.version && <Setting title="Version" description={releaseUrl(me.version) ? "What changed in each version" : undefined}>
             {releaseUrl(me.version)
               ? <a className="text-muted underline underline-offset-3 hover:text-text" href={releaseUrl(me.version)} target="_blank" rel="noopener noreferrer">{me.version}</a>

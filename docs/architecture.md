@@ -15,6 +15,7 @@ Eco has three moving parts. Navidrome is the music server; Eco sits in front of 
 | **yt-dlp and ffmpeg are executed, not embedded** | YouTube changes constantly; yt-dlp must be updatable without rebuilding Eco. Tags are written by remuxing with ffmpeg (no re-encoding). |
 | **Go, one binary, web app embedded** | Easy to deploy and cross-compile; the web app (React and TypeScript, built with Vite) is compiled into the binary, so running Eco needs neither Node nor separate files. |
 | **Navidrome mounts the music read-only** | Only Eco changes files: downloads go to `YouTube/`, and an administrator can delete any song. |
+| **The desktop app carries the web app and passes `/api` and `/rest` on** | It is the same app, built into the program, so it opens with no connection; a small server of its own on 127.0.0.1 gives the page the single origin it expects, so the Eco server needs no CORS and works unchanged with any Eco server. |
 
 ## Library layout
 
@@ -159,6 +160,10 @@ A song goes to another device only if you chose that device. When music simply s
 
 Two limits come from browsers. iOS ignores `audio.volume`, so an iPhone cannot have its volume set (it reports `can_volume` false and the slider hides), and iOS suspends web apps in the background, so a locked iPhone stops answering. And a browser may refuse to start audio on a page nobody has touched: the device then reports `blocked`, and the one controlling it says it needs a tap.
 
+## The desktop app
+
+`desktop/` is Rust and [Tauri](https://tauri.app) around the web app, built with `npm run build:desktop` (the same code; `isDesktop` in `web/src/lib/desktop.ts` turns on what differs). Its window shows a server of its own on `127.0.0.1:27493`, which serves the built app and streams `/api` and `/rest` to the Eco server the person chose, so audio, Connect and uploads behave as from Eco. The server's address is saved by the app (`/desktop/server`), checked first to be an Eco server. The window keeps playing when closed, and every release attaches signed installers and an update list for it. How it works, and what was learned building it: [docs/desktop.md](desktop.md#for-developers).
+
 ## Offline in the web app
 
 Everything saved for offline lives in the browser's IndexedDB: audio and cover as Blobs, plus a small record per song. A **collection** (favorites, a playlist, an album) remembers its list of songs, so it can be shown and played with no server. A song can be held by several collections and by an individual save; its files are deleted only when nothing holds it. A downloaded collection follows its songs: when it is opened online, when a song is added to the playlist from the app and when a song becomes a favourite, Eco downloads the new songs (with the same progress as the first time) and releases removed ones (`syncCollectionIfSaved`, `offline.updateCollection`). Each song of a collection shows whether it is saved, downloading (a ring with its percentage) or waiting its turn (a clock). Stopping a download keeps what arrived: the collection is marked `paused`, plays from what it has, is not resumed by itself, and its button offers to download the rest or remove it. The service worker caches only the app shell; audio and data never go through it.
@@ -205,4 +210,5 @@ The page (`views/Stats.tsx`) shows minutes, plays, listeners, songs, first liste
 | `internal/connect` | devices of one account seeing and controlling each other |
 | `internal/pairing` | signing a TV in with a code shown on it and typed on a phone |
 | `internal/palette` · `internal/coverart` | a cover's accent colour, and covers cut round, for the TV |
+| `desktop/` | the desktop app: `src-tauri/src` holds its server and proxy (`server.rs`), the saved server (`config.rs`), message boxes (`dialogs.rs`), the window and tray (`shell.rs`) and updates (`update.rs`) |
 | `web/src` | the web app (React, TypeScript): `lib` talks to the server, `stores` holds the player, downloads, offline storage and settings, `components` and `views` draw them. `make web` builds it into `web/dist`, which is embedded into the binary |

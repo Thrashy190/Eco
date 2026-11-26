@@ -27,10 +27,22 @@ jobs:
       - run: docker build -t eco:ci .
       - run: docker run --rm eco:ci version
 
+  # The desktop app's Rust side (desktop/, docs/desktop.md): formatting, lints and tests. It builds against WebKitGTK.
+  desktop:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: rustup toolchain install stable --profile minimal --component rustfmt,clippy && rustup default stable
+      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev
+      - run: make desktop-check
+
   # Every feature or fix that reaches main becomes a release, once the checks above pass. The version comes from the
   # commit messages: fix: is a patch, feat: a minor version, a breaking change the major one. See CONTRIBUTING.md.
   release:
-    needs: [check, docker]
+    needs: [check, docker, desktop]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -64,3 +76,14 @@ jobs:
     uses: ./.github/workflows/image.yml
     with:
       version: ${{ needs.release.outputs.version }}
+
+  # The desktop app's installers and its update list, attached to the same release (.github/workflows/desktop.yml)
+  installers:
+    needs: release
+    if: needs.release.outputs.version != ''
+    permissions:
+      contents: write
+    uses: ./.github/workflows/desktop.yml
+    with:
+      version: ${{ needs.release.outputs.version }}
+    secrets: inherit
