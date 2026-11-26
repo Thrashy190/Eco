@@ -100,5 +100,5 @@ export const ui = {
 /** The picture, title and details at the top of an album, playlist or artist. */
 export const detail = {
   header: "rise flex flex-col max-sm:items-start sm:flex-row sm:items-end gap-5 px-5 pt-2 pb-1 [&>:first-child]:max-sm:self-center wide:gap-7 wide:px-8 wide:pb-4 @4xl:flex-col @4xl:items-stretch @4xl:gap-5 @4xl:px-0 @4xl:pt-0",
-  info: "min-w-0 grid gap-1 max-sm:w-full [&_h1]:font-title [&_h1]:font-bold [&_h1]:tracking-[-.035em] [&_h1]:leading-[1.04] [&_h1]:text-balance [&_h1]:wrap-break-word [&_h1]:text-[clamp(1.9rem,8.5cqi,2.6rem)] [&_p]:text-muted [&_p_a]:text-text [&_p_a]:font-semibold wide:[&_h1]:text-[clamp(2rem,4.6cqi,3.25rem)] @4xl:[&_h1]:text-[clamp(1.9rem,2.6cqi,2.5rem)]",
+  info: "min-w-0 grid gap-1 max-sm:w-full [&_h1]:font-title [&_h1]:font-bold [&_h1]:tracking-[-.035em] [&_h1]:leading-[1.04] [&_h1]:text-balance [&_h1]:wrap-anywhere [&_h1]:text-[clamp(1.9rem,8.5cqi,2.6rem)] [&_p]:text-muted [&_p_a]:text-text [&_p_a]:font-semibold wide:[&_h1]:text-[clamp(2rem,4.6cqi,3.25rem)] @4xl:[&_h1]:text-[clamp(1.9rem,2.6cqi,2.5rem)]",
 };

@@ -10,7 +10,7 @@ import type { Album, CollectionSpec, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { ArtistLinks, artistPath } from "../components/ArtistLinks";
 import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../components/cards";
-import { BackButton, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
+import { BackButton, Breakable, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { PickToDownload, PlayButtons, SongList } from "../components/songs";
@@ -48,7 +48,7 @@ function CollectionPage({ art, title, subtitle, songs, spec, entry, numbered, fr
   return (
     <>
       {fromDevice && <OfflineBanner />}
-      <DetailPage art={art} info={<><h1>{title}</h1><p>{subtitle}</p></>} actions={(
+      <DetailPage art={art} info={<><h1><Breakable text={title} /></h1><p>{subtitle}</p></>} actions={(
         <PlayButtons songs={songs} from={fromDevice ? undefined : entry}>
           {!fromDevice && <DownloadToggle spec={spec} songs={songs} />}
           {!fromDevice && <PinButton entry={entry} />}
