@@ -2,12 +2,11 @@ name: Desktop
 
 # Builds the desktop app (desktop/, docs/desktop.md) for Linux, macOS and Windows, attaches the installers to a release
 # and writes latest.json, the signed list its automatic updates read. CI calls it after each release, like the Docker
-# image, since a tag pushed with GITHUB_TOKEN starts no workflow by itself. Run by hand with a release tag, it builds
-# that release's installers again; with none, and on a pull request that touches the app, it only checks that every
-# system builds.
+# image, since a tag pushed with GITHUB_TOKEN starts no workflow by itself. Run by hand (Actions, Desktop, Run workflow)
+# with a release tag, it builds that release's installers again; with none, on any branch, it keeps the installers with
+# the run to try a change before releasing it. Pull requests do not build them: the Linux leg alone takes minutes, and a
+# pull request's paths filter looks at its whole diff, so every push would build all three again.
 on:
-  pull_request:
-    paths: ["desktop/**", "web/**", ".github/workflows/desktop.yml"]
   workflow_call:
     inputs:
       version:
@@ -95,7 +94,7 @@ jobs:
             npx tauri build --bundles "${{ matrix.bundles }}"
           fi
 
-      # With no release (a pull request, or a run by hand) the installers stay with the run for two weeks, to try them
+      # With no release (a run by hand) the installers stay with the run for two weeks, to try them
       - name: Keep the installers with the run
         if: inputs.version == ''
         uses: actions/upload-artifact@v7
