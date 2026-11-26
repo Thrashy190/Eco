@@ -24,9 +24,10 @@ import (
 type fakeLibrary struct {
 	mu        sync.Mutex
 	songs     []map[string]any
-	playlists map[string][]string // id → songs
-	owner     map[string]string   // id → user
-	stars     []string
+	playlists map[string][]string        // id → songs
+	owner     map[string]string          // id → user
+	stars     []string                   // every star call, as user:id
+	starred   map[string]map[string]bool // user → their favourites
 	writes    int
 }
 
@@ -95,14 +96,37 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.playlists[id] = q["songId"]
 		reply(map[string]any{"playlist": map[string]any{"id": id}})
 	case "star":
-		f.stars = append(f.stars, q.Get("id"))
+		f.stars = append(f.stars, q.Get("u")+":"+q.Get("id"))
+		if f.starred == nil {
+			f.starred = map[string]map[string]bool{}
+		}
+		if f.starred[q.Get("u")] == nil {
+			f.starred[q.Get("u")] = map[string]bool{}
+		}
+		f.starred[q.Get("u")][q.Get("id")] = true
 		reply(map[string]any{})
+	case "unstar":
+		delete(f.starred[q.Get("u")], q.Get("id"))
+		reply(map[string]any{})
+	case "getStarred2":
+		var ids []string
+		for id := range f.starred[q.Get("u")] {
+			ids = append(ids, id)
+		}
+		reply(map[string]any{"starred2": map[string]any{"song": entries(ids)}})
 	default:
 		reply(map[string]any{})
 	}
 }
 
 func libraryServer(t *testing.T, songs ...map[string]any) (*fakeLibrary, http.Handler, *config.Config) {
+	t.Helper()
+	fake, s := libraryServerOf(t, songs...)
+	return fake, s.Handler(), s.cfg
+}
+
+// libraryServerOf is libraryServer with the server itself, for tests that call its methods.
+func libraryServerOf(t *testing.T, songs ...map[string]any) (*fakeLibrary, *Server) {
 	t.Helper()
 	fake := &fakeLibrary{songs: songs, playlists: map[string][]string{}, owner: map[string]string{}}
 	nd := httptest.NewServer(fake)
@@ -116,7 +140,7 @@ func libraryServer(t *testing.T, songs ...map[string]any) (*fakeLibrary, http.Ha
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fake, s.Handler(), cfg
+	return fake, s
 }
 
 func song(id, title, artist, album string) map[string]any {

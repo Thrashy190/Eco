@@ -250,7 +250,9 @@ export const unstar = (id: string) => subsonic("unstar", { id });
 export const search = (q: string, signal?: AbortSignal) => eco<LibrarySearch>("search", { q }, "GET", signal);
 export const searchExternal = (q: string, signal?: AbortSignal) => eco<ExternalSearch>("search/external", { q }, "GET", signal);
 export const getHome = () => eco<HomeResponse>("home");
-export const getSongs = (offset: number, limit: number, sort = "added") => eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit, sort });
+/** The library a page at a time, sorted by the server. `mine` keeps only the songs this person added. */
+export const getSongs = (offset: number, limit: number, sort = "added", mine = false) =>
+  eco<{ songs: RawSong[]; total: number; has_more: boolean }>("songs", { offset, limit, sort, ...(mine ? { mine: 1 } : {}) });
 export const discover = (artist: string) => eco<DiscoverResponse>("discover", { artist });
 export const lookupArtist = (name: string) => eco<{ id: string; name: string }>("artists/lookup", { name });
 /**
@@ -288,7 +290,8 @@ export const deletePlaylistCover = (id: string) => eco<LibraryState>(`covers/pla
 // ---- Lists of songs imported from a file ----
 export const parseImportFile = async (file: File) =>
   (await request<{ lists: ImportedList[] }>(`/api/imports/parse?${params({ name: file.name })}`, { method: "POST", body: file })).lists;
-export const saveImport = (name: string, rows: ImportRow[]) => send<ImportDetail>("imports", JSON.stringify({ name, rows }));
+/** Makes a playlist of a list, or with `favorites` makes its songs this person's favourites. */
+export const saveImport = (name: string, rows: ImportRow[], favorites = false) => send<ImportDetail>("imports", JSON.stringify({ name, rows, favorites }));
 export const listImports = async () => (await eco<{ imports: ImportSummary[] }>("imports")).imports;
 export const getImport = (id: string) => eco<ImportDetail>(`imports/${part(id)}`);
 export const syncImport = (id: string) => eco<ImportDetail>(`imports/${part(id)}/sync`, undefined, "POST");

@@ -1,16 +1,19 @@
 // Bringing a list of songs from elsewhere. A file is read, you choose which of its lists to keep, and each becomes a
-// real playlist with the songs the library has. Songs it lacks are only downloaded when you ask: a long list takes hours.
+// real playlist with the songs the library has, or, for liked songs, your favourites. Songs it lacks are only downloaded
+// when you ask: a long list takes hours.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { downloadImport, forgetImport, getImport, listImports, parseImportFile, saveImport, syncImport, toSong } from "../lib/api";
-import { clock, plural } from "../lib/format";
+import { clock, isLikedSongs, plural } from "../lib/format";
 import type { ImportDetail, ImportedList } from "../lib/types";
 import { cx, ui } from "../lib/ui";
-import { BackButton, DetailPage, Empty, Section, Skeleton, useIncremental } from "../components/common";
+import { BackButton, Breakable, DetailPage, Empty, Section, Skeleton, useIncremental } from "../components/common";
+import { PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { JobProgress } from "../components/songs";
 import { isActive, liveJob, pollJobs, useJobs } from "../stores/downloads";
+import { FAVORITES_ID } from "../stores/library";
 import * as player from "../stores/player";
 import { toast } from "../stores/ui";
 
@@ -32,21 +35,39 @@ function ChooseFile({ onRead, label = "Choose a file", className = ui.primary }:
   );
 }
 
-/** Which of the file's lists to bring in. */
+/** What a choice of lists turns into, for the button that imports them. */
+function importLabel(lists: number, toFavorites: number): string {
+  if (toFavorites === lists) return "Add to your favorites";
+  if (toFavorites === 0) return lists === 1 ? "Make this playlist" : `Make ${plural(lists, "playlist")}`;
+  return `Import ${plural(lists, "list")}`;
+}
+
+const toggled = (set: Set<string>, name: string) => {
+  const next = new Set(set);
+  if (next.has(name)) next.delete(name); else next.add(name);
+  return next;
+};
+
+/**
+ * Which of the file's lists to bring in, and where each goes: a playlist, or your favourites. Liked songs go to the
+ * favourites unless you say otherwise.
+ */
 function ChooseLists({ lists, onDone }: { lists: ImportedList[]; onDone: () => void }) {
   const navigate = useNavigate();
   const client = useQueryClient();
   const [chosen, setChosen] = useState(() => new Set(lists.map((l) => l.name)));
+  const [favorites, setFavorites] = useState(() => new Set(lists.filter((l) => isLikedSongs(l.name)).map((l) => l.name)));
   const [busy, setBusy] = useState(false);
   const picked = lists.filter((l) => chosen.has(l.name));
+  const toFavorites = picked.filter((l) => favorites.has(l.name)).length;
 
   async function bring() {
     setBusy(true);
     try {
       let last: ImportDetail | null = null;
-      for (const list of picked) last = await saveImport(list.name, list.rows);
-      for (const key of ["imports", "playlists", "playlist"]) void client.invalidateQueries({ queryKey: [key] });
-      toast(`Imported ${plural(picked.length, "list")}`);
+      for (const list of picked) last = await saveImport(list.name, list.rows, favorites.has(list.name));
+      for (const key of ["imports", "playlists", "playlist", "favorites"]) void client.invalidateQueries({ queryKey: [key] });
+      toast(toFavorites === picked.length ? "Adding them to your favorites" : `Imported ${plural(picked.length, "list")}`);
       if (picked.length === 1 && last) navigate(`/import/${last.id}`); else onDone();
     } catch (e) {
       toast((e as Error).message);
@@ -59,17 +80,23 @@ function ChooseLists({ lists, onDone }: { lists: ImportedList[]; onDone: () => v
       <ul className={ui.rows}>
         {lists.map((list) => {
           const on = chosen.has(list.name);
+          const fav = favorites.has(list.name);
           return (
-            <li key={list.name} className={ui.row} onClick={() => setChosen((now) => { const next = new Set(now); if (on) next.delete(list.name); else next.add(list.name); return next; })}>
+            <li key={list.name} className={ui.row} onClick={() => setChosen((now) => toggled(now, list.name))}>
               <span className={ui.tick} data-on={on || undefined} role="checkbox" aria-checked={on} aria-label={list.name}>{on && <Icon name="check" size={16} />}</span>
               <div className={ui.text}><b>{list.name}</b><span>{`${plural(list.rows.length, "song")} · ${list.owned} already in your library`}</span></div>
+              <button type="button" className={ui.pill} data-on={fav || undefined} aria-pressed={fav} title={fav ? "Make it a playlist instead" : "Add its songs to your favorites instead of a playlist"}
+                onClick={(e) => { e.stopPropagation(); setFavorites((now) => toggled(now, list.name)); }}>
+                <Icon name={fav ? "heart-fill" : "heart"} size={16} />Favorites
+              </button>
             </li>
           );
         })}
       </ul>
+      {toFavorites > 0 && <p className={ui.note}>Liked songs become your favorites in the order you liked them, and the ones you download later join them. Nobody else's favorites change.</p>}
       <div className={ui.actions}>
         <button type="button" className={ui.primary} disabled={busy || !picked.length} onClick={() => void bring()}>
-          {busy ? <Ring percent={-1} size={20} /> : <Icon name="check" size={20} />}{picked.length === 1 ? "Make this playlist" : `Make ${plural(picked.length, "playlist")}`}
+          {busy ? <Ring percent={-1} size={20} /> : <Icon name={toFavorites === picked.length && picked.length > 0 ? "heart-fill" : "check"} size={20} />}{importLabel(picked.length, toFavorites)}
         </button>
         <button type="button" className={ui.pill} onClick={onDone}>Cancel</button>
       </div>
@@ -90,7 +117,7 @@ export function ImportView() {
           <div className={ui.narrow}>
             <div className={ui.actions}><ChooseFile onRead={setLists} /></div>
             <div className={cx(ui.group, "mx-4 mt-1 wide:mx-8")}>
-              <div className={cx(ui.settingStack, "min-h-0")}><div className={ui.settingLabel}><b>From Spotify, a playlist right now</b><span>Sites like Exportify or TuneMyMusic make a CSV file of a playlist after you sign in there.</span></div></div>
+              <div className={cx(ui.settingStack, "min-h-0")}><div className={ui.settingLabel}><b>From Spotify, a playlist right now</b><span>Sites like Exportify or TuneMyMusic make a CSV file of a playlist after you sign in there. Your Liked Songs go to your favorites.</span></div></div>
               <div className={cx(ui.settingStack, "min-h-0")}><div className={ui.settingLabel}><b>From Spotify, everything</b><span>Account → Privacy → Download your data. It takes some days; Playlist1.json holds your playlists and YourLibrary.json your liked songs.</span></div></div>
               <div className={cx(ui.settingStack, "min-h-0")}><div className={ui.settingLabel}><b>From anywhere else</b><span>Any CSV with columns for the song and the artist.</span></div></div>
             </div>
@@ -102,8 +129,8 @@ export function ImportView() {
           <ul className={ui.rows}>
             {imports.map((list) => (
               <li key={list.id} className={ui.row}><Link className={ui.rowLink} to={`/import/${list.id}`}>
-                <div className={cx(ui.cover, ui.noCover)}><Icon name="queue" size={20} /></div>
-                <div className={ui.text}><b>{list.name}</b><span>{`${list.owned} of ${plural(list.total, "song")} in your library`}</span></div>
+                {list.favorites ? <PlaylistArt id={FAVORITES_ID} className={ui.cover} /> : <div className={cx(ui.cover, ui.noCover)}><Icon name="queue" size={20} /></div>}
+                <div className={ui.text}><b>{list.name}</b><span>{`${list.owned} of ${plural(list.total, "song")} in your library${list.favorites ? " · Favorites" : ""}`}</span></div>
               </Link></li>
             ))}
           </ul>
@@ -125,7 +152,7 @@ export function ImportDetailView() {
 
   const refresh = (fresh: ImportDetail) => {
     client.setQueryData(["import", id], fresh);
-    for (const key of ["imports", "playlists", "playlist"]) void client.invalidateQueries({ queryKey: [key] });
+    for (const key of ["imports", "playlists", "playlist", "favorites"]) void client.invalidateQueries({ queryKey: [key] });
   };
   // Songs that arrived since the last visit join the playlist
   const sync = useMutation({ mutationFn: () => syncImport(id), onSuccess: refresh, onError: (e: Error) => toast(e.message) });
@@ -153,23 +180,29 @@ export function ImportDetailView() {
   return (
     <>
       <BackButton />
-      <DetailPage art={<div className={cx(ui.coverHuge, ui.noCover)}><Icon name="queue" size={64} /></div>}
-        info={<><h1>{data.name}</h1><p>{`Imported list · ${data.owned} of ${plural(data.total, "song")} in your library`}</p></>}
+      <DetailPage art={data.favorites ? <PlaylistArt id={FAVORITES_ID} size={400} className={ui.coverHuge} /> : <div className={cx(ui.coverHuge, ui.noCover)}><Icon name="queue" size={64} /></div>}
+        info={<><h1><Breakable text={data.name} /></h1><p>{`${data.favorites ? "Imported to your favorites" : "Imported list"} · ${data.owned} of ${plural(data.total, "song")} in your library`}</p></>}
         actions={<div className={ui.actions}>
         {owned.length > 0 && <button type="button" className={ui.primary} onClick={() => player.play(owned, 0)}><Icon name="play" size={20} />Play</button>}
-        {data.playlist_id && <Link className={ui.pill} to={`/playlist/${data.playlist_id}`}><Icon name="queue" size={16} />Open playlist</Link>}
+        {data.favorites
+          ? <Link className={ui.pill} to={`/playlist/${FAVORITES_ID}`}><Icon name="heart" size={16} />Open favorites</Link>
+          : data.playlist_id && <Link className={ui.pill} to={`/playlist/${data.playlist_id}`}><Icon name="queue" size={16} />Open playlist</Link>}
         {missing.length > 0 && running === 0 && <button type="button" className={ui.pill} onClick={() => void fetchMissing()}><Icon name="download" size={16} />{`Download ${plural(missing.length, "missing song")}`}</button>}
         {running > 0 && <span className={ui.pill}><Ring percent={-1} size={16} />{`${plural(running, "song")} on the way`}</span>}
         <ChooseFile onRead={setNewer} label="Import a newer file" className={ui.pill} />
         <button type="button" className={ui.pill} onClick={async () => {
-          if (!confirm(`Forget “${data.name}”? The playlist stays, it just stops being updated from this list.`)) return;
+          if (!confirm(data.favorites
+            ? `Forget “${data.name}”? Your favorites stay, songs you download later just stop joining them.`
+            : `Forget “${data.name}”? The playlist stays, it just stops being updated from this list.`)) return;
           await forgetImport(id);
           void client.invalidateQueries({ queryKey: ["imports"] });
           navigate("/import", { replace: true });
         }}><Icon name="trash" size={16} />Forget</button>
       </div>}>
       {newer && <ChooseLists lists={newer} onDone={() => setNewer(null)} />}
-      <p className={ui.note}>To update it, import a newer file with the same list name: the same playlist follows it. Songs you added to the playlist yourself stay.</p>
+      <p className={ui.note}>{data.favorites
+        ? "To update it, import a newer file with the same list name. Its songs become your favorites as they reach the library, in the order you liked them; one you take out of your favorites stays out."
+        : "To update it, import a newer file with the same list name: the same playlist follows it. Songs you added to the playlist yourself stay."}</p>
       <ul className={ui.rows}>
         {visible.map((row, i) => {
           const job = row.library ? undefined : liveJob(jobs[row.key]);

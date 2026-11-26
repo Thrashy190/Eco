@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clock, deviceName, initials, isYoutubeLink, listLength, plural, releaseUrl } from "./format";
+import { clock, deviceName, initials, isLikedSongs, isYoutubeLink, listLength, plural, releaseUrl } from "./format";
 import { md5 } from "./md5";
 
 describe("md5", () => {
@@ -61,5 +61,14 @@ describe("listLength", () => {
     expect(listLength(42 * 60 + 10)).toBe("42 min");
     expect(listLength(60 * 60)).toBe("1 h");
     expect(listLength(65 * 60)).toBe("1 h 5 min");
+  });
+});
+
+describe("isLikedSongs", () => {
+  it("knows the liked songs however the file names them", () => {
+    for (const name of ["Liked songs", "Liked Songs", "Liked_Songs", "liked-songs", " Canciones que te gustan ", "Tus me gusta"]) expect(isLikedSongs(name)).toBe(true);
+  });
+  it("leaves other lists alone", () => {
+    for (const name of ["Liked songs 2019", "Songs I liked", "Gym", "Road trip"]) expect(isLikedSongs(name)).toBe(false);
   });
 });

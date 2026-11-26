@@ -64,6 +64,9 @@ type Server struct {
 
 	editing sync.Mutex             // one song edit at a time (editSong)
 	imports map[string]*sync.Mutex // one history import per person at a time (importHistory)
+
+	favoriteRuns map[string]*sync.Mutex // one favourites run per imported list at a time (syncFavorites)
+	favorites    sync.WaitGroup         // favourites runs going on in the background, which tests wait for
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.

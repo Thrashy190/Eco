@@ -14,14 +14,21 @@ import (
 	"github.com/Thrashy190/eco/internal/imports"
 )
 
-// Import is a list of songs brought from elsewhere and the Navidrome playlist that shows it. It belongs to one user.
+// Import is a list of songs brought from elsewhere and the Navidrome playlist that shows it, or, for liked songs, the
+// person's favourites. It belongs to one user.
 type Import struct {
 	ID         string        `json:"id"`
 	Name       string        `json:"name"`
 	PlaylistID string        `json:"playlist_id,omitempty"`
 	Rows       []imports.Row `json:"rows"`
-	Linked     []string      `json:"linked,omitempty"` // songs eco put in the playlist: anything else there was added by hand
-	UpdatedAt  int64         `json:"updated_at"`
+	// Linked are the songs eco put in the playlist, or made favourites: anything else there was added by hand, and a
+	// favourite taken away by hand is not given back.
+	Linked []string `json:"linked,omitempty"`
+	// Favorites sends the list to the person's favourites instead of a playlist.
+	Favorites bool `json:"favorites,omitempty"`
+	// Unordered says songs became favourites after the rest, so the favourites no longer read like the list.
+	Unordered bool  `json:"unordered,omitempty"`
+	UpdatedAt int64 `json:"updated_at"`
 }
 
 // ImportID is the same for the same name, so importing a newer file of a list updates it instead of adding another.
@@ -43,27 +50,7 @@ func (s *Store) readImports(user string) []Import {
 }
 
 func (s *Store) writeImports(user string, list []Import) error {
-	dir := s.dir(user)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	data, err := json.Marshal(list)
-	if err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(dir, ".imports-*")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmp.Name())
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), s.importsPath(user))
+	return writeJSON(s.dir(user), "imports.json", list)
 }
 
 // Imports lists a user's imports, the most recent first.
@@ -103,6 +90,43 @@ func (s *Store) SaveImport(user string, imp Import) error {
 		return errors.New("too many imported lists")
 	}
 	return s.writeImports(user, append(list, imp))
+}
+
+// SaveImportWith changes one of a user's imports, or makes it with that ID, reading and writing in one go: work running
+// in the background on the same import is never overwritten by an older copy.
+func (s *Store) SaveImportWith(user, id string, change func(*Import)) (Import, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	list := s.readImports(user)
+	at := -1
+	for i := range list {
+		if list[i].ID == id {
+			at = i
+		}
+	}
+	if at < 0 {
+		if len(list) >= maxImports {
+			return Import{}, errors.New("too many imported lists")
+		}
+		list, at = append(list, Import{ID: id}), len(list)
+	}
+	change(&list[at])
+	list[at].UpdatedAt = time.Now().UnixMilli()
+	return list[at], s.writeImports(user, list)
+}
+
+// UpdateImport changes one of a user's imports in place, if it is still there.
+func (s *Store) UpdateImport(user, id string, change func(*Import)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	list := s.readImports(user)
+	for i := range list {
+		if list[i].ID == id {
+			change(&list[i])
+			return s.writeImports(user, list)
+		}
+	}
+	return nil
 }
 
 // DeleteImport forgets an import. Its playlist stays.

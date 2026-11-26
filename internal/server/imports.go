@@ -20,8 +20,9 @@ import (
 )
 
 // Importing a list: a file is read (importParse), the person chooses which of its lists to keep (importSave), and each
-// one becomes a real playlist in Navidrome holding the songs the library has. Songs it lacks are only downloaded when
-// asked (importDownload), since a long list can take hours; each one joins the playlist as it arrives.
+// one becomes a real playlist in Navidrome holding the songs the library has, or, for liked songs, the person's
+// favourites (importfavorites.go). Songs it lacks are only downloaded when asked (importDownload), since a long list can
+// take hours; each one joins the playlist, or the favourites, as it arrives.
 
 const maxImportFile = 32 << 20
 
@@ -42,6 +43,7 @@ type importOut struct {
 	ID         string         `json:"id"`
 	Name       string         `json:"name"`
 	PlaylistID string         `json:"playlist_id,omitempty"`
+	Favorites  bool           `json:"favorites,omitempty"` // the list goes to the person's favourites
 	Total      int            `json:"total"`
 	Owned      int            `json:"owned"`
 	UpdatedAt  int64          `json:"updated_at"`
@@ -71,7 +73,7 @@ func matchRows(rows []imports.Row, lib *snapshot) []importRowOut {
 }
 
 func describeImport(imp userdata.Import, rows []importRowOut, withRows bool) importOut {
-	out := importOut{ID: imp.ID, Name: imp.Name, PlaylistID: imp.PlaylistID, Total: len(rows), UpdatedAt: imp.UpdatedAt}
+	out := importOut{ID: imp.ID, Name: imp.Name, PlaylistID: imp.PlaylistID, Favorites: imp.Favorites, Total: len(rows), UpdatedAt: imp.UpdatedAt}
 	for _, r := range rows {
 		if r.Library != nil {
 			out.Owned++
@@ -116,13 +118,18 @@ func (s *Server) importParse(w http.ResponseWriter, r *http.Request, cred subson
 	respond(w, http.StatusOK, map[string]any{"lists": out})
 }
 
-// importSave creates a playlist from a list, or updates it when a list of that name was imported before.
+// importSave creates a playlist from a list, or updates it when a list of that name was imported before. With
+// "favorites": true the list goes to the person's favourites instead, and stays there when a newer file comes.
 func (s *Server) importSave(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
-	var list imports.List
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxImportFile)).Decode(&list); err != nil {
+	var body struct {
+		imports.List
+		Favorites bool `json:"favorites"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxImportFile)).Decode(&body); err != nil {
 		fail(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	list := body.List
 	list.Name = strings.TrimSpace(list.Name)
 	if list.Name == "" || len(list.Rows) == 0 || len(list.Rows) > imports.MaxRows {
 		fail(w, http.StatusBadRequest, "a list needs a name and songs")
@@ -134,7 +141,10 @@ func (s *Server) importSave(w http.ResponseWriter, r *http.Request, cred subsoni
 		imp = userdata.Import{ID: id}
 	}
 	imp.Name, imp.Rows = list.Name, list.Rows
-	out, err := s.syncImport(r.Context(), cred, imp)
+	if body.Favorites && !imp.Favorites {
+		imp.Favorites, imp.Linked = true, nil // a list that was a playlist: none of its songs are favourites yet
+	}
+	out, err := s.syncImport(r.Context(), cred, imp, "")
 	if err != nil {
 		fail(w, http.StatusBadGateway, err.Error())
 		return
@@ -143,13 +153,28 @@ func (s *Server) importSave(w http.ResponseWriter, r *http.Request, cred subsoni
 }
 
 // syncImport makes the playlist hold what the library has of the list, in the list's order, followed by anything added
-// to the playlist by hand. The playlist is only written when that changes something.
-func (s *Server) syncImport(ctx context.Context, cred subsonic.Cred, imp userdata.Import) (importOut, error) {
+// to the playlist by hand. The playlist is only written when that changes something. A list that goes to the favourites
+// is saved as it is and its favourites are made in the background. finishing is a download of the list that has just
+// ended, or "".
+func (s *Server) syncImport(ctx context.Context, cred subsonic.Cred, imp userdata.Import, finishing string) (importOut, error) {
 	lib, err := s.library(ctx, cred)
 	if err != nil {
 		return importOut{}, errors.New("Navidrome: " + err.Error())
 	}
 	rows := matchRows(imp.Rows, lib)
+	if imp.Favorites {
+		saved, err := s.users.SaveImportWith(cred.User, imp.ID, func(stored *userdata.Import) {
+			if !stored.Favorites {
+				stored.Linked, stored.Unordered = nil, false
+			}
+			stored.Name, stored.Rows, stored.Favorites = imp.Name, imp.Rows, true
+		})
+		if err != nil {
+			return importOut{}, err
+		}
+		s.startFavorites(cred, imp.ID, finishing)
+		return describeImport(saved, rows, true), nil
+	}
 	linked := []string{}
 	for _, row := range rows {
 		if row.Library != nil && !slices.Contains(linked, row.Library.ID) {
@@ -229,7 +254,7 @@ func (s *Server) importSync(w http.ResponseWriter, r *http.Request, cred subsoni
 		return
 	}
 	s.forgetLibrary()
-	out, err := s.syncImport(r.Context(), cred, imp)
+	out, err := s.syncImport(r.Context(), cred, imp, "")
 	if err != nil {
 		fail(w, http.StatusBadGateway, err.Error())
 		return

@@ -20,6 +20,9 @@ type Row struct {
 	Album      string `json:"album,omitempty"`
 	ISRC       string `json:"isrc,omitempty"`
 	DurationMs int    `json:"duration_ms,omitempty"`
+	// AddedAt is when the song joined the list, as the file writes it (Exportify: "2024-05-01T12:34:56Z"). Liked songs
+	// become favourites in that order.
+	AddedAt string `json:"added_at,omitempty"`
 }
 
 // List is a named list of songs.
@@ -59,6 +62,7 @@ var columns = map[string][]string{
 	"isrc":     {"isrc"},
 	"ms":       {"duration (ms)", "duration_ms", "duration ms", "track duration (ms)"},
 	"playlist": {"playlist name", "playlist"},
+	"added":    {"added at", "date added", "added_at", "added"},
 }
 
 // delimiter looks at the header: some tools write ";" or a tab.
@@ -113,7 +117,7 @@ func parseCSV(name string, data []byte) ([]List, error) {
 		if err != nil {
 			continue // a damaged line loses one song, not the list
 		}
-		row := Row{Title: cell(rec, "title"), Artist: cleanArtists(cell(rec, "artist")), Album: cell(rec, "album"), ISRC: cell(rec, "isrc")}
+		row := Row{Title: cell(rec, "title"), Artist: cleanArtists(cell(rec, "artist")), Album: cell(rec, "album"), ISRC: cell(rec, "isrc"), AddedAt: cell(rec, "added")}
 		row.DurationMs, _ = strconv.Atoi(cell(rec, "ms"))
 		if row.Title == "" || row.Artist == "" {
 			continue

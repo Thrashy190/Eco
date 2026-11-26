@@ -340,10 +340,11 @@ const PAGE = 100;
 
 function SongsTab() {
   const sort = useSort("songs");
+  const mine = useSettings((s) => s.songsFilter) === "mine";
   // The library is too big to send whole, so the server sorts it. The list stays on screen until the new order arrives.
   const { data, error, isPending, hasNextPage, fetchNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ["songs", sort.id],
-    queryFn: ({ pageParam }) => getSongs(pageParam, PAGE, sort.id),
+    queryKey: ["songs", sort.id, mine],
+    queryFn: ({ pageParam }) => getSongs(pageParam, PAGE, sort.id, mine),
     placeholderData: keepPreviousData,
     initialPageParam: 0,
     getNextPageParam: (last, _pages, lastParam) => (last.has_more ? lastParam + PAGE : undefined),
@@ -358,13 +359,29 @@ function SongsTab() {
   if (isPending) return <Skeleton />;
   if (error) return <Empty>{error.message}</Empty>;
   const songs = data.pages.flatMap((p) => p.songs).map(toSong);
+  const total = data.pages[0].total;
   return (
     <>
-      <div className={ui.actions}><Link className={ui.pill} data-on="" to="/add-song"><Icon name="plus" size={16} />Add a song</Link></div>
-      <p className={ui.count}>{plural(data.pages[0].total, "song")}</p>
-      <LibrarySongs songs={songs} />
+      <div className={cx(ui.actions, "justify-between")}>
+        <Link className={ui.pill} data-on="" to="/add-song"><Icon name="plus" size={16} />Add a song</Link>
+        <SongsFilter mine={mine} />
+      </div>
+      <p className={ui.count}>{mine ? `${plural(total, "song")} you added` : plural(total, "song")}</p>
+      {mine && total === 0
+        ? <Welcome title="Nothing added by you yet"><p>Songs you download or add from now on show here. Eco did not keep track of who added the songs that came before.</p></Welcome>
+        : <LibrarySongs songs={songs} />}
       <div className={ui.more} ref={marker} />
     </>
+  );
+}
+
+/** The whole library, or only the songs you brought into it. Remembered like the order of each section. */
+function SongsFilter({ mine }: { mine: boolean }) {
+  return (
+    <div className="flex gap-1.5" role="group" aria-label="Whose songs">
+      <button type="button" className={ui.chip} aria-pressed={!mine} onClick={() => setSettings({ songsFilter: "all" })}>All</button>
+      <button type="button" className={ui.chip} aria-pressed={mine} onClick={() => setSettings({ songsFilter: "mine" })}>Added by you</button>
+    </div>
   );
 }
 

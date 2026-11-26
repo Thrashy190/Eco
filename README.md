@@ -58,7 +58,8 @@
 - Open an album to see every track in order and which ones you have, then tick the ones to download. Songs you do not have yet are chosen the same way in search results and on an artist's page.
 - An artist's page starts with their most played songs on your server, then their songs, the ones they appear on, their albums and what you could still download. Long lists show ten songs, with the rest a tap away.
 - Tapped songs are fetched, tagged with proper metadata, genres and cover art, and appear in your library in seconds.
-- Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest.
+- Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest. Your Liked Songs become your favorites instead, in the order you liked them, and the songs you download later join them.
+- **Library ▸ Songs ▸ Added by you** shows only the songs you downloaded or added; **All** is the whole library. Nobody else sees what you added.
 - A song search cannot find? **Library ▸ Songs ▸ Add a song**: paste its YouTube link and say what it is. Pick its album from your library or the catalogue, or describe a new one, with its cover.
 - A song saved under the wrong name or artist? An administrator fixes it from its ⋯ menu ▸ **Edit details**: title, artists, album, year, numbers and genre. Favorites and playlists keep it.
 
@@ -132,7 +133,7 @@ Use whichever fits you; they all end up in the same library.
 | Way | Good for |
 |---|---|
 | **The search box in Eco** | Anything in [MusicBrainz](docs/configuration.md#where-song-information-comes-from): search, tap **Get**, or open an album and choose its tracks. |
-| **Import a playlist**, in the app | A list exported to a file from Spotify or elsewhere: it becomes a playlist, and you can download what is missing. |
+| **Import a playlist**, in the app | A list exported to a file from Spotify or elsewhere: it becomes a playlist, or your favorites for your Liked Songs, and you can download what is missing. |
 | **`eco likes`** | Download your whole Spotify *Liked Songs* or a playlist in bulk, through your own [Spotify developer app](docs/configuration.md#spotify). See [Command line](#command-line). |
 | **Copy files** into `data/music/` | Music you already own. Navidrome scans every minute. |
 | **`scripts/upload.sh`** | Your own recordings: converts, tags and uploads them. |

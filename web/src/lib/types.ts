@@ -267,6 +267,7 @@ export interface ImportRow {
   album?: string;
   isrc?: string;
   duration_ms?: number;
+  added_at?: string; // when it was liked or added to the list, when the file says
 }
 
 export interface ImportedList {
@@ -279,6 +280,7 @@ export interface ImportSummary {
   id: string;
   name: string;
   playlist_id?: string;
+  favorites?: boolean; // its songs go to the favourites, not to a playlist
   total: number;
   owned: number;
   updated_at: number;
