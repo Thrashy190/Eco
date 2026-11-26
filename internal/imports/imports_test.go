@@ -3,9 +3,9 @@ package imports
 import "testing"
 
 func TestExportifyCSV(t *testing.T) {
-	file := "\xef\xbb\xbf\"Track URI\",\"Track Name\",\"Album Name\",\"Artist Name(s)\",\"Duration (ms)\",\"ISRC\"\n" +
-		"\"spotify:track:1\",\"Tití Me Preguntó\",\"Un Verano Sin Ti\",\"Bad Bunny\",\"243716\",\"QM1\"\n" +
-		"\"spotify:track:2\",\"AMG, Part 2\",\"Nata Montana\",\"Natanael Cano;Peso Pluma\",\"174000\",\"\"\n"
+	file := "\xef\xbb\xbf\"Track URI\",\"Track Name\",\"Album Name\",\"Artist Name(s)\",\"Duration (ms)\",\"ISRC\",\"Added At\"\n" +
+		"\"spotify:track:1\",\"Tití Me Preguntó\",\"Un Verano Sin Ti\",\"Bad Bunny\",\"243716\",\"QM1\",\"2024-05-01T12:34:56Z\"\n" +
+		"\"spotify:track:2\",\"AMG, Part 2\",\"Nata Montana\",\"Natanael Cano;Peso Pluma\",\"174000\",\"\",\"\"\n"
 	lists, err := Parse("Road trip.csv", []byte(file))
 	if err != nil {
 		t.Fatal(err)
@@ -14,7 +14,7 @@ func TestExportifyCSV(t *testing.T) {
 		t.Fatalf("lists = %+v", lists)
 	}
 	first, second := lists[0].Rows[0], lists[0].Rows[1]
-	if first.Title != "Tití Me Preguntó" || first.Artist != "Bad Bunny" || first.Album != "Un Verano Sin Ti" || first.DurationMs != 243716 || first.ISRC != "QM1" {
+	if first.Title != "Tití Me Preguntó" || first.Artist != "Bad Bunny" || first.Album != "Un Verano Sin Ti" || first.DurationMs != 243716 || first.ISRC != "QM1" || first.AddedAt != "2024-05-01T12:34:56Z" {
 		t.Errorf("first = %+v", first)
 	}
 	if second.Title != "AMG, Part 2" || second.Artist != "Natanael Cano, Peso Pluma" {

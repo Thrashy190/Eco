@@ -264,7 +264,7 @@ func nonNil(j []jobs.Job) []jobs.Job {
 	return j
 }
 
-// songs lists the whole library in the order asked for, a page at a time.
+// songs lists the whole library in the order asked for, a page at a time; with mine=1, only what this person added.
 func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
 	lib, err := s.library(r.Context(), cred)
 	if err != nil {
@@ -279,6 +279,9 @@ func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cre
 	ordered, known := lib.orders[r.URL.Query().Get("sort")]
 	if !known {
 		ordered = lib.orders[defaultSongOrder]
+	}
+	if r.URL.Query().Get("mine") == "1" { // only the songs this person added
+		ordered = addedBy(s.users.AddedSongs(cred.User), lib, ordered)
 	}
 	offset = min(max(offset, 0), len(ordered))
 	end := min(offset+limit, len(ordered))
@@ -320,6 +323,9 @@ func (s *Server) runJob(ctx context.Context, job jobs.Job, payload any, set func
 		return errors.New("YouTube asked Eco to stop for a while. Try again later, or set up cookies (see docs/configuration.md)")
 	}
 	err := s.runDownload(ctx, job, payload, set)
+	if err == nil {
+		s.rememberAdded(payload, set)
+	}
 	if err != nil && ytdlp.IsBlocked(err) {
 		s.mu.Lock()
 		s.youtubeBlocked = time.Now().Add(youtubePause)
@@ -339,7 +345,7 @@ func (s *Server) runDownload(ctx context.Context, job jobs.Job, payload any, set
 		err := s.fetchSong(ctx, m, p.Cred, set)
 		if err == nil {
 			if imp, ok := s.users.Import(p.Cred.User, p.ImportID); ok {
-				if _, err := s.syncImport(ctx, p.Cred, imp); err != nil {
+				if _, err := s.syncImport(ctx, p.Cred, imp, job.Key); err != nil {
 					log.Printf("updating the playlist of import %s: %v", imp.Name, err)
 				}
 			}

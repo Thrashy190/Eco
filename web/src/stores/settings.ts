@@ -23,6 +23,7 @@ export interface Settings {
   tabs: string[]; // the tabs on a phone, and the places in the top bar elsewhere (see lib/nav.ts)
   libraryView: "grid" | "list"; // how albums and artists are listed
   librarySort: Record<string, string>; // the chosen order of each section of the library (see lib/sorting.ts)
+  songsFilter: "all" | "mine"; // Library ▸ Songs: the whole library, or only the songs you added
   nowPanel: boolean; // on a big screen, the deck (what is playing) stays beside the page
   deckWidth: number; // px: dragged by its edge, like a sidebar
   background: "wash" | "photo" | "cover"; // behind everything: the music's colour, your picture, or the cover playing
@@ -39,7 +40,7 @@ export interface Settings {
 
 export const DEFAULTS: Settings = {
   theme: "system", accent: "#7cf0c0", dynamicAccent: false, tint: true, density: "comfortable", corners: "soft", motion: "full", scrobble: true, offlineMode: false,
-  font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, nowPanel: true, deckWidth: 360,
+  font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, songsFilter: "all", nowPanel: true, deckWidth: 360,
   background: "wash", backgroundBlur: 16, backgroundDim: 0.15, backgroundWash: true, wallpaper: 0, playerStyle: "cover", glass: "frosted",
   cardSize: "medium", syncLook: true, favoritesColor: "classic",
 };

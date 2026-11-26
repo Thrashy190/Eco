@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { scrollRoot } from "../lib/media";
 import { cx, detail, ui } from "../lib/ui";
@@ -12,6 +12,15 @@ export const Skeleton = ({ rows = 6 }: { rows?: number }) => (
 );
 
 export const Empty = ({ children }: { children: ReactNode }) => <p className={ui.empty}>{children}</p>;
+
+/**
+ * A name that may wrap after each underscore. Exportify names its files "Mi_Playlist_De_Reggaeton", and a browser
+ * reads that as one long word: in a big title it could only overflow, or break in the middle of a word.
+ */
+export function Breakable({ text }: { text: string }) {
+  const parts = text.split("_");
+  return <>{parts.map((part, i) => <Fragment key={i}>{part}{i < parts.length - 1 && <>_<wbr /></>}</Fragment>)}</>;
+}
 
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (

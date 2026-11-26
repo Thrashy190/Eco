@@ -102,3 +102,9 @@ export function listLength(seconds: number): string {
   const minutes = Math.max(1, Math.round(seconds / 60));
   return minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ""}`;
 }
+
+/**
+ * Whether a list is someone's liked songs, which go to the favourites rather than to a playlist: Spotify's account data
+ * calls it "Liked songs", Exportify's file is "Liked_Songs.csv", and Spotify in Spanish says "Canciones que te gustan".
+ */
+export const isLikedSongs = (name: string) => /^(liked[\s_-]*songs|canciones[\s_-]*que[\s_-]*te[\s_-]*gustan|tus[\s_-]*me[\s_-]*gusta)$/i.test(name.trim());

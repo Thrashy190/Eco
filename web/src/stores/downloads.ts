@@ -30,7 +30,7 @@ function refreshAfterDownload(job: Job): void {
     void queryClient.invalidateQueries({ queryKey: ["media"] });
     return;
   }
-  for (const key of ["home", "songs", "search", "catalog-album", "album", "artist", "import", "imports", "playlist", "playlists"]) void queryClient.invalidateQueries({ queryKey: [key] });
+  for (const key of ["home", "songs", "search", "catalog-album", "album", "artist", "import", "imports", "playlist", "playlists", "favorites"]) void queryClient.invalidateQueries({ queryKey: [key] });
 }
 
 async function tick(): Promise<void> {

@@ -105,6 +105,14 @@ func (m *Manager) SubmitWith(key, user string, payload any, init func(*Job)) (Jo
 	return *j, true
 }
 
+// Running reports whether the download with this key is queued or under way.
+func (m *Manager) Running(key string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.active[key]
+	return ok
+}
+
 func (j Job) askedBy(user string) bool {
 	for _, u := range j.Users {
 		if strings.EqualFold(u, user) { // Navidrome ignores case in usernames

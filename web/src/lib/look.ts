@@ -10,6 +10,7 @@ export const CHOICES: Record<string, readonly string[]> = {
   font: ["rounded", "system", "serif", "mono"],
   textSize: ["small", "normal", "large"],
   libraryView: ["grid", "list"],
+  songsFilter: ["all", "mine"],
   background: ["wash", "photo", "cover"],
   playerStyle: ["cover", "vinyl", "backdrop", "minimal"],
   glass: ["clear", "frosted", "solid"],
