@@ -1,0 +1,31 @@
+[package]
+name = "eco-desktop"
+version = "0.0.0"
+description = "Eco for the desktop: the Eco app in its own window, connected to your Eco server"
+license = "MIT"
+repository = "https://github.com/Thrashy190/eco"
+edition = "2021"
+publish = false
+
+[lib]
+name = "eco_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.6", features = [] }
+
+[dependencies]
+axum = "0.8.9"
+getrandom = { version = "0.3", features = ["std"] }
+open = "5.4.5"
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls", "stream", "http2", "system-proxy"] }
+rfd = { version = "0.17.2", default-features = false, features = ["gtk3"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2.12.7", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2.5.5"
+tauri-plugin-updater = "2.14.1"
+tokio = { version = "1", features = ["net", "sync", "time"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+glib = "0.18.5"

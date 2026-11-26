@@ -1,0 +1,157 @@
+name: Desktop
+
+# Builds the desktop app (desktop/, docs/desktop.md) for Linux, macOS and Windows, attaches the installers to a release
+# and writes latest.json, the signed list its automatic updates read. CI calls it after each release, like the Docker
+# image, since a tag pushed with GITHUB_TOKEN starts no workflow by itself. Run by hand (Actions, Desktop, Run workflow)
+# with a release tag, it builds that release's installers again; with none, on any branch, it keeps the installers with
+# the run to try a change before releasing it. Pull requests do not build them: the Linux leg alone takes minutes, and a
+# pull request's paths filter looks at its whole diff, so every push would build all three again.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release tag to attach the installers to, e.g. v2.0.0
+        type: string
+        required: true
+    secrets:
+      TAURI_SIGNING_PRIVATE_KEY:
+        required: false
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag to attach the installers to (empty to only build)
+        type: string
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-${{ inputs.version || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest Ubuntu still on GitHub: a .deb or AppImage runs on systems as new as the one it was built on
+          - os: ubuntu-22.04
+            bundles: deb,appimage
+          - os: macos-latest # Apple Silicon
+            bundles: app,dmg
+          - os: windows-latest
+            bundles: nsis
+    runs-on: ${{ matrix.os }}
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      APPIMAGE_EXTRACT_AND_RUN: 1 # the AppImage tools run without FUSE
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.version || github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: rustup toolchain install stable --profile minimal && rustup default stable
+
+      - name: What Tauri builds against on Linux
+        if: runner.os == 'Linux'
+        # gstreamer1.0-libav decodes AAC (Eco's downloads are .m4a); the AppImage takes it along (bundleMediaFramework)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev patchelf file \
+            gstreamer1.0-libav gstreamer1.0-plugins-good
+
+      - name: Version
+        # The release's number, so the app knows which version it is. A build with no release is 0.0.0, which never updates
+        run: |
+          version="${VERSION#v}"
+          node -e 'const fs = require("fs"); const f = "desktop/src-tauri/tauri.conf.json"; const c = JSON.parse(fs.readFileSync(f, "utf8")); c.version = process.argv[1]; fs.writeFileSync(f, JSON.stringify(c, null, 2));' "${version:-0.0.0}"
+
+      - run: npm ci
+        working-directory: web
+      - run: npm ci
+        working-directory: desktop
+
+      - name: Build
+        working-directory: desktop
+        run: |
+          # Without the signing key (a fork, or a check with no release) there is nothing to sign updates with
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            npx tauri build --bundles "${{ matrix.bundles }}" --config '{"bundle":{"createUpdaterArtifacts":false}}'
+          else
+            npx tauri build --bundles "${{ matrix.bundles }}"
+          fi
+
+      # With no release (a run by hand) the installers stay with the run for two weeks, to try them
+      - name: Keep the installers with the run
+        if: inputs.version == ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: eco-desktop-${{ runner.os }}
+          path: |
+            desktop/src-tauri/target/release/bundle/deb/*.deb
+            desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            desktop/src-tauri/target/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Attach to the release
+        if: inputs.version != ''
+        working-directory: desktop/src-tauri/target/release/bundle
+        # Names carry the version and the system. macOS's update archive is named Eco.app.tar.gz, so it gets them here
+        run: |
+          shopt -s nullglob
+          version="${VERSION#v}"
+          files=(deb/*.deb deb/*.deb.sig appimage/*.AppImage appimage/*.AppImage.sig dmg/*.dmg nsis/*-setup.exe nsis/*-setup.exe.sig)
+          for f in macos/*.app.tar.gz macos/*.app.tar.gz.sig; do
+            renamed="macos/Eco_${version}_aarch64${f#macos/Eco}"
+            mv "$f" "$renamed"
+            files+=("$renamed")
+          done
+          ls -la "${files[@]}"
+          gh release upload "$VERSION" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+  # latest.json lists, for each system, where its update is and its signature. The app checks the newest release's copy
+  # (plugins.updater in tauri.conf.json), so it is written once every installer is there.
+  updates:
+    needs: build
+    if: inputs.version != ''
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Write latest.json
+        run: |
+          mkdir signatures && cd signatures
+          gh release download "$VERSION" --pattern '*.sig' --repo "$GITHUB_REPOSITORY"
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$VERSION"
+          entry() { jq -n --arg url "$base/${1%.sig}" --rawfile signature "$1" '{url: $url, signature: $signature}'; }
+          platforms='{}'
+          add() { platforms=$(jq --arg key "$1" --argjson value "$2" '.[$key] = $value' <<<"$platforms"); }
+          for sig in *.sig; do
+            case "$sig" in
+              *.AppImage.sig) add linux-x86_64 "$(entry "$sig")"; add linux-x86_64-appimage "$(entry "$sig")" ;;
+              *.deb.sig) add linux-x86_64-deb "$(entry "$sig")" ;;
+              *.app.tar.gz.sig) add darwin-aarch64 "$(entry "$sig")"; add darwin-aarch64-app "$(entry "$sig")" ;;
+              *-setup.exe.sig) add windows-x86_64 "$(entry "$sig")"; add windows-x86_64-nsis "$(entry "$sig")" ;;
+            esac
+          done
+          jq -n --arg version "${VERSION#v}" --arg notes "https://github.com/$GITHUB_REPOSITORY/releases/tag/$VERSION" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson platforms "$platforms" \
+            '{version: $version, notes: $notes, pub_date: $date, platforms: $platforms}' > ../latest.json
+          cat ../latest.json
+          gh release upload "$VERSION" ../latest.json --clobber --repo "$GITHUB_REPOSITORY"

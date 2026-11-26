@@ -21,7 +21,7 @@ const iconVersion = (() => {
 })();
 const versioned = (name: string) => name.replace(/(\.[a-z]+)$/, `.${iconVersion}$1`);
 
-function versionedIcons(): Plugin {
+function versionedIcons(outDir: string): Plugin {
   return {
     name: "eco-versioned-icons",
     apply: "build",
@@ -30,7 +30,7 @@ function versionedIcons(): Plugin {
       handler: (html) => html.replace(/href="(\.?\/)(icon[^"/]*\.(?:svg|png))"/g, (_, prefix: string, name: string) => `href="${prefix}${versioned(name)}"`),
     },
     closeBundle() {
-      const dist = join(import.meta.dirname, "dist");
+      const dist = join(import.meta.dirname, outDir);
       for (const name of readdirSync(publicDir).filter((n) => /^icon.*\.(svg|png)$/.test(n))) copyFileSync(join(publicDir, name), join(dist, versioned(name)));
       const path = join(dist, "manifest.webmanifest");
       const manifest = JSON.parse(readFileSync(path, "utf8")) as { icons: { src: string }[] };
@@ -61,11 +61,17 @@ function serviceWorkerShell(): Plugin {
   };
 }
 
-export default defineConfig({
-  base: "./",
-  plugins: [tailwindcss(), react(), versionedIcons(), serviceWorkerShell()],
-  build: { outDir: "dist", emptyOutDir: true, chunkSizeWarningLimit: 900 },
-  // `npm run dev` serves the UI with hot reload; the data still comes from a running eco
-  server: { proxy: { "/api": "http://127.0.0.1:8000", "/rest": "http://127.0.0.1:8000" } },
-  test: { environment: "node", include: ["src/**/*.test.ts"] },
+export default defineConfig(({ mode }) => {
+  // `npm run build:desktop` builds the same app for the desktop app (desktop/, docs/desktop.md) into a folder of its own,
+  // so it never replaces the build the Go server embeds. It has no service worker: its files are already on the computer.
+  const desktop = mode === "desktop";
+  const outDir = desktop ? "../desktop/dist" : "dist";
+  return {
+    base: "./",
+    plugins: [tailwindcss(), react(), versionedIcons(outDir), ...(desktop ? [] : [serviceWorkerShell()])],
+    build: { outDir, emptyOutDir: true, chunkSizeWarningLimit: 900 },
+    // `npm run dev` serves the UI with hot reload; the data still comes from a running eco
+    server: { proxy: { "/api": "http://127.0.0.1:8000", "/rest": "http://127.0.0.1:8000" } },
+    test: { environment: "node", include: ["src/**/*.test.ts"] },
+  };
 });

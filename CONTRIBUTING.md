@@ -11,9 +11,11 @@ make check      # gofmt, go vet, go test, TypeScript, web tests and build — wh
 make run        # http://127.0.0.1:8000 (needs a running Navidrome: see README)
 make web-dev    # the web app with hot reload on :5173, using the eco running on :8000
 make roku-check # the Roku app: BrighterScript validation and its tests (part of make check)
+make desktop-dev   # the desktop app from the source
+make desktop-check # the desktop app's rustfmt, clippy and tests (CI runs it apart from make check)
 ```
 
-You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (which also uses deno or Node to solve YouTube's challenges).
+You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (which also uses deno or Node to solve YouTube's challenges). The desktop app also needs Rust and, on Linux, WebKitGTK's development files: [docs/desktop.md](docs/desktop.md#build-and-check).
 
 ## Guidelines
 
@@ -21,6 +23,7 @@ You need Go 1.22+, Node 22.22+ (React Router asks for it), ffmpeg and yt-dlp (wh
 - **Keep the matching logic honest.** `internal/match` decides whether a video is the right song, and a wrong song in someone's library is worse than a failed download. Every fix there needs a test (`internal/match/match_test.go`) that names the real case it came from.
 - **Keep the web app light.** `web/src` is React and TypeScript with `react-query`, `zustand` and Tailwind; avoid adding UI kits. Let React escape text: never use `dangerouslySetInnerHTML`.
 - **The Roku app (`roku/`) mirrors the web app.** Its queue rules are `web/src/lib/queue.ts` translated, and its colours come from the server with the web app's maths (`internal/palette`): change both sides together. Check it with `make roku-check`, then on a TV or in the simulator ([docs/tv.md](docs/tv.md#for-developers)).
+- **The desktop app (`desktop/`) runs the web app as it is.** What differs goes behind `isDesktop` (`web/src/lib/desktop.ts`), so the web app in a browser never changes. Do not add a Tauri plugin that puts scripts in the page: the reasons are in [docs/desktop.md](docs/desktop.md#things-that-were-learned-the-hard-way).
 - **Never run network-touching code in tests.** Tests must pass offline.
 - **Do not commit secrets or personal data.** `.env`, `secrets/` and `data/` are git-ignored.
 - Keep changes small and say *why* in the description, not only what.
@@ -37,6 +40,8 @@ Releases are automatic. When a push to `main` passes CI, [semantic-release](http
 | `docs:`, `test:`, `refactor:`, `ci:`, `chore:` | nothing changes for people | no release |
 
 Write what changes for the person using Eco: the message becomes the release notes.
+
+Pull requests are squashed into one commit on `main`. Its title is the pull request's title (or, with a single commit, that commit's title), and its body joins the messages of every commit. So **a pull request's title follows the same format** (`feat: …`, `fix: …`), and a `BREAKING CHANGE:` footer in any of its commits makes the major version.
 
 ## Where things are
 

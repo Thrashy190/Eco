@@ -32,6 +32,21 @@ updates:
       roku-tools: { patterns: ["*"] }
     commit-message: { prefix: chore }
 
+  # The desktop app's libraries ship inside it; the Tauri CLI only builds it
+  - package-ecosystem: cargo
+    directory: /desktop/src-tauri
+    schedule: { interval: monthly }
+    groups:
+      desktop: { patterns: ["*"] }
+    commit-message: { prefix: fix }
+
+  - package-ecosystem: npm
+    directory: /desktop
+    schedule: { interval: monthly }
+    groups:
+      desktop-tools: { patterns: ["*"] }
+    commit-message: { prefix: chore }
+
   - package-ecosystem: docker
     directory: /
     schedule: { interval: monthly }

@@ -2,6 +2,7 @@
 // <audio> element in index.html, so music never stops because a screen changed. The UI reads usePlayer and useTime.
 import { create } from "zustand";
 import { getRandomSongs, hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
+import { isDesktop } from "../lib/desktop";
 import * as order from "../lib/queue";
 import { sleepLabel, sleepLeft, sleepMinutes } from "../lib/sleep";
 import type { LibraryEntry, Song } from "../lib/types";
@@ -559,4 +560,11 @@ if ("mediaSession" in navigator) {
   session.setActionHandler("seekto", (d) => seek(d.seekTime ?? 0));
   session.setActionHandler("seekbackward", (d) => seek(audio.currentTime - (d.seekOffset || 10)));
   session.setActionHandler("seekforward", (d) => seek(audio.currentTime + (d.seekOffset || 10)));
+}
+
+// The desktop app's tray menu (`command` in desktop/src-tauri/src/shell.rs). They go through the same controls as a
+// tap, so with Connect they reach the device that is playing.
+if (isDesktop) {
+  const desktopCommands: Record<string, () => void> = { toggle, next: () => next(), previous };
+  (window as { __ecoDesktopCommand?: (name: string) => void }).__ecoDesktopCommand = (name) => desktopCommands[name]?.();
 }
