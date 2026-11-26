@@ -41,6 +41,8 @@ Releases are automatic. When a push to `main` passes CI, [semantic-release](http
 
 Write what changes for the person using Eco: the message becomes the release notes.
 
+Pull requests are squashed into one commit on `main`. Its title is the pull request's title (or, with a single commit, that commit's title), and its body joins the messages of every commit. So **a pull request's title follows the same format** (`feat: …`, `fix: …`), and a `BREAKING CHANGE:` footer in any of its commits makes the major version.
+
 ## Where things are
 
 See [docs/architecture.md](docs/architecture.md) for the code map and how a download works.
