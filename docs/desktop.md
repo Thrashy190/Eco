@@ -91,6 +91,7 @@ macOS and Windows use their usual folders for the identifier `eco.music.thrashy`
 |---|---|
 | "Eco cannot start: it needs port 27493" | Another program uses that port. Close it and open Eco again. Two copies of Eco never run at once. |
 | No sound on Linux | `sudo apt install gstreamer1.0-libav` (the `.deb` installs it; another way of installing may not). |
+| Slow or choppy on Linux with an NVIDIA card | Update Eco: since 2.1.2 it draws with the graphics card there. `nvidia-smi` should list `WebKitWebProcess`. To go back to WebKit's own choice, start it with `WEBKIT_DISABLE_DMABUF_RENDERER=1 eco-desktop`. |
 | No tray icon on GNOME | GNOME shows tray icons only with the AppIndicator extension (Ubuntu and Pop!_OS have it on). Without it, open Eco again to see the window. |
 | "Nothing answered at …" | The address is wrong, or the server is off or not reachable from this computer. Try it in a browser. |
 | "… answers, but it is not an Eco server" | That is probably Navidrome's address. Use Eco's. |
@@ -127,6 +128,7 @@ What the web app does differently in the desktop build, all behind `isDesktop`: 
 - **Each web view handles dialogs differently.** WebKitGTK (Linux) and WebView2 (Windows) draw `confirm` and `prompt` themselves; WKWebView (macOS) draws nothing unless the app does. So `alert` and `confirm` always go to `/desktop/dialog`, synchronously as they are, and `prompt` does on a Mac (AppleScript's `display dialog`). A message box is made on the main thread and awaited elsewhere: rfd's blocking `show()` called on the main thread waits for that same thread and freezes the app.
 - **Links open from the page**, through `/desktop/open`: not every web view hands `target="_blank"` to the app.
 - **MPRIS comes from WebKitGTK**, with the name GLib knows the program by, so `lib.rs` sets it to *Eco*.
+- **WebKitGTK paints on the processor with NVIDIA's driver.** It turns its DMA-BUF renderer off there, and on X11 has no other accelerated path, so its acceleration policy is "never" whatever the app sets, and Eco's blur made the window slow. `graphics.rs` sets `WEBKIT_FORCE_DMABUF_RENDERER=1` and `WEBKIT_DMABUF_RENDERER_FORCE_SHM=1` when `/proc/driver/nvidia/version` exists, unless one of WebKit's rendering switches is already set: forcing the renderer alone fails ("Failed to create GBM buffer"), and with shared memory it draws on the card. `webkit://gpu` tells which: build a small WebKitGTK program that opens it, since the app has no address bar. Checked with WebKitGTK 2.50.4, a GT 1030 and driver 580 on X11; not yet on Wayland.
 - `beforeBuildCommand`'s `cwd` in `tauri.conf.json` is relative to `src-tauri/`, not to `desktop/`.
 
 ### Build and check

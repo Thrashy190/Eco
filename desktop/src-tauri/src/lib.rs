@@ -4,6 +4,8 @@
 
 mod config;
 mod dialogs;
+#[cfg(target_os = "linux")]
+mod graphics;
 mod server;
 mod shell;
 mod update;
@@ -14,6 +16,10 @@ use tauri::webview::NewWindowResponse;
 use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
 pub fn run() {
+    // Before any window: WebKitGTK reads how to render once, when it starts (graphics.rs)
+    #[cfg(target_os = "linux")]
+    graphics::prepare();
+
     tauri::Builder::default()
         // Opening Eco again shows the window already running: two copies would fight over the port. It is also the
         // way back to a hidden window on a desktop with no tray
