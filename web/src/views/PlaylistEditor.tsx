@@ -9,7 +9,7 @@ import { pictureToCover } from "../lib/image";
 import { scrollRoot, useWide } from "../lib/media";
 import type { Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
-import { BackButton, DetailPage, Empty, Section, Skeleton } from "../components/common";
+import { BackButton, Breakable, DetailPage, Empty, Section, Skeleton } from "../components/common";
 import { PlaylistArt, SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { setPlaylistCover } from "../stores/library";
@@ -227,7 +227,7 @@ export function AddSongs() {
       <BackButton />
       <DetailPage
         art={<PlaylistArt id={id} cover={playlist.cover} size={400} className={ui.coverHuge} />}
-        info={<><p className={EYEBROW}>Add songs to</p><h1>{playlist.name}</h1><p>{songs.length ? `Adding ${summary(songs, "")}` : `${plural(playlist.songs.length, "song")} now`}</p></>}
+        info={<><p className={EYEBROW}>Add songs to</p><h1><Breakable text={playlist.name} /></h1><p>{songs.length ? `Adding ${summary(songs, "")}` : `${plural(playlist.songs.length, "song")} now`}</p></>}
         actions={(
           <div className={ui.actions}>
             <button type="button" className={ui.primary} disabled={busy || !chosen.size} onClick={() => void add()}>
