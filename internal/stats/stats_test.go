@@ -143,3 +143,21 @@ func TestTheTimelineHasEveryDayAndComparesWithBefore(t *testing.T) {
 		t.Errorf("weeks start on %s", start.Weekday())
 	}
 }
+
+// An artist's popular songs are ordered by everyone's plays, with the history imported from Navidrome, and a play Eco
+// counted before that history was read is not counted twice.
+func TestSongPlaysAddUpEveryoneOnce(t *testing.T) {
+	s := &Store{Dir: t.TempDir()}
+	s.Add(play("ana", "1", day0, "Bad Bunny")) // already in Ana's history below
+	old := play("", "1", day0.Add(-24*time.Hour), "Bad Bunny")
+	old.Count = 5
+	s.Import("ana", day0.Add(time.Hour), []Play{old})
+	s.Add(play("ana", "1", day0.Add(2*time.Hour), "Bad Bunny"))
+	s.Add(play("luis", "1", day0.Add(3*time.Hour), "Bad Bunny"))
+	s.Add(play("luis", "2", day0.Add(4*time.Hour), "Bad Bunny"))
+	plays, at, _ := s.Snapshot()
+	got := SongPlays(plays, at)
+	if got["1"] != 7 || got["2"] != 1 || len(got) != 2 {
+		t.Errorf("got %v, want 1:7 2:1", got)
+	}
+}

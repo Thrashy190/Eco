@@ -65,19 +65,23 @@ interface SongRowProps {
   song: Song;
   list: Song[];
   index: number;
+  /** Its place in the list instead of the cover, as on an album. */
   numbered?: boolean;
+  /** Its place in the list before the cover, as in an artist's popular songs. */
+  ranked?: boolean;
   hideAlbum?: boolean;
   from?: LibraryEntry;
   rowMenu?: (song: Song, index: number) => SheetItem[];
 }
 
 /** A song in the library. Tapping it plays the whole list from here. */
-export function SongRow({ song, list, index, numbered, hideAlbum, from, rowMenu }: SongRowProps) {
+export function SongRow({ song, list, index, numbered, ranked, hideAlbum, from, rowMenu }: SongRowProps) {
   const navigate = useNavigate();
   const { current, playing } = useIsCurrent(song.id);
   return (
     <li className={ui.row} data-current={current || undefined} data-playing={playing || undefined} data-id={song.id} onClick={() => player.play(list, index, from)}>
-      {numbered ? <span className={ui.num}>{index + 1}</span> : <SongCover song={song} />}
+      {(numbered || ranked) && <span className={ui.num}>{index + 1}</span>}
+      {!numbered && <SongCover song={song} />}
       <div className={ui.text}><b>{song.title}</b><span>{song.artist}{!hideAlbum && song.album && <span className={ui.inLineAlbum}>{` · ${song.album}`}</span>}</span></div>
       {!hideAlbum && <span className={ui.colAlbum}>{song.album}</span>}
       <SavedStatus id={song.id} />
@@ -87,12 +91,23 @@ export function SongRow({ song, list, index, numbered, hideAlbum, from, rowMenu 
   );
 }
 
-export function SongList({ songs, numbered, hideAlbum, from, rowMenu }: { songs: Song[]; numbered?: boolean; hideAlbum?: boolean; from?: LibraryEntry; rowMenu?: SongRowProps["rowMenu"] }) {
-  const { visible, sentinel } = useIncremental(songs);
+interface SongListProps {
+  songs: Song[];
+  numbered?: boolean;
+  ranked?: boolean;
+  hideAlbum?: boolean;
+  from?: LibraryEntry;
+  rowMenu?: SongRowProps["rowMenu"];
+  /** Shows only the first songs. Tapping one still plays the whole list from there. */
+  limit?: number;
+}
+
+export function SongList({ songs, numbered, ranked, hideAlbum, from, rowMenu, limit }: SongListProps) {
+  const { visible, sentinel } = useIncremental(limit === undefined ? songs : songs.slice(0, limit));
   return (
     <>
       <ul className={ui.rows}>
-        {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} hideAlbum={hideAlbum} from={from} rowMenu={rowMenu} />)}
+        {visible.map((song, i) => <SongRow key={`${song.id}-${i}`} song={song} list={songs} index={i} numbered={numbered} ranked={ranked} hideAlbum={hideAlbum} from={from} rowMenu={rowMenu} />)}
       </ul>
       {sentinel}
     </>
@@ -136,29 +151,6 @@ export function PlayButtons({ songs, from, children }: { songs: Song[]; from?: L
 
 const JOB_LABEL = { queued: "Queued", searching: "Finding…", tagging: "Finishing…" } as const;
 
-async function startDownload(catalogId: string): Promise<void> {
-  try { await requestSong(catalogId); } catch (e) { toast((e as Error).message); }
-}
-
-/** A catalogue result not in the library. Once downloaded it turns into a normal, playable row. */
-export function ExternalRow({ ext }: { ext: ExternalSong }) {
-  const job = liveJob(useJobs((s) => s.jobs[ext.id]));
-  const ownedId = job?.state === "ready" ? job.library_id : undefined;
-  const asSong = (id: string): Song => toSong({ id, title: ext.title, artist: ext.artist, album: ext.album, duration: ext.duration, cover: id });
-  return (
-    <li className={cx(ui.row, !ownedId && "[&>[data-art]]:opacity-[.92]")} onClick={ownedId ? () => player.play([asSong(ownedId)], 0) : undefined}>
-      <Picture src={ext.cover_url} external />
-      <div className={ui.text}><b>{ext.title}</b><span>{[ext.artist, ext.album].filter(Boolean).join(" · ")}</span></div>
-      <span className={ui.download}>
-        {!job && <button className={ui.get} aria-label={`Download ${ext.title}`} onClick={(e) => { e.stopPropagation(); void startDownload(ext.id); }}><Icon name="download" size={18} />Get</button>}
-        {job?.state === "error" && <button className={ui.getRetry} title={job.error} onClick={(e) => { e.stopPropagation(); toast(job.error ?? "Download failed"); void startDownload(ext.id); }}>Retry</button>}
-        {job?.state === "ready" && <span className={ui.done}><Icon name="check" size={18} /></span>}
-        {job && job.state !== "error" && job.state !== "ready" && <JobProgress state={job.state} progress={job.progress} />}
-      </span>
-    </li>
-  );
-}
-
 /** Spins until real progress arrives, then fills the ring. */
 export function JobProgress({ state, progress }: { state: keyof typeof JOB_LABEL | "downloading"; progress: number }) {
   return (
@@ -169,28 +161,12 @@ export function JobProgress({ state, progress }: { state: keyof typeof JOB_LABEL
   );
 }
 
-/** A "Get all" button for a list of external songs. */
-export function GetAllButton({ externals }: { externals: ExternalSong[] }) {
-  return (
-    <button className={ui.pill} onClick={async (e) => {
-      const { jobs } = useJobs.getState();
-      const todo = externals.filter((ext) => !liveJob(jobs[ext.id]));
-      if (!todo.length) { toast("Everything here is already on its way"); return; }
-      e.currentTarget.disabled = true;
-      toast(`Downloading ${todo.length} songs`);
-      for (const ext of todo) {
-        try { await requestSong(ext.id); } catch (err) { toast((err as Error).message); break; }
-      }
-    }}><Icon name="download" size={16} />{`Get all ${externals.length}`}</button>
-  );
-}
-
 /**
  * Catalogue songs to choose from and download together, the same way as on an album page (views/CatalogAlbum.tsx):
  * tapping a song selects it, and the bar on top downloads what is chosen. A song on its way shows how far it got, and
  * once downloaded it plays.
  */
-export function PickToDownload({ externals }: { externals: ExternalSong[] }) {
+export function PickToDownload({ externals, underSearch }: { externals: ExternalSong[]; underSearch?: boolean }) {
   const jobs = useJobs((s) => s.jobs);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const selectable = externals.filter((ext) => { const job = liveJob(jobs[ext.id]); return !job || job.state === "error"; });
@@ -213,7 +189,7 @@ export function PickToDownload({ externals }: { externals: ExternalSong[] }) {
   return (
     <>
       {selectable.length > 0 && (
-        <div className={ui.selectBar}>
+        <div className={underSearch ? ui.selectBarUnderSearch : ui.selectBar}>
           <button type="button" className={ui.pill} onClick={() => setSelected(allChosen ? new Set() : new Set(selectable.map((ext) => ext.id)))}>
             {allChosen && <Icon name="check" size={16} />}{allChosen ? "Clear selection" : `Select all ${selectable.length}`}
           </button>

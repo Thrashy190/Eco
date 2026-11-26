@@ -432,3 +432,15 @@ func timeline(plays []Play, start, end time.Time, loc *time.Location) (string, [
 	}
 	return step, out
 }
+
+// SongPlays counts how many times each song was played on this server: everyone's plays, all time, imported history
+// included, by song ID. Artist pages order their popular songs with it.
+func SongPlays(plays []Play, imported map[string]time.Time) map[string]int {
+	out := map[string]int{}
+	for _, p := range plays {
+		if counts(p, "", imported) {
+			out[p.SongID] += p.times()
+		}
+	}
+	return out
+}

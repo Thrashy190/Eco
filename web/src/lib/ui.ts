@@ -6,6 +6,7 @@ export const cx = (...parts: (string | false | null | undefined)[]) => parts.fil
 
 const pressable = "tap active:scale-[.97]";
 const truncated = "[&>b]:truncate [&>span]:truncate";
+const selectBar = "sticky z-10 flex flex-wrap items-center justify-between gap-2.5 mx-3 mb-2 px-3 py-2 rounded-[26px] bg-glass-strong backdrop-blur-xl shadow-[inset_0_0_0_1px_var(--line)] wide:top-0 wide:mx-5";
 const title = "[&_h1]:font-title [&_h1]:font-bold [&_h1]:leading-[1.03] [&_h1]:tracking-[-.04em] [&_h1]:text-balance";
 
 export const ui = {
@@ -32,7 +33,6 @@ export const ui = {
   back: "tap sticky top-[calc(var(--safe-top)+8px)] z-20 ml-3 mt-1 -mb-1 size-10 grid place-items-center rounded-full bg-glass-strong backdrop-blur-xl text-text shadow-[0_6px_18px_rgb(0_0_0/.25),inset_0_0_0_1px_var(--line)] active:scale-[.94] wide:hidden",
   dangerLink: "block mx-auto my-6 p-2.5 text-danger font-semibold",
   get: "tap relative overflow-hidden inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-accent text-accent-ink font-extrabold text-[.85rem] active:scale-[.96] disabled:bg-surface-2 disabled:text-muted disabled:opacity-100",
-  getRetry: "tap inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-transparent text-danger font-extrabold text-[.85rem] shadow-[inset_0_0_0_1.5px_var(--danger)] active:scale-[.96]",
   chip: "px-4 py-2.25 rounded-full bg-ghost font-bold text-[.9rem] transition-[background-color,color,transform] duration-150 active:scale-95 aria-pressed:bg-accent aria-pressed:text-accent-ink hover:not-aria-pressed:bg-surface-3",
   link: "text-accent cursor-pointer",
 
@@ -80,7 +80,9 @@ export const ui = {
   tick: "flex-none size-7 grid place-items-center rounded-lg shadow-[inset_0_0_0_2px_var(--surface-3)] text-accent-ink transition-[background-color,box-shadow] duration-100 data-on:bg-accent data-on:shadow-none",
   pinMark: "inline-flex align-[-1px] mr-1.25 text-accent",
   discTitle: "px-3 pt-4 pb-1.5 text-muted text-[.8rem] font-bold uppercase tracking-[.08em]",
-  selectBar: "sticky top-[calc(var(--safe-top)+8px)] z-10 flex flex-wrap items-center justify-between gap-2.5 mx-3 mb-2 px-3 py-2 rounded-[26px] bg-glass-strong backdrop-blur-xl shadow-[inset_0_0_0_1px_var(--line)] wide:top-0 wide:mx-5",
+  selectBar: `${selectBar} top-[calc(var(--safe-top)+8px)]`,
+  // On Search it stops below the search field, which also stays at the top of a phone's screen
+  selectBarUnderSearch: `${selectBar} top-[calc(var(--safe-top)+68px)]`,
   filter: "block w-[calc(100%-32px)] mx-4 my-2 px-4 py-3 rounded-full border border-transparent bg-ghost outline-none focus:border-accent wide:w-[calc(100%-64px)] wide:max-w-120 wide:mx-8",
   segments: "flex gap-1 overflow-x-auto px-4 py-2.5 no-scrollbar wide:px-8 wide:py-2",
   segment: "tap flex-none whitespace-nowrap px-4 py-2 rounded-full font-bold text-[.9rem] text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg [&_small]:ml-1.5 [&_small]:opacity-75",

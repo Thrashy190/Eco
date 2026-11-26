@@ -79,7 +79,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/media?kind=` | imported items, newest first |
 | `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
-| `GET /api/artists/songs?name=` | every song in the library that names this artist, as the main artist or alongside others, in album order |
+| `GET /api/artists/songs?name=` | every song in the library that names this artist, as the main artist or alongside others, in album order, and `popular`: the IDs of up to ten of them, the most played on the server first (everyone's plays, only the order), then their own songs and the rest to fill the list |
 | `GET`, `PUT /api/me/look` | how the app looks for you (`look`, saved by the web app and only kept by the server, a JSON object of at most 32 KB), when it was saved (`at`) and the version of your background picture (`wallpaper`) |
 | `GET`, `PUT`, `DELETE /api/me/wallpaper` | your background picture (a JPEG, like the profile picture) |
 | `GET /api/me` | who you are, whether you are an administrator, which `catalog` answers, and the `version` of Eco (shown in Settings, linked to its release notes) |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { knownArtists, splitArtists, splitOwn, readableArtists } from "./format";
+import { knownArtists, pickPopular, splitArtists, splitOwn, readableArtists } from "./format";
 import type { Song } from "./types";
 
 const known = knownArtists(["Bad Bunny", "Beyoncé", "Tyler, The Creator"]);
@@ -39,5 +39,19 @@ describe("splitOwn", () => {
   });
   it("leaves everything under Appears on for someone with no album of their own", () => {
     expect(splitOwn([song("feat", "x")], []).elsewhere.map((s) => s.id)).toEqual(["feat"]);
+  });
+});
+
+describe("pickPopular", () => {
+  const song = (id: string): Song => ({ id, title: id, artist: "Joost" });
+  const songs = ["a", "b", "c", "d"].map(song);
+  it("keeps the server's order and skips a song the list no longer has", () => {
+    expect(pickPopular(songs, ["c", "gone", "a", "d"]).map((s) => s.id)).toEqual(["c", "a", "d"]);
+  });
+  it("shows at most the number asked for", () => {
+    expect(pickPopular(songs, ["d", "c", "b", "a"], 2).map((s) => s.id)).toEqual(["d", "c"]);
+  });
+  it("takes the first songs from a server that sends no order", () => {
+    expect(pickPopular(songs, undefined, 3).map((s) => s.id)).toEqual(["a", "b", "c"]);
   });
 });
