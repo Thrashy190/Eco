@@ -1,70 +1,20 @@
-//! How WebKitGTK draws the window on Linux.
+//! Whether WebKitGTK paints the window on the processor, so the page draws a lighter Eco there.
 //!
-//! With NVIDIA's own driver, WebKitGTK turns its GPU renderer off by itself (its DMA-BUF buffers fail there: "Failed to
-//! create GBM buffer … Invalid argument"), and on X11 it has no other accelerated path: its hardware acceleration policy
-//! becomes "never" whatever the app asks, and the processor paints every frame. Eco's blurred glass and colour wash then
-//! made the window slow, with the web process near 70% of a core (WebKitGTK 2.50.4, a GeForce GT 1030 with driver 580,
-//! X11). Forcing that renderer and handing frames to the window in shared memory draws on the graphics card and shows
-//! them correctly (webkit://gpu: policy "always", GL_RENDERER the NVIDIA card, no warning).
+//! Where WebKitGTK cannot use the graphics card, its hardware acceleration policy is "never" whatever the app asks, and
+//! the processor paints every frame. That is the case with NVIDIA's own driver: WebKitGTK turns its DMA-BUF renderer
+//! off there, and X11 has no other accelerated path. Scrolling then repainted everything behind the page, and three of
+//! Eco's effects made it crawl (8–16 frames a second at 1920×1100): the fade at the top of the scrolling page, the
+//! masked washes of colour, and the blurred shadows under covers. Without them it ran at 53–62 (`data-lite` in
+//! web/src/styles.css).
 //!
-//! Someone who sets any of WebKit's rendering switches keeps their own choice.
+//! Forcing the renderer back on was tried (WEBKIT_FORCE_DMABUF_RENDERER with WEBKIT_DMABUF_RENDERER_FORCE_SHM): it draws
+//! on the card, but leaks a sync_file descriptor for nearly every frame (WebKitGTK 2.50.4, driver 580), and at the usual
+//! limit of 1024 the web process dies with "Too many open files".
 
-/// WebKit's switches that decide how it renders. If any is set, nothing is added.
-const CHOICES: [&str; 6] = [
-    "WEBKIT_DISABLE_DMABUF_RENDERER",
-    "WEBKIT_FORCE_DMABUF_RENDERER",
-    "WEBKIT_DMABUF_RENDERER_FORCE_SHM",
-    "WEBKIT_DMABUF_RENDERER_DISABLE_GBM",
-    "WEBKIT_DISABLE_COMPOSITING_MODE",
-    "WEBKIT_FORCE_COMPOSITING_MODE",
-];
+use webkit2gtk::{HardwareAccelerationPolicy, SettingsExt};
 
-/// The variables to set, given whether NVIDIA's driver is loaded and which variables are already set.
-pub fn overrides(nvidia: bool, is_set: impl Fn(&str) -> bool) -> Vec<(&'static str, &'static str)> {
-    if !nvidia || CHOICES.iter().any(|name| is_set(name)) {
-        return Vec::new();
-    }
-    vec![
-        ("WEBKIT_FORCE_DMABUF_RENDERER", "1"),
-        ("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1"),
-    ]
-}
-
-/// Sets them for this process before any window exists, so WebKit and the processes it starts read them. It runs first
-/// thing, while the program has a single thread.
-pub fn prepare() {
-    let nvidia = std::path::Path::new("/proc/driver/nvidia/version").exists();
-    for (name, value) in overrides(nvidia, |name| std::env::var_os(name).is_some()) {
-        std::env::set_var(name, value);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn nvidia_gets_the_gpu_renderer_with_shared_memory() {
-        let set = overrides(true, |_| false);
-        assert_eq!(
-            set,
-            vec![
-                ("WEBKIT_FORCE_DMABUF_RENDERER", "1"),
-                ("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1")
-            ]
-        );
-    }
-
-    #[test]
-    fn other_graphics_cards_keep_webkits_own_choice() {
-        assert!(overrides(false, |_| false).is_empty());
-    }
-
-    // WEBKIT_DISABLE_DMABUF_RENDERER=1 was the first thing tried: someone who set it, or any other switch, keeps it
-    #[test]
-    fn a_switch_set_by_hand_wins() {
-        for name in CHOICES {
-            assert!(overrides(true, |n| n == name).is_empty(), "{name}");
-        }
-    }
+/// Whether a new web view gets no hardware acceleration. WebKitGTK decides it when GTK starts, which has happened by the
+/// time `setup` runs.
+pub fn paints_on_processor() -> bool {
+    webkit2gtk::Settings::new().hardware_acceleration_policy() == HardwareAccelerationPolicy::Never
 }

@@ -16,10 +16,6 @@ use tauri::webview::NewWindowResponse;
 use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
 pub fn run() {
-    // Before any window: WebKitGTK reads how to render once, when it starts (graphics.rs)
-    #[cfg(target_os = "linux")]
-    graphics::prepare();
-
     tauri::Builder::default()
         // Opening Eco again shows the window already running: two copies would fight over the port. It is also the
         // way back to a hidden window on a desktop with no tray
@@ -68,11 +64,15 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let home: Url = format!("{}/", server::origin()).parse()?;
     let version = app.package_info().version.to_string();
+    #[cfg(target_os = "linux")]
+    let lite = graphics::paints_on_processor();
+    #[cfg(not(target_os = "linux"))]
+    let lite = false;
     WebviewWindowBuilder::new(app, "main", WebviewUrl::External(home))
         .title("Eco")
         .inner_size(1280.0, 820.0)
         .min_inner_size(360.0, 560.0)
-        .initialization_script(bridge_script(&token, &version))
+        .initialization_script(bridge_script(&token, &version, lite))
         // The window only ever shows the app; any other address opens in the browser
         .on_navigation(move |url| {
             if is_the_app(url) {
@@ -115,7 +115,8 @@ fn open_outside(url: &Url) {
 }
 
 /// What the web app knows about the window it runs in (`web/src/lib/desktop.ts`). Only this app's own page gets it.
-fn bridge_script(token: &str, version: &str) -> String {
+/// `lite` says the window is painted on the processor (graphics.rs).
+fn bridge_script(token: &str, version: &str, lite: bool) -> String {
     let platform = if cfg!(target_os = "macos") {
         "macos"
     } else if cfg!(windows) {
@@ -125,7 +126,7 @@ fn bridge_script(token: &str, version: &str) -> String {
     };
     let origin = server::origin();
     format!(
-        "if (location.origin === {origin:?}) Object.defineProperty(window, \"__ECO_DESKTOP__\", {{ value: Object.freeze({{ token: {token:?}, version: {version:?}, platform: {platform:?} }}) }});"
+        "if (location.origin === {origin:?}) Object.defineProperty(window, \"__ECO_DESKTOP__\", {{ value: Object.freeze({{ token: {token:?}, version: {version:?}, platform: {platform:?}, lite: {lite} }}) }});"
     )
 }
 
@@ -168,5 +169,12 @@ mod tests {
         let (a, b) = (random_token().unwrap(), random_token().unwrap());
         assert_eq!(a.len(), 32);
         assert_ne!(a, b);
+    }
+
+    // The page draws a lighter Eco only where WebKitGTK paints on the processor (graphics.rs)
+    #[test]
+    fn the_page_learns_whether_it_is_painted_on_the_processor() {
+        assert!(bridge_script("t", "2.1.2", true).contains("lite: true"));
+        assert!(bridge_script("t", "2.1.2", false).contains("lite: false"));
     }
 }
