@@ -285,7 +285,8 @@ func (s *Server) songs(w http.ResponseWriter, r *http.Request, cred subsonic.Cre
 	}
 	offset = min(max(offset, 0), len(ordered))
 	end := min(offset+limit, len(ordered))
-	respond(w, http.StatusOK, map[string]any{"songs": songsOut(ordered[offset:end]), "total": len(ordered), "has_more": end < len(ordered)})
+	page := withStars(songsOut(ordered[offset:end]), s.myStars(r.Context(), cred))
+	respond(w, http.StatusOK, map[string]any{"songs": page, "total": len(ordered), "has_more": end < len(ordered)})
 }
 
 func (s *Server) download(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {

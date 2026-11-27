@@ -67,6 +67,7 @@ type Server struct {
 
 	favoriteRuns map[string]*sync.Mutex // one favourites run per imported list at a time (syncFavorites)
 	favorites    sync.WaitGroup         // favourites runs going on in the background, which tests wait for
+	stars        map[string]starsEntry  // each person's stars, for lists made from the shared snapshot (stars.go)
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -90,6 +91,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/rest/", s.proxy)
 	mux.HandleFunc("/rest/scrobble", s.scrobble) // passed through too, and counted (stats.go)
 	mux.HandleFunc("/rest/scrobble.view", s.scrobble)
+	mux.HandleFunc("/rest/star", s.passStar) // passed through too, so lists show the new heart at once (stars.go)
+	mux.HandleFunc("/rest/star.view", s.passStar)
+	mux.HandleFunc("/rest/unstar", s.passStar)
+	mux.HandleFunc("/rest/unstar.view", s.passStar)
 	mux.HandleFunc("/api/search", s.authed(s.search))
 	mux.HandleFunc("/api/search/external", s.authed(s.searchExternal))
 	mux.HandleFunc("GET /api/artists/lookup", s.authed(s.artistLookup))

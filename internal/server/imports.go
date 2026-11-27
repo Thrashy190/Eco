@@ -149,7 +149,7 @@ func (s *Server) importSave(w http.ResponseWriter, r *http.Request, cred subsoni
 		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	respond(w, http.StatusOK, out)
+	respond(w, http.StatusOK, importWithStars(out, s.myStars(r.Context(), cred)))
 }
 
 // syncImport makes the playlist hold what the library has of the list, in the list's order, followed by anything added
@@ -244,7 +244,7 @@ func (s *Server) importGet(w http.ResponseWriter, r *http.Request, cred subsonic
 		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
 		return
 	}
-	respond(w, http.StatusOK, describeImport(imp, matchRows(imp.Rows, lib), true))
+	respond(w, http.StatusOK, importWithStars(describeImport(imp, matchRows(imp.Rows, lib), true), s.myStars(r.Context(), cred)))
 }
 
 // importSync brings the playlist up to date with the library.
@@ -259,7 +259,7 @@ func (s *Server) importSync(w http.ResponseWriter, r *http.Request, cred subsoni
 		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
-	respond(w, http.StatusOK, out)
+	respond(w, http.StatusOK, importWithStars(out, s.myStars(r.Context(), cred)))
 }
 
 // importDownload queues the songs of a list the library does not have.

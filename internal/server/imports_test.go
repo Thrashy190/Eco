@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/Thrashy190/eco/internal/config"
 	"github.com/Thrashy190/eco/internal/engine"
@@ -24,10 +26,11 @@ import (
 type fakeLibrary struct {
 	mu        sync.Mutex
 	songs     []map[string]any
-	playlists map[string][]string        // id → songs
-	owner     map[string]string          // id → user
-	stars     []string                   // every star call, as user:id
-	starred   map[string]map[string]bool // user → their favourites
+	playlists map[string][]string          // id → songs
+	owner     map[string]string            // id → user
+	stars     []string                     // every star call, as user:id
+	starred   map[string]map[string]bool   // user → their favourites
+	starredAt map[string]map[string]string // user → song → when it became a favourite
 	writes    int
 }
 
@@ -43,12 +46,20 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		body["status"] = "ok"
 		json.NewEncoder(w).Encode(map[string]any{"subsonic-response": body})
 	}
+	// Songs as the asking user sees them: with when they made each a favourite
+	mine := func(s map[string]any) map[string]any {
+		if at := f.starredAt[q.Get("u")][s["id"].(string)]; at != "" {
+			s = maps.Clone(s)
+			s["starred"] = at
+		}
+		return s
+	}
 	entries := func(ids []string) []map[string]any {
 		out := []map[string]any{}
 		for _, id := range ids {
 			for _, s := range f.songs {
 				if s["id"] == id {
-					out = append(out, s)
+					out = append(out, mine(s))
 				}
 			}
 		}
@@ -60,7 +71,11 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			reply(map[string]any{"searchResult3": map[string]any{}})
 			return
 		}
-		reply(map[string]any{"searchResult3": map[string]any{"song": f.songs}})
+		songs := []map[string]any{}
+		for _, s := range f.songs {
+			songs = append(songs, mine(s))
+		}
+		reply(map[string]any{"searchResult3": map[string]any{"song": songs}})
 	case "getUser":
 		reply(map[string]any{"user": map[string]any{"adminRole": q.Get("u") == "admin"}})
 	case "getSong":
@@ -104,9 +119,18 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			f.starred[q.Get("u")] = map[string]bool{}
 		}
 		f.starred[q.Get("u")][q.Get("id")] = true
+		if f.starredAt == nil {
+			f.starredAt = map[string]map[string]string{}
+		}
+		if f.starredAt[q.Get("u")] == nil {
+			f.starredAt[q.Get("u")] = map[string]string{}
+		}
+		// Each star a second after the one before, with Navidrome's nanoseconds
+		f.starredAt[q.Get("u")][q.Get("id")] = time.Date(2024, 1, 1, 0, 0, len(f.stars), 123456789, time.UTC).Format(time.RFC3339Nano)
 		reply(map[string]any{})
 	case "unstar":
 		delete(f.starred[q.Get("u")], q.Get("id"))
+		delete(f.starredAt[q.Get("u")], q.Get("id"))
 		reply(map[string]any{})
 	case "getStarred2":
 		var ids []string

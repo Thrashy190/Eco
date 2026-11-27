@@ -49,7 +49,7 @@ func TestAlbumTracksMarksWhatIsDownloaded(t *testing.T) {
 	}
 	album := catalog.Album{ID: "a", Name: "Vulgar Display of Power", Tracks: []catalog.Track{song("t1", "Walk", 3), song("t2", "Fucking Hostile", 4)}}
 
-	rows := albumTracks(album, libraryOf(subsonic.Song{ID: "lib1", Title: "walk", Artist: "Pantera", Album: "Vulgar Display of Power"}))
+	rows := albumTracks(album, libraryOf(subsonic.Song{ID: "lib1", Title: "walk", Artist: "Pantera", Album: "Vulgar Display of Power"}), nil)
 	if len(rows) != 2 || rows[0].Track != 3 || rows[1].Track != 4 {
 		t.Fatalf("order lost: %+v", rows)
 	}

@@ -151,5 +151,6 @@ func (s *Server) artistSongs(w http.ResponseWriter, r *http.Request, cred subson
 	if all, imported, err := s.stats.Snapshot(); err == nil {
 		plays = stats.SongPlays(all, imported)
 	} // unreadable statistics still leave a list, in album order
-	respond(w, http.StatusOK, map[string]any{"songs": songsOut(songs), "popular": popular(ownFirst(songs, name, lib.known), plays, popularCount)})
+	out := withStars(songsOut(songs), s.myStars(r.Context(), cred))
+	respond(w, http.StatusOK, map[string]any{"songs": out, "popular": popular(ownFirst(songs, name, lib.known), plays, popularCount)})
 }
