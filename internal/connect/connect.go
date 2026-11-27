@@ -93,8 +93,9 @@ func (c *Conn) offer(e Event) {
 
 // Hub holds every connected device.
 type Hub struct {
-	mu    sync.Mutex
-	users map[string]map[string]*Conn
+	mu      sync.Mutex
+	users   map[string]map[string]*Conn
+	changed func(user string) // OnChange
 }
 
 // NewHub returns an empty hub.
@@ -156,6 +157,9 @@ func (h *Hub) leave(user string, conn *Conn) {
 		return
 	}
 	delete(devices, conn.ID)
+	if conn.state != nil {
+		h.tell(user) // what this person plays may have gone with it
+	}
 	if len(devices) == 0 {
 		delete(h.users, u)
 		return
@@ -244,6 +248,7 @@ func (h *Hub) Report(user, id string, state json.RawMessage) error {
 		return ErrUnknownDevice
 	}
 	conn.state, conn.at = state, time.Now()
+	h.tell(user)
 	event := Event{"state", encode(struct {
 		Device string          `json:"device"`
 		State  json.RawMessage `json:"state"`

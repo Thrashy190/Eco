@@ -70,6 +70,8 @@ type Server struct {
 	stars        map[string]starsEntry  // each person's stars, for lists made from the shared snapshot (stars.go)
 	copying      map[string]bool        // a person whose favourites are being copied for the others (copyFavoritesSoon)
 	copyAgain    map[string]bool        // and whose favourites changed again meanwhile
+
+	presence presence // what people play now, and who is watching (listening.go)
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -84,6 +86,7 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 	director := s.proxy.Director
 	s.proxy.Director = func(r *http.Request) { director(r); r.Host = target.Host }
 	s.jobs = jobs.NewManager(ctx, s.runJob)
+	s.hub.OnChange(func(user string) { s.announce(user, false) })
 	return s, nil
 }
 
@@ -163,6 +166,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/profile", s.authed(s.myProfile))
 	mux.HandleFunc("PUT /api/me/profile", s.authed(s.setMyProfile))
 	mux.HandleFunc("GET /api/people", s.authed(s.people))
+	mux.HandleFunc("GET /api/listening", s.authed(s.listening))
+	mux.HandleFunc("GET /api/listening/events", s.authed(s.listeningEvents))
 	mux.HandleFunc("GET /api/people/{name}", s.authed(s.person))
 	mux.HandleFunc("GET /api/people/{name}/favorites", s.authed(s.personFavorites))
 	mux.HandleFunc("GET /api/people/{name}/avatar", s.authed(s.personPicture(false)))

@@ -2,16 +2,19 @@
 // never how often), their public playlists and their favorites. Each part shows unless its owner hid it, which the server
 // decides; a profile needs a connection.
 import { useQuery } from "@tanstack/react-query";
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useParams } from "react-router";
 import { coverUrl, getPeople, getPerson, getPersonFavorites, personAvatarUrl, personBannerUrl } from "../lib/api";
-import { hue, initials, plural } from "../lib/format";
+import { clock, hue, initials, plural } from "../lib/format";
+import { positionAt, stillPlaying, type NowPlaying } from "../lib/listening";
 import type { Person, Profile } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { BackButton, DetailPage, Empty, Section, Shelf, Skeleton, Welcome } from "../components/common";
-import { Picture } from "../components/Cover";
+import { Picture, SongCover } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { PlayButtons, SongList } from "../components/songs";
+import { useLiveListening, useNowPlaying } from "../stores/people";
+import * as player from "../stores/player";
 import { useOnline } from "../stores/settings";
 
 const PREVIEW = 10;
@@ -23,16 +26,75 @@ export function PersonAvatar({ person, className = ui.avatar }: { person: Person
   return <div data-art="" className={cx(className, ui.letters)} style={{ "--h": hue(person.user) } as CSSProperties}>{initials(person.name)}</div>;
 }
 
-const PersonCard = ({ person }: { person: Person }) => (
-  <Link className={ui.cardArtist} to={`/people/${encodeURIComponent(person.user)}`}>
-    <PersonAvatar person={person} />
-    <b>{person.name}</b>
-    <span>{person.me ? "You" : `@${person.user}`}</span>
-  </Link>
+/** The time now, again every so often, for what moves with the clock. */
+function useClock(every: number): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), every);
+    return () => clearInterval(timer);
+  }, [every]);
+  return now;
+}
+
+/** What someone plays now, or null once their device has gone quiet. */
+function useLive(user: string, every: number): { now: NowPlaying | null; at: number } {
+  const now = useNowPlaying(user);
+  const at = useClock(every);
+  return { now: now && stillPlaying(now, at) ? now : null, at };
+}
+
+/** Three bars dancing: music is playing. */
+const Bars = () => (
+  <span className="inline-flex items-end gap-0.5 h-3" aria-hidden>
+    {[0, 0.25, 0.5].map((delay) => <span key={delay} className="w-0.75 h-full rounded-full bg-current origin-bottom animate-bars" style={{ animationDelay: `${delay}s` }} />)}
+  </span>
 );
+
+function PersonCard({ person }: { person: Person }) {
+  const { now } = useLive(person.user, 15_000);
+  return (
+    <Link className={ui.cardArtist} to={`/people/${encodeURIComponent(person.user)}`}>
+      <span className="relative block">
+        <PersonAvatar person={person} className={cx(ui.avatar, now && "shadow-[0_0_0_3px_var(--accent),0_0_24px_rgb(var(--glow)/.5)]")} />
+        {now && <span className="absolute right-[4%] bottom-[4%] grid place-items-center size-8 rounded-full bg-accent text-accent-ink shadow-[0_0_0_3px_var(--bg)]"><Bars /></span>}
+      </span>
+      <b>{person.name}</b>
+      <span className={now ? "text-accent!" : undefined}>{now ? now.song.title : person.me ? "You" : `@${person.user}`}</span>
+    </Link>
+  );
+}
+
+/** The song someone plays right now, moving along, and a button to play it here too. */
+function ListeningNow({ now, at }: { now: NowPlaying; at: number }) {
+  const { song } = now;
+  const position = positionAt(now, at);
+  const percent = song.duration ? Math.min(100, (position / song.duration) * 100) : 0;
+  const title = song.albumId ? <Link className="hover:underline" to={`/album/${song.albumId}`}>{song.title}</Link> : song.title;
+  return (
+    <section className="rise flex items-center gap-3.5 mx-4 mt-4 p-3 pr-4 rounded-card bg-glass-strong shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8 wide:max-w-xl">
+      <SongCover song={song} size={120} className="size-16 rounded-xl object-cover bg-surface-2 flex-none" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 text-accent text-[.72rem] font-extrabold uppercase tracking-[.08em]"><Bars />Listening now</div>
+        <b className="block truncate mt-0.5">{title}</b>
+        <span className="block truncate text-muted text-[.86rem]">{[song.artist, song.album].filter(Boolean).join(" · ")}</span>
+        {song.duration ? (
+          <div className="flex items-center gap-2 mt-1.5 text-muted text-[.72rem] tabular-nums">
+            <span>{clock(position)}</span>
+            <span className="relative flex-1 h-1 rounded-full bg-ghost overflow-hidden"><span className="absolute inset-y-0 left-0 rounded-full bg-accent transition-[width] duration-1000 ease-linear" style={{ width: `${percent}%` }} /></span>
+            <span>{clock(song.duration)}</span>
+          </div>
+        ) : null}
+      </div>
+      <button type="button" className="tap flex-none size-11 grid place-items-center rounded-full bg-accent text-accent-ink active:scale-[.94]" aria-label={`Play ${song.title} here`} onClick={() => player.play([song], 0)}>
+        <Icon name="play" size={20} />
+      </button>
+    </section>
+  );
+}
 
 export function PeopleView() {
   const online = useOnline();
+  useLiveListening();
   const { data: people, error, isPending } = useQuery({ queryKey: ["people"], queryFn: getPeople, enabled: online });
   let body;
   if (!online) body = <Empty>People need a connection.</Empty>;
@@ -54,20 +116,24 @@ export function PeopleView() {
 
 /** The cover across the top of a profile, with the person's picture over its edge. The name sits below, never on the picture. */
 function ProfileHeader({ person }: { person: Person }) {
+  const { now, at } = useLive(person.user, 1000);
   return (
-    <header className="rise px-4 pt-1 wide:px-8">
-      <div className={cx("w-full aspect-[5/2] wide:aspect-[9/2] max-h-72 overflow-hidden rounded-big", !person.banner && HUE_FILL)} style={{ "--h": hue(person.user) } as CSSProperties}>
-        {person.banner ? <img className="size-full object-cover" src={personBannerUrl(person.user, person.banner)} alt="" draggable={false} /> : null}
-      </div>
-      {/* Only the picture rises over the cover's edge; the name starts below it */}
-      <div className="flex items-start gap-4 px-3 wide:gap-5 wide:px-6">
-        <PersonAvatar person={person} className="relative flex-none size-28 -mt-12 rounded-full bg-surface-2 shadow-[0_0_0_4px_var(--bg),0_18px_40px_rgb(0_0_0/.35)] wide:size-36 wide:-mt-16" />
-        <div className="min-w-0 pt-3 wide:pt-4 [&_h1]:font-title [&_h1]:font-bold [&_h1]:leading-[1.03] [&_h1]:tracking-[-.04em] [&_h1]:text-[clamp(1.9rem,8cqi,2.6rem)] [&_h1]:wrap-anywhere wide:[&_h1]:text-[clamp(2.2rem,4.5cqi,3.6rem)] [&_p]:mt-1 [&_p]:text-muted">
-          <h1>{person.name}</h1>
-          <p>{person.me ? `@${person.user} · you` : `@${person.user}`}</p>
+    <>
+      <header className="rise px-4 pt-1 wide:px-8">
+        <div className={cx("w-full aspect-[5/2] wide:aspect-[9/2] max-h-72 overflow-hidden rounded-big", !person.banner && HUE_FILL)} style={{ "--h": hue(person.user) } as CSSProperties}>
+          {person.banner ? <img className="size-full object-cover" src={personBannerUrl(person.user, person.banner)} alt="" draggable={false} /> : null}
         </div>
-      </div>
-    </header>
+        {/* Only the picture rises over the cover's edge; the name starts below it */}
+        <div className="flex items-start gap-4 px-3 wide:gap-5 wide:px-6">
+          <PersonAvatar person={person} className="relative flex-none size-28 -mt-12 rounded-full bg-surface-2 shadow-[0_0_0_4px_var(--bg),0_18px_40px_rgb(0_0_0/.35)] wide:size-36 wide:-mt-16" />
+          <div className="min-w-0 pt-3 wide:pt-4 [&_h1]:font-title [&_h1]:font-bold [&_h1]:leading-[1.03] [&_h1]:tracking-[-.04em] [&_h1]:text-[clamp(1.9rem,8cqi,2.6rem)] [&_h1]:wrap-anywhere wide:[&_h1]:text-[clamp(2.2rem,4.5cqi,3.6rem)] [&_p]:mt-1 [&_p]:text-muted">
+            <h1>{person.name}</h1>
+            <p>{`@${person.user}`}{person.me ? " · you" : ""}{now ? "" : " · Not listening right now"}</p>
+          </div>
+        </div>
+      </header>
+      {now && <ListeningNow now={now} at={at} />}
+    </>
   );
 }
 
@@ -119,6 +185,7 @@ function ProfileBody({ profile }: { profile: Profile }) {
 export function ProfileView() {
   const { name = "" } = useParams();
   const online = useOnline();
+  useLiveListening();
   const { data: profile, error, isPending } = useQuery({ queryKey: ["person", name], queryFn: () => getPerson(name), enabled: online });
   let body;
   if (!online) body = <Empty>Profiles need a connection.</Empty>;

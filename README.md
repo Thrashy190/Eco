@@ -76,7 +76,7 @@
 - Themes, any accent colour, fonts and text size, what Home shows and in what order, which tabs you get, grid or list.
 - Pin songs, albums, playlists and artists, and give playlists their own cover.
 - Choose a picture for your profile, and let the colours follow the album playing.
-- **People**: everyone on your server has a profile, like an artist's page, with a cover picture, what they played most this month, their public playlists and their favorites. Pin or copy someone's playlist. Anything can be hidden in Settings ▸ Your profile.
+- **People**: everyone on your server has a profile, like an artist's page, with a cover picture, what they are listening to right now, what they played most this month, their public playlists and their favorites. Pin or copy someone's playlist, or play what they are playing. Anything can be hidden in Settings ▸ Your profile.
 - Administrators can see and add accounts from Eco, and copy a message with the address, username and password to send the new person.
 - Administrators can delete songs for everyone and review songs held twice, artists that are really several people, and songs with no genre (Eco finds their album's in the catalogue).
 - **Statistics**: minutes listened, plays, top songs, artists, albums and genres, when people listen, and for administrators who listens to what on the server. Everyone else sees their own.
