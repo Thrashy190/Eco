@@ -5,7 +5,7 @@ import { md5 } from "./md5";
 import type {
   AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, StatsResponse, ExternalAlbum, ExternalSearch, HomeResponse,
   ImportDetail, ImportedList, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
-  Person, PlaylistDetail, Profile, ProfileSettings, RawAlbum, RawSong, Song,
+  JamSettings, JamSummary, JamView, Person, PlaylistDetail, Profile, ProfileSettings, RawAlbum, RawSong, Song,
 } from "./types";
 
 const KEY = "eco.session";
@@ -300,6 +300,21 @@ export async function getPerson(name: string): Promise<Profile> {
 export const getPersonFavorites = async (name: string) => ((await eco<{ songs?: RawSong[] }>(`people/${part(name)}/favorites`)).songs ?? []).map(toSong);
 export const personAvatarUrl = (name: string, version: number) => `/api/people/${part(name)}/avatar?${params({ v: version })}`;
 export const personBannerUrl = (name: string, version: number) => `/api/people/${part(name)}/banner?${params({ v: version })}`;
+// ---- Jams: listening together ----
+export const listJams = () => eco<{ jams: JamSummary[]; mine?: string }>("jams");
+export const createJam = (settings: JamSettings) => send<JamView>("jams", JSON.stringify(settings));
+export const getJam = (id: string) => eco<JamView>(`jams/${part(id)}`);
+export const configureJam = (id: string, settings: JamSettings) => send<JamView>(`jams/${part(id)}`, JSON.stringify(settings), "PUT");
+export const endJam = (id: string) => eco<{ ended: boolean }>(`jams/${part(id)}`, undefined, "DELETE");
+export const joinJam = (id: string) => eco<JamView>(`jams/${part(id)}/join`, undefined, "POST");
+export const leaveJam = (id: string) => eco<{ ended: boolean }>(`jams/${part(id)}/leave`, undefined, "POST");
+export const inviteToJam = (id: string, users: string[]) => send<JamView>(`jams/${part(id)}/invite`, JSON.stringify({ users }));
+export const addToJam = (id: string, songs: string[], next = false) => send<JamView>(`jams/${part(id)}/queue`, JSON.stringify({ songs, next }));
+export const removeFromJam = (id: string, entry: string) => eco<JamView>(`jams/${part(id)}/queue/${part(entry)}`, undefined, "DELETE");
+export const moveInJam = (id: string, entry: string, to: number) => send<JamView>(`jams/${part(id)}/move`, JSON.stringify({ entry, to }));
+export const controlJam = (id: string, action: string, value = 0, entry = "") => send<JamView>(`jams/${part(id)}/control`, JSON.stringify({ action, value, entry }));
+export const jamEventsUrl = (id: string) => `/api/jams/${part(id)}/events?${params()}`;
+export const serverTime = () => eco<{ now: number }>("time");
 export const listeningEventsUrl = () => `/api/listening/events?${params()}`;
 export const getProfileSettings = () => eco<ProfileSettings>("me/profile");
 export const putProfileSettings = (settings: Omit<ProfileSettings, "banner">) => send<ProfileSettings>("me/profile", JSON.stringify(settings), "PUT");

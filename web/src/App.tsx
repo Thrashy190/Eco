@@ -30,6 +30,8 @@ import { ImportDetailView, ImportView } from "./views/Import";
 import { Library } from "./views/Library";
 import { Login } from "./views/Login";
 import { PeopleView, PersonFavoritesView, ProfileView } from "./views/People";
+import { JamBanner, JamPage, NewJamView } from "./views/Jam";
+import { resumeJam } from "./stores/jam";
 import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
@@ -89,7 +91,7 @@ function Shell() {
         {/* Keyed by page, so only a new page animates in, not a section of the same one */}
         <main id="view" key={pageKey(pathname)}
           className="relative @container max-w-205 mx-auto min-h-screen pt-[calc(var(--safe-top)+6px)] pb-[calc(var(--tabs-h)+var(--safe-bottom)+24px)] animate-view-in in-[.has-player]:pb-[calc(var(--tabs-h)+var(--mini-h)+var(--safe-bottom)+32px)] wide:w-full wide:max-w-none wide:min-h-0 wide:flex-1 wide:overflow-y-auto wide:scroll-pt-3 wide:pt-3 wide:pb-10 wide:mask-[linear-gradient(to_bottom,transparent,black_12px)] wide:in-[.has-player]:pb-10 wide:in-[.has-capsule]:pb-28 wide:[scrollbar-width:thin] wide:[scrollbar-color:var(--surface-3)_transparent]">
-          <div className="wide:max-w-[1400px] wide:mx-auto"><Outlet /></div>
+          <div className="wide:max-w-[1400px] wide:mx-auto"><JamBanner /><Outlet /></div>
         </main>
       </div>
       {!wide && <Tabs />}
@@ -108,6 +110,7 @@ function SignedIn({ user }: { user: string }) {
   const online = useOnline();
   useQuery({ queryKey: ME_KEY, queryFn: whoAmI, enabled: online, staleTime: 5 * 60_000 });
   useEffect(() => (online ? startConnect() : undefined), [online, user]);
+  useEffect(() => { if (online) void resumeJam(); }, [online, user]); // someone still in a Jam goes back into it
   useEffect(() => {
     loadSettings(user);
     let stopSaving: (() => void) | undefined;
@@ -148,6 +151,8 @@ function SignedIn({ user }: { user: string }) {
           <Route path="people" element={<PeopleView />} />
           <Route path="people/:name" element={<ProfileView />} />
           <Route path="people/:name/favorites" element={<PersonFavoritesView />} />
+          <Route path="jam/new" element={<NewJamView />} />
+          <Route path="jam/:id" element={<JamPage />} />
           <Route path="settings" element={<Settings />} />
           <Route path="users" element={<Users />} />
           <Route path="stats" element={<Stats />} />

@@ -15,6 +15,7 @@ import { deviceName } from "../lib/format";
 import { remoteSleepEnd } from "../lib/sleep";
 import type { Song } from "../lib/types";
 import * as player from "./player";
+import { useJam } from "./jam";
 import { toast } from "./ui";
 
 export interface DeviceStatus {
@@ -193,6 +194,7 @@ export async function selectDevice(id: string): Promise<void> {
   const { target } = state();
   const source = target ?? selfId;
   if (id === source) return;
+  if (useJam.getState().view) { toast("Leave the Jam to play on another device"); return; }
   startedHere();
   if (source === selfId) {
     await moveTo(id);

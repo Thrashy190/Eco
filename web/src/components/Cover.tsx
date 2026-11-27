@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { avatarUrl, coverUrl, playlistCoverUrl, songCover, username } from "../lib/api";
+import { avatarUrl, coverUrl, personAvatarUrl, playlistCoverUrl, songCover, username } from "../lib/api";
 import { hue, initials } from "../lib/format";
-import type { Song } from "../lib/types";
+import type { Person, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { FAVORITES_ID, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
@@ -61,4 +61,10 @@ export function ArtistAvatar({ name, cover, size = 200, className = ui.avatar }:
   const [failed, setFailed] = useState(false);
   if (cover && !failed) return <img data-art="" className={className} src={coverUrl(cover, size)} alt="" loading="lazy" draggable={false} onError={() => setFailed(true)} />;
   return <div data-art="" className={cx(className, ui.letters)} style={{ "--h": hue(name) } as React.CSSProperties}>{initials(name)}</div>;
+}
+
+/** Someone's picture, or their initials on their own colour. */
+export function PersonAvatar({ person, className = ui.avatar }: { person: Person; className?: string }) {
+  if (person.avatar) return <img data-art="" className={cx(className, "object-cover")} src={personAvatarUrl(person.user, person.avatar)} alt="" loading="lazy" draggable={false} />;
+  return <div data-art="" className={cx(className, ui.letters)} style={{ "--h": hue(person.user) } as React.CSSProperties}>{initials(person.name)}</div>;
 }

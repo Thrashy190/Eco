@@ -10,6 +10,14 @@ export interface Heard {
   song: (RawSong & { mediaId?: string; kind?: MediaKind }) | null;
   position?: number;
   age_ms?: number;
+  /** The Jam they are in, when this person may see it. */
+  jam?: JamRef;
+}
+
+export interface JamRef {
+  id: string;
+  name: string;
+  public: boolean;
 }
 
 export interface NowPlaying {

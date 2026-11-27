@@ -48,7 +48,10 @@ type Forward = (action: string, value?: unknown) => boolean;
 let forward: Forward | null = null;
 let applying = false; // running a command from another device: it must act here, not be passed on
 export const setForward = (fn: Forward | null) => { forward = fn; };
-const remote = (action: string, value?: unknown) => !applying && (forward?.(action, value) ?? false);
+/** In a Jam (stores/jam.ts) the controls go to the Jam first, whatever device Connect would pass them to. */
+let jamForward: Forward | null = null;
+export const setJamForward = (fn: Forward | null) => { jamForward = fn; };
+const remote = (action: string, value?: unknown) => !applying && ((jamForward?.(action, value) ?? false) || (forward?.(action, value) ?? false));
 
 const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
 
@@ -316,7 +319,7 @@ const AUTOPLAY_BATCH = 10;
 let toppingUp: Promise<boolean> | null = null;
 
 /** Autoplay applies: it is on, nothing repeats, and what plays is music (an audiobook ending is no cue for songs). */
-const wantsAutoplay = () => state().autoplay && state().repeat === "off" && Boolean(current()) && !isSpoken(current());
+const wantsAutoplay = () => !jamForward && state().autoplay && state().repeat === "off" && Boolean(current()) && !isSpoken(current());
 
 /** Add Autoplay's next songs to the end of the queue. Resolves to whether any were added. */
 function topUp(): Promise<boolean> {
@@ -442,6 +445,29 @@ export function applyCommand(action: string, value: unknown): void {
     applying = false;
   }
 }
+
+/**
+ * The music on this device, for a Jam to follow its server: set directly, never passed to another device. The Jam's
+ * queue replaces the queue here, in its order, with no shuffle or repeat.
+ */
+export const here = {
+  index: () => state().index,
+  songId: () => current()?.id,
+  loading: () => state().loading,
+  position: () => audio.currentTime || 0,
+  paused: () => audio.paused,
+  load(queue: Song[], index: number, position: number, playing: boolean): void {
+    usePlayer.setState({ queue, index, source: "Jam", shuffle: false, repeat: "off" });
+    void load(position, playing);
+  },
+  setQueue(queue: Song[]): void {
+    usePlayer.setState({ queue });
+    nextChanged();
+  },
+  seek(seconds: number): void { audio.currentTime = Math.max(0, seconds); },
+  play: () => start(),
+  pause: () => audio.pause(),
+};
 
 /** Put the progress bar back on this device's own position. */
 export const syncTime = () => useTime.setState({ position: audio.currentTime || 0, length: length() });

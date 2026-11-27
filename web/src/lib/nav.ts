@@ -50,6 +50,7 @@ export function activePlace(tabs: Place[], pathname: string): string | undefined
   if (exact) return exact.id;
   const screen = pathname.split("/")[1] || "home";
   if (LIBRARY_SCREENS.has(screen) && tabs.some((p) => p.id === "library")) return "library";
+  if (screen === "jam" && tabs.some((p) => p.id === "people")) return "people";
   return tabs.find((p) => p.id === screen)?.id;
 }
 
