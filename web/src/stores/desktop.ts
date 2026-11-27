@@ -2,9 +2,10 @@
 // the page asks it through /desktop/server, which needs the window's token.
 import { create } from "zustand";
 import { signOut } from "../lib/api";
-import { bridge, isDesktop } from "../lib/desktop";
+import { bridge, isDesktop, type UpdateStatus } from "../lib/desktop";
 import * as offline from "./offline";
 import { forgetQueue } from "./saving";
+import { toast } from "./ui";
 
 /** The server's address, such as https://eco.example.com/; null until one is chosen. */
 export const useServer = create<{ address: string | null }>(() => ({ address: null }));
@@ -87,4 +88,67 @@ export async function leaveServer(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0)); // let the signed-in screens stop their downloads first
   for (const collection of offline.collectionList()) await offline.removeCollection(collection.id);
   for (const song of offline.allSongs()) await offline.remove(song.id);
+}
+
+// ---- Updates: the app looks for a newer version, and the page lights its Update button (desktop/src-tauri/src/update.rs) ----
+
+export const useUpdate = create<{ status: UpdateStatus | null }>(() => ({ status: null }));
+
+async function updateCall(method: "GET" | "POST", path: string): Promise<UpdateStatus> {
+  const response = await fetch(path, { method, headers: { "X-Eco-Desktop": bridge()?.token ?? "" } });
+  const answer = (await response.json().catch(() => ({}))) as UpdateStatus & { error?: string };
+  if (!response.ok) throw new Error(answer.error || "The app could not update itself");
+  if (typeof answer.can_update !== "boolean") throw new Error("The app did not answer about updates");
+  useUpdate.setState({ status: answer });
+  return answer;
+}
+
+const busy = (status: UpdateStatus | null) => status?.stage === "downloading" || status?.stage === "installing";
+
+/**
+ * Follows the app's updates: what it found, and while it installs, how far it is. The app looks by itself every hour;
+ * asking it often is cheap, since the answer is in its memory.
+ */
+export function watchUpdates(): () => void {
+  if (!isDesktop) return () => undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopped = false;
+  const started = Date.now();
+  const follow = async () => {
+    const status = await updateCall("GET", "/desktop/update").catch(() => null);
+    // Often while it installs, and while the app's own first look, at launch, may still be on its way
+    const soon = busy(status) ? 500 : status?.stage === "checking" || Date.now() - started < 30_000 ? 3000 : 60_000;
+    if (!stopped) timer = setTimeout(() => void follow(), soon);
+  };
+  void follow();
+  return () => { stopped = true; clearTimeout(timer); };
+}
+
+/** Looks for a newer version now. */
+export async function checkForUpdates(): Promise<UpdateStatus | null> {
+  try {
+    return await updateCall("POST", "/desktop/update/check");
+  } catch (e) {
+    toast((e as Error).message);
+    return null;
+  }
+}
+
+/** Installs the newer version after asking: Eco closes and opens again, and on Linux may ask for the password. */
+export async function installUpdate(): Promise<void> {
+  const status = useUpdate.getState().status;
+  if (!status?.available) return;
+  const password = bridge()?.platform === "linux" ? " Linux may ask for this computer's password." : "";
+  if (!confirm(`Install Eco ${status.available}? You have ${status.current}.\n\nEco closes and opens again, so the music stops for a moment.${password}`)) return;
+  try {
+    await updateCall("POST", "/desktop/update/install");
+    const poll = async () => {
+      const now = await updateCall("GET", "/desktop/update").catch(() => null);
+      if (busy(now)) setTimeout(() => void poll(), 500);
+      else if (now?.error) toast(now.error);
+    };
+    void poll();
+  } catch (e) {
+    toast((e as Error).message);
+  }
 }

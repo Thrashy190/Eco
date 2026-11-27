@@ -21,6 +21,23 @@ const SYSTEMS: Record<Bridge["platform"], string> = { linux: "Linux", macos: "Ma
 /** How Connect names this computer until someone renames it. */
 export const desktopName = (platform: string | undefined) => `Eco on ${SYSTEMS[platform as Bridge["platform"]] ?? "this computer"}`;
 
+/** What the app says about updates (`Status` in desktop/src-tauri/src/update.rs). */
+export interface UpdateStatus {
+  current: string;
+  can_update: boolean; // false for a build made by hand
+  available: string | null; // a newer version ready to install
+  stage: "idle" | "checking" | "downloading" | "installing";
+  progress: number | null; // 0 to 1 while it downloads
+  error: string | null;
+}
+
+/** What the Update button shows: nothing, a quiet button to look, a lit one, or the install going on. */
+export function updateLook(status: UpdateStatus | null): "hidden" | "quiet" | "ready" | "busy" {
+  if (!status?.can_update) return "hidden";
+  if (status.stage === "downloading" || status.stage === "installing") return "busy";
+  return status.available ? "ready" : "quiet";
+}
+
 /** "v1.12.0" or "1.12.0" as three numbers; null for anything else, such as "dev". */
 export function releaseNumbers(version: string): number[] | null {
   const parts = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());

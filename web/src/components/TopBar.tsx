@@ -11,6 +11,7 @@ import { useSearchText } from "../stores/ui";
 import { UserAvatar } from "./Cover";
 import { Icon } from "./Icon";
 import { Logo } from "./Logo";
+import { UpdateButton } from "./UpdateButton";
 
 const plainButton = "tap size-9 flex-none grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost active:scale-[.94]";
 
@@ -71,6 +72,7 @@ export function TopBar() {
           <Icon name="panel" size={20} />
         </button>
       )}
+      <UpdateButton />
       <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || pathname.startsWith("/people/") || pathname.startsWith("/jam/") || undefined}
         className="tap flex-none size-10 grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg">
         <Icon name="people" size={20} />
