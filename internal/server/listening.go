@@ -27,6 +27,26 @@ type listeningOut struct {
 	Song     *connect.NowSong `json:"song"` // nil when nothing plays
 	Position float64          `json:"position,omitempty"`
 	AgeMs    int64            `json:"age_ms,omitempty"` // how long ago the position was true
+	Jam      *jamRef          `json:"jam,omitempty"`    // the Jam they are in, when the viewer may see it
+}
+
+type jamRef struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Public bool   `json:"public"`
+}
+
+// jamOf is the Jam a person is in, if the viewer may see it.
+func (s *Server) jamOf(viewer, user string) *jamRef {
+	id, ok := s.jams.Of(user)
+	if !ok {
+		return nil
+	}
+	name, public, visible := s.jams.Name(viewer, id)
+	if !visible {
+		return nil
+	}
+	return &jamRef{id, name, public}
 }
 
 type peopleWatcher struct {
@@ -69,14 +89,19 @@ func news(before connect.Listening, was bool, now connect.Listening, playing boo
 	return math.Abs(now.Position-expected) > seekJump
 }
 
-// listeningFor is what viewer may see of what person plays. show is false when nothing may be sent at all.
-func listeningFor(viewer string, person userdata.Person, known bool, l connect.Listening, playing bool) (out listeningOut, show bool) {
+// listeningFor is what viewer may see of what person plays, and of the Jam they are in. show is false when nothing may
+// be sent at all.
+func listeningFor(viewer string, person userdata.Person, known bool, l connect.Listening, playing bool, room *jamRef) (out listeningOut, show bool) {
 	self := strings.EqualFold(viewer, person.User)
 	if !known || (person.Privacy.HideProfile && !self) {
 		return listeningOut{}, self
 	}
 	out.User = person.User
-	if !playing || (person.Privacy.HideListening && !self) {
+	if person.Privacy.HideListening && !self {
+		return out, true
+	}
+	out.Jam = room
+	if !playing {
 		return out, true
 	}
 	song := l.Song
@@ -113,7 +138,7 @@ func (s *Server) announce(user string, force bool) {
 		delete(s.presence.last, k)
 	}
 	for w := range s.presence.watchers {
-		if out, show := listeningFor(w.viewer, person, known, now, playing); show {
+		if out, show := listeningFor(w.viewer, person, known, now, playing, s.jamOf(w.viewer, user)); show {
 			w.offer(sseEvent("listening", out))
 		}
 	}
@@ -125,7 +150,7 @@ func (s *Server) nowListening(viewer string) []listeningOut {
 	out := []listeningOut{}
 	for _, p := range people {
 		l, playing := s.hub.Listening(p.User)
-		if one, show := listeningFor(viewer, p, true, l, playing); show && one.Song != nil {
+		if one, show := listeningFor(viewer, p, true, l, playing, s.jamOf(viewer, p.User)); show && (one.Song != nil || one.Jam != nil) {
 			out = append(out, one)
 		}
 	}

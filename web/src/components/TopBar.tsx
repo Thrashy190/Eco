@@ -71,7 +71,7 @@ export function TopBar() {
           <Icon name="panel" size={20} />
         </button>
       )}
-      <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || pathname.startsWith("/people/") || undefined}
+      <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || pathname.startsWith("/people/") || pathname.startsWith("/jam/") || undefined}
         className="tap flex-none size-10 grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg">
         <Icon name="people" size={20} />
       </NavLink>

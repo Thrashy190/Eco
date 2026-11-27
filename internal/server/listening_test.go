@@ -30,9 +30,15 @@ type listeningStream struct {
 
 func watchListening(t *testing.T, h http.Handler, user string) *listeningStream {
 	t.Helper()
+	return openStream(t, h, user, "/api/listening/events")
+}
+
+// openStream reads one of the server's event streams as user.
+func openStream(t *testing.T, h http.Handler, user, path string) *listeningStream {
+	t.Helper()
 	server := httptest.NewServer(h)
 	t.Cleanup(server.Close)
-	resp, err := http.Get(server.URL + "/api/listening/events?u=" + user + "&t=token&s=salt")
+	resp, err := http.Get(server.URL + path + "?u=" + user + "&t=token&s=salt")
 	if err != nil {
 		t.Fatal(err)
 	}

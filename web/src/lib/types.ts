@@ -133,6 +133,46 @@ export interface Profile extends Person {
   privacy?: Privacy; // only on your own
 }
 
+/** A place in a Jam's queue: a song and who added it. */
+export interface JamEntry {
+  id: string;
+  song: RawSong;
+  added_by: string;
+}
+
+export interface JamSettings {
+  name: string;
+  public: boolean;
+  guest_control: boolean; // everyone may pause, skip and change the queue
+}
+
+/** A Jam as the person signed in sees it. The playback is on the server's clock. */
+export interface JamView extends JamSettings {
+  id: string;
+  host: string;
+  members: string[];
+  invited: string[]; // only the host's view lists them
+  queue: JamEntry[];
+  current: number; // the place in queue of what plays; queue.length once it has ended
+  playback: { entry: string; position: number; at: number; paused: boolean };
+  member: boolean;
+  can_control: boolean;
+  rev: number;
+  server_now: number;
+}
+
+/** A Jam someone may join. */
+export interface JamSummary {
+  id: string;
+  name: string;
+  host: string;
+  public: boolean;
+  members: string[];
+  playing?: RawSong;
+  member: boolean;
+  invited: boolean;
+}
+
 export interface ProfileSettings {
   display_name: string;
   privacy: Privacy;

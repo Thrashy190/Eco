@@ -3,9 +3,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { listeningEventsUrl } from "../lib/api";
-import { nowPlaying, type Heard, type NowPlaying } from "../lib/listening";
+import { nowPlaying, type Heard, type JamRef, type NowPlaying } from "../lib/listening";
 
-const useListening = create<{ now: Record<string, NowPlaying> }>(() => ({ now: {} }));
+const useListening = create<{ now: Record<string, NowPlaying>; jams: Record<string, JamRef> }>(() => ({ now: {}, jams: {} }));
 
 let stream: EventSource | null = null;
 let screens = 0;
@@ -14,12 +14,16 @@ function heard(list: Heard[], replace: boolean): void {
   const at = Date.now();
   useListening.setState((s) => {
     const now = replace ? {} : { ...s.now };
+    const jams = replace ? {} : { ...s.jams };
     for (const one of list) {
+      const user = one.user.toLowerCase();
       const playing = nowPlaying(one, at);
-      if (playing) now[one.user.toLowerCase()] = playing;
-      else delete now[one.user.toLowerCase()];
+      if (playing) now[user] = playing;
+      else delete now[user];
+      if (one.jam) jams[user] = one.jam;
+      else delete jams[user];
     }
-    return { now };
+    return { now, jams };
   });
 }
 
@@ -38,6 +42,9 @@ export function useLiveListening(): void {
     };
   }, []);
 }
+
+/** The Jam this person is in, when you may see it, or null. */
+export const useJamOf = (user: string) => useListening((s) => s.jams[user.toLowerCase()] ?? null);
 
 /** What this person plays now, or null. */
 export const useNowPlaying = (user: string) => useListening((s) => s.now[user.toLowerCase()] ?? null);

@@ -24,6 +24,7 @@ import (
 	"github.com/Thrashy190/eco/internal/config"
 	"github.com/Thrashy190/eco/internal/connect"
 	"github.com/Thrashy190/eco/internal/engine"
+	"github.com/Thrashy190/eco/internal/jam"
 	"github.com/Thrashy190/eco/internal/jobs"
 	"github.com/Thrashy190/eco/internal/media"
 	"github.com/Thrashy190/eco/internal/pairing"
@@ -72,6 +73,10 @@ type Server struct {
 	copyAgain    map[string]bool        // and whose favourites changed again meanwhile
 
 	presence presence // what people play now, and who is watching (listening.go)
+
+	jams        *jam.Store                         // listening together (jams.go)
+	jamMu       sync.Mutex                         // guards jamWatchers
+	jamWatchers map[string]map[*peopleWatcher]bool // Jam ID → the devices following it
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -87,6 +92,8 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 	s.proxy.Director = func(r *http.Request) { director(r); r.Host = target.Host }
 	s.jobs = jobs.NewManager(ctx, s.runJob)
 	s.hub.OnChange(func(user string) { s.announce(user, false) })
+	s.jams = jam.New()
+	go s.runJams()
 	return s, nil
 }
 
@@ -167,6 +174,20 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/me/profile", s.authed(s.setMyProfile))
 	mux.HandleFunc("GET /api/people", s.authed(s.people))
 	mux.HandleFunc("GET /api/listening", s.authed(s.listening))
+	mux.HandleFunc("GET /api/time", s.authed(s.serverTime))
+	mux.HandleFunc("GET /api/jams", s.authed(s.listJams))
+	mux.HandleFunc("POST /api/jams", s.authed(s.createJam))
+	mux.HandleFunc("GET /api/jams/{id}", s.authed(s.getJam))
+	mux.HandleFunc("PUT /api/jams/{id}", s.authed(s.configureJam))
+	mux.HandleFunc("DELETE /api/jams/{id}", s.authed(s.endJam))
+	mux.HandleFunc("POST /api/jams/{id}/join", s.authed(s.joinJam))
+	mux.HandleFunc("POST /api/jams/{id}/leave", s.authed(s.leaveJam))
+	mux.HandleFunc("POST /api/jams/{id}/invite", s.authed(s.inviteToJam))
+	mux.HandleFunc("POST /api/jams/{id}/queue", s.authed(s.addToJam))
+	mux.HandleFunc("DELETE /api/jams/{id}/queue/{entry}", s.authed(s.removeFromJam))
+	mux.HandleFunc("POST /api/jams/{id}/move", s.authed(s.moveInJam))
+	mux.HandleFunc("POST /api/jams/{id}/control", s.authed(s.controlJam))
+	mux.HandleFunc("GET /api/jams/{id}/events", s.authed(s.jamEvents))
 	mux.HandleFunc("GET /api/listening/events", s.authed(s.listeningEvents))
 	mux.HandleFunc("GET /api/people/{name}", s.authed(s.person))
 	mux.HandleFunc("GET /api/people/{name}/favorites", s.authed(s.personFavorites))

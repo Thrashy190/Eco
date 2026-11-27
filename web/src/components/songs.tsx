@@ -11,6 +11,7 @@ import { liveJob, requestSong, useJobs } from "../stores/downloads";
 import { deleteSongForEveryone, isAdmin } from "../stores/admin";
 import { useIsCurrent } from "../stores/connect";
 import { isStarred, toggleFavorite } from "../stores/favorites";
+import { addSongs, useInJam } from "../stores/jam";
 import { isPinned, songEntry, togglePin } from "../stores/library";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
@@ -138,10 +139,16 @@ export function LibrarySongs({ songs }: { songs: Song[] }) {
 
 /** Play and Shuffle for a list of songs, plus anything else that belongs next to them. */
 export function PlayButtons({ songs, from, children }: { songs: Song[]; from?: LibraryEntry; children?: React.ReactNode }) {
+  // In a Jam, playing a whole list would take it from everyone: it goes in the Jam's queue instead
+  const inJam = useInJam();
   return (
     <div className={ui.actions}>
-      <button className={ui.primary} onClick={() => player.play(songs, 0, from)}><Icon name="play" size={20} />Play</button>
-      <button className={ui.pill} onClick={() => player.playShuffled(songs, from)}><Icon name="shuffle" size={16} />Shuffle</button>
+      {inJam
+        ? <button className={ui.primary} onClick={() => void addSongs(songs)}><Icon name="plus" size={20} />Add to Jam</button>
+        : <>
+          <button className={ui.primary} onClick={() => player.play(songs, 0, from)}><Icon name="play" size={20} />Play</button>
+          <button className={ui.pill} onClick={() => player.playShuffled(songs, from)}><Icon name="shuffle" size={16} />Shuffle</button>
+        </>}
       {children}
     </div>
   );

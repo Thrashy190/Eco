@@ -3,28 +3,24 @@
 // decides; a profile needs a connection.
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type CSSProperties } from "react";
-import { Link, useParams } from "react-router";
-import { coverUrl, getPeople, getPerson, getPersonFavorites, personAvatarUrl, personBannerUrl } from "../lib/api";
-import { clock, hue, initials, plural } from "../lib/format";
+import { Link, useNavigate, useParams } from "react-router";
+import { coverUrl, getPeople, getPerson, getPersonFavorites, personBannerUrl } from "../lib/api";
+import { clock, hue, plural } from "../lib/format";
 import { positionAt, stillPlaying, type NowPlaying } from "../lib/listening";
 import type { Person, Profile } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { BackButton, DetailPage, Empty, Section, Shelf, Skeleton, Welcome } from "../components/common";
-import { Picture, SongCover } from "../components/Cover";
+import { PersonAvatar, Picture, SongCover } from "../components/Cover";
 import { Icon } from "../components/Icon";
 import { PlayButtons, SongList } from "../components/songs";
-import { useLiveListening, useNowPlaying } from "../stores/people";
+import { enterJam, useJam } from "../stores/jam";
+import { useJamOf, useLiveListening, useNowPlaying } from "../stores/people";
+import { JamsSection } from "./Jam";
 import * as player from "../stores/player";
 import { useOnline } from "../stores/settings";
 
 const PREVIEW = 10;
 const HUE_FILL = "bg-[linear-gradient(135deg,hsl(var(--h)_55%_42%),hsl(calc(var(--h)+40)_60%_28%))]";
-
-/** Someone's picture, or their initials on their own colour. */
-export function PersonAvatar({ person, className = ui.avatar }: { person: Person; className?: string }) {
-  if (person.avatar) return <img data-art="" className={cx(className, "object-cover")} src={personAvatarUrl(person.user, person.avatar)} alt="" loading="lazy" draggable={false} />;
-  return <div data-art="" className={cx(className, ui.letters)} style={{ "--h": hue(person.user) } as CSSProperties}>{initials(person.name)}</div>;
-}
 
 /** The time now, again every so often, for what moves with the clock. */
 function useClock(every: number): number {
@@ -109,7 +105,8 @@ export function PeopleView() {
   return (
     <>
       <header className={ui.hero}><h1>People</h1><p>Everyone who listens on this server</p></header>
-      {body}
+      {online && <JamsSection />}
+      <Section title="On this server">{body}</Section>
     </>
   );
 }
@@ -133,7 +130,27 @@ function ProfileHeader({ person }: { person: Person }) {
         </div>
       </header>
       {now && <ListeningNow now={now} at={at} />}
+    {!person.me && <InJam user={person.user} />}
     </>
+  );
+}
+
+/** The Jam someone is in, when you may see it: open it, or join it. */
+function InJam({ user }: { user: string }) {
+  const navigate = useNavigate();
+  const room = useJamOf(user);
+  const mine = useJam((s) => s.view?.id);
+  if (!room) return null;
+  const here = mine === room.id;
+  return (
+    <div className="rise flex flex-wrap items-center gap-3 mx-4 mt-3 px-4 py-3 rounded-card bg-glass-strong shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8 wide:max-w-xl">
+      <Icon name="people" size={20} />
+      <span className="min-w-0 flex-1"><b className="block truncate">{`In ${room.name}`}</b><span className="text-muted text-[.85rem]">{room.public ? "A public Jam" : "A private Jam you were invited to"}</span></span>
+      <button type="button" className={here ? ui.pill : ui.primary}
+        onClick={() => { if (here) navigate(`/jam/${room.id}`); else void enterJam(room.id).then((joined) => { if (joined) navigate(`/jam/${room.id}`); }); }}>
+        {here ? "Open" : "Join"}
+      </button>
+    </div>
   );
 }
 
