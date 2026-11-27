@@ -14,6 +14,7 @@ import { BackButton, Breakable, DetailPage, Empty, OfflineBanner, Section, Shelf
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { PickToDownload, PlayButtons, SongList } from "../components/songs";
+import { favoriteAll, useAllStarred } from "../stores/favorites";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
 import { remove, removeSong, rename } from "../stores/playlists";
@@ -178,6 +179,20 @@ function FavoritesPlaylist() {
   return <><OfflineBanner /><Welcome title="Favorites are not downloaded"><p>Open this playlist while online and tap Download to keep your favorites without a connection.</p></Welcome></>;
 }
 
+/** The heart of a playlist: it makes every song of it a favorite, and fills once they all are. It never takes any out. */
+function FavoriteAllButton({ id, songs }: { id: string; songs: Song[] }) {
+  const all = useAllStarred(songs);
+  const [busy, setBusy] = useState(false);
+  if (songs.length === 0) return null;
+  const label = all ? "Every song here is in your favorites" : "Add every song to your favorites";
+  return (
+    <button type="button" className={cx(ui.pill, "data-full:[&_svg]:text-love data-full:[&_svg]:animate-pop")} data-full={all || undefined} aria-label={label} title={label} disabled={busy}
+      onClick={() => { setBusy(true); void favoriteAll(id, songs).finally(() => setBusy(false)); }}>
+      {busy ? <Ring percent={-1} size={16} /> : <Icon name={all ? "heart-fill" : "heart"} size={16} />}
+    </button>
+  );
+}
+
 function RegularPlaylist({ id }: { id: string }) {
   const online = useOnline();
   const navigate = useNavigate();
@@ -199,7 +214,7 @@ function RegularPlaylist({ id }: { id: string }) {
     return (
       <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={`Playlist · ${plural(playlist.songs.length, "song")}${mine && playlist.readonly ? " · follows its .m3u file" : ""}`}
         songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!}
-        extra={mine && <>{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
+        extra={<><FavoriteAllButton id={id} songs={playlist.songs} />{mine && <>{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}</>}
         rowMenu={editable ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
     );
   }

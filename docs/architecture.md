@@ -61,6 +61,7 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/me/library` | your `recents`, `pins` and `covers`; albums Navidrome saw played fill out the recents |
 | `POST /api/me/recents`, `POST /api/me/pins` · `DELETE /api/me/{recents,pins}/{type}/{id}` | remember or forget an item (JSON body: `type`, `id`, `name`, how to draw it) |
 | `GET`, `PUT`, `DELETE /api/covers/playlists/{id}` | the picture you chose for a playlist (or `favorites`). `PUT` takes a JPEG of at most 2 MB |
+| `POST /api/playlists/{id}/favorites` | make every song of a playlist you can see your favourite, from the last song up so Favorites reads like the playlist; songs that already are keep their date. Answers `added` and `already` |
 | `GET /api/discover?artist=` | songs by that artist that are not in your library |
 | `GET /api/home` | newest, recently played and most played albums, random songs, recent downloads |
 | `GET /api/songs?offset=&limit=&sort=&mine=` | the whole library, paged. `sort` is `added` (the default), `title`, `artist`, `album` or `length`; `mine=1` keeps only the songs you downloaded or added (`data/users/<hash>/added.json`, written for everyone who asked for a download when it joins the library) |

@@ -148,6 +148,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/covers/playlists/{id}", s.authed(s.playlistCover))
 	mux.HandleFunc("PUT /api/covers/playlists/{id}", s.authed(s.setPlaylistCover))
 	mux.HandleFunc("DELETE /api/covers/playlists/{id}", s.authed(s.deletePlaylistCover))
+	mux.HandleFunc("POST /api/playlists/{id}/favorites", s.authed(s.favoritePlaylist))
 	mux.HandleFunc("GET /api/me/avatar", s.authed(s.myAvatar))
 	mux.HandleFunc("PUT /api/me/avatar", s.authed(s.setMyAvatar))
 	mux.HandleFunc("DELETE /api/me/avatar", s.authed(s.deleteMyAvatar))

@@ -28,6 +28,7 @@ type fakeLibrary struct {
 	songs     []map[string]any
 	playlists map[string][]string          // id → songs
 	owner     map[string]string            // id → user
+	public    map[string]bool              // playlists everyone can see
 	stars     []string                     // every star call, as user:id
 	starred   map[string]map[string]bool   // user → their favourites
 	starredAt map[string]map[string]string // user → song → when it became a favourite
@@ -96,7 +97,7 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reply(map[string]any{"playlists": map[string]any{"playlist": list}})
 	case "getPlaylist":
 		ids, ok := f.playlists[q.Get("id")]
-		if !ok || f.owner[q.Get("id")] != q.Get("u") {
+		if !ok || (f.owner[q.Get("id")] != q.Get("u") && !f.public[q.Get("id")]) {
 			json.NewEncoder(w).Encode(map[string]any{"subsonic-response": map[string]any{"status": "failed", "error": map[string]any{"code": 70, "message": "not found"}}})
 			return
 		}
