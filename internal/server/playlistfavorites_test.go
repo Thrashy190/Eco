@@ -11,7 +11,9 @@ import (
 // changes nothing. Someone who cannot see the playlist stars nothing; someone who can (a public playlist) only stars
 // their own.
 func TestFavoritePlaylist(t *testing.T) {
-	fake, h, _ := libraryServer(t, song("a", "Alpha", "X", "One"), song("b", "Beta", "X", "One"), song("c", "Gamma", "X", "Two"), song("d", "Delta", "X", "Two"))
+	fake, s := libraryServerOf(t, song("a", "Alpha", "X", "One"), song("b", "Beta", "X", "One"), song("c", "Gamma", "X", "Two"), song("d", "Delta", "X", "Two"))
+	h := s.Handler()
+	t.Cleanup(s.favorites.Wait) // the copies of the favourites for the profiles, before the folder goes
 	fake.playlists["mix"] = []string{"a", "b", "c", "b", "d"}
 	fake.owner["mix"] = "ana"
 	fake.starred = map[string]map[string]bool{"ana": {"c": true}}

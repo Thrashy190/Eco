@@ -88,7 +88,10 @@ func (s *Server) starPlaylist(ctx context.Context, cred subsonic.Cred, id string
 	}
 	order, already := toFavorite(songs)
 	if len(order) > 0 {
-		defer s.forgetStars(cred.User) // lists show the new hearts at once (stars.go)
+		defer func() {
+			s.forgetStars(cred.User) // lists and the profile show the new hearts at once
+			s.copyFavoritesSoon(cred)
+		}()
 	}
 	for i, songID := range order {
 		if i > 0 && !pause(ctx, favoriteGap) {

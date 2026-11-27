@@ -5,7 +5,7 @@ import { md5 } from "./md5";
 import type {
   AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, StatsResponse, ExternalAlbum, ExternalSearch, HomeResponse,
   ImportDetail, ImportedList, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
-  PlaylistDetail, RawAlbum, RawSong, Song,
+  Person, PlaylistDetail, Profile, ProfileSettings, RawAlbum, RawSong, Song,
 } from "./types";
 
 const KEY = "eco.session";
@@ -208,8 +208,8 @@ export async function getPlaylists(): Promise<Playlist[]> {
 }
 
 export async function getPlaylist(id: string): Promise<PlaylistDetail> {
-  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; owner?: string; coverArt?: string; readonly?: boolean; entry?: RawSong[] };
-  return { id: p.id, name: p.name, owner: p.owner, cover: p.coverArt, readonly: p.readonly, songs: (p.entry ?? []).map(toSong) };
+  const p = (await subsonic("getPlaylist", { id })).playlist as { id: string; name: string; owner?: string; coverArt?: string; readonly?: boolean; public?: boolean; entry?: RawSong[] };
+  return { id: p.id, name: p.name, owner: p.owner, cover: p.coverArt, readonly: p.readonly, public: p.public === true, songs: (p.entry ?? []).map(toSong) };
 }
 
 /** Every ID travels in the address, and addresses have a limit, so long lists go a part at a time. */
@@ -230,6 +230,8 @@ export const removeFromPlaylist = (id: string, index: number) => subsonic("updat
 export const deletePlaylist = (id: string) => subsonic("deletePlaylist", { id });
 /** Make every song of a playlist a favorite, in the playlist's order. Songs that already are keep their place. */
 export const favoritePlaylist = (id: string) => eco<{ added: number; already: number }>(`playlists/${part(id)}/favorites`, undefined, "POST");
+/** Public playlists show on their owner's profile, for everyone on this server. */
+export const setPlaylistPublic = (id: string, isPublic: boolean) => subsonic("updatePlaylist", { playlistId: id, public: String(isPublic) });
 
 /** Tell Navidrome a song was played, which feeds "recently played" and "most played". */
 export const scrobble = (id: string) => subsonic("scrobble", { id, submission: "true" }).catch(() => undefined);
@@ -288,6 +290,20 @@ export const avatarUrl = (version: number) => `/api/me/avatar?${params({ v: vers
 export const uploadAvatar = (picture: Blob) => send<LibraryState>("me/avatar", picture, "PUT", "image/jpeg");
 export const deleteAvatar = () => eco<LibraryState>("me/avatar", undefined, "DELETE");
 export const deletePlaylistCover = (id: string) => eco<LibraryState>(`covers/playlists/${part(id)}`, undefined, "DELETE");
+
+// ---- People on this server: profiles anyone signed in can open, each part unless its owner hid it ----
+export const getPeople = async () => (await eco<{ people: Person[] }>("people")).people;
+export async function getPerson(name: string): Promise<Profile> {
+  const p = await eco<Omit<Profile, "top" | "favorites"> & { top?: RawSong[]; favorites?: RawSong[] }>(`people/${part(name)}`);
+  return { ...p, playlists: p.playlists ?? [], top: (p.top ?? []).map(toSong), favorites: (p.favorites ?? []).map(toSong), favorite_count: p.favorite_count ?? 0 };
+}
+export const getPersonFavorites = async (name: string) => ((await eco<{ songs?: RawSong[] }>(`people/${part(name)}/favorites`)).songs ?? []).map(toSong);
+export const personAvatarUrl = (name: string, version: number) => `/api/people/${part(name)}/avatar?${params({ v: version })}`;
+export const personBannerUrl = (name: string, version: number) => `/api/people/${part(name)}/banner?${params({ v: version })}`;
+export const getProfileSettings = () => eco<ProfileSettings>("me/profile");
+export const putProfileSettings = (settings: Omit<ProfileSettings, "banner">) => send<ProfileSettings>("me/profile", JSON.stringify(settings), "PUT");
+export const uploadBanner = (picture: Blob) => send<ProfileSettings>("me/banner", picture, "PUT", "image/jpeg");
+export const deleteBanner = () => eco<ProfileSettings>("me/banner", undefined, "DELETE");
 
 // ---- Lists of songs imported from a file ----
 export const parseImportFile = async (file: File) =>

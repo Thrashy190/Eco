@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/Thrashy190/eco/internal/subsonic"
 	"github.com/Thrashy190/eco/internal/userdata"
@@ -32,7 +33,16 @@ func withNavidromeRecents(st userdata.State, played []subsonic.Album) userdata.S
 }
 
 func (s *Server) myLibrary(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	// The app opening: the others see the favourites as they are now. Taken while Navidrome lists the albums
+	copied := make(chan struct{})
+	go func() {
+		defer close(copied)
+		if time.Since(time.UnixMilli(s.users.FavoritesOf(cred.User).At)) > favoritesCopyEvery {
+			s.copyFavorites(cred)
+		}
+	}()
 	played, _ := s.nd.AlbumList(r.Context(), cred, "recent", 12) // the view still works without them
+	<-copied
 	respond(w, http.StatusOK, withNavidromeRecents(withoutLook(s.users.Get(cred.User)), played))
 }
 

@@ -2,7 +2,8 @@
 // recently, what they pinned, and the pictures they chose for their playlists. It lives on the server so the
 // phone and the laptop show the same library. There is no database: one JSON file per user.
 //
-// Layout: <root>/<hash of the username>/{state.json, covers/<playlist id>.jpg}
+// Layout: <root>/<hash of the username>/{state.json, favorites.json, avatar.jpg, banner.jpg, wallpaper.jpg,
+// covers/<playlist id>.jpg}
 package userdata
 
 import (
@@ -86,6 +87,13 @@ type State struct {
 	Wallpaper int64           `json:"wallpaper,omitempty"`
 	Look      json.RawMessage `json:"look,omitempty"`
 	LookAt    int64           `json:"look_at,omitempty"`
+	// What other people on the server see (profile.go). User is the username as last signed in: the folder's name is a
+	// hash, so this is the only way to list people.
+	User        string  `json:"user,omitempty"`
+	SeenAt      int64   `json:"seen_at,omitempty"`
+	DisplayName string  `json:"display_name,omitempty"`
+	Privacy     Privacy `json:"privacy"`
+	Banner      int64   `json:"banner,omitempty"` // when the profile's cover was set, like Avatar
 }
 
 // Store keeps every user's state under a root folder.

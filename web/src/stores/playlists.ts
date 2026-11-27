@@ -1,6 +1,6 @@
 // Making and changing playlists, from wherever a menu offers it. They are real Navidrome playlists, so they show up in every
 // other Subsonic app too. Only the owner of a playlist can change it.
-import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylist, getPlaylists, removeFromPlaylist, renamePlaylist } from "../lib/api";
+import { addToPlaylist, createPlaylist, deletePlaylist, getPlaylist, getPlaylists, removeFromPlaylist, renamePlaylist, setPlaylistPublic } from "../lib/api";
 import { plural } from "../lib/format";
 import { queryClient } from "../lib/query";
 import type { LibraryEntry, Song } from "../lib/types";
@@ -65,6 +65,27 @@ export async function rename(id: string, current: string): Promise<void> {
   try {
     await renamePlaylist(id, name);
     playlistsChanged(id);
+  } catch (e) { toast((e as Error).message); }
+}
+
+/** A public playlist shows on its owner's profile, for everyone on this server. */
+export async function setPublic(id: string, isPublic: boolean): Promise<void> {
+  try {
+    await setPlaylistPublic(id, isPublic);
+    playlistsChanged(id);
+    void queryClient.invalidateQueries({ queryKey: ["person"] });
+    toast(isPublic ? "Everyone on this server can see it on your profile" : "Only you can see it now");
+  } catch (e) { toast((e as Error).message); }
+}
+
+/** Someone else's playlist as one of your own: the songs it has now, which you can then change. */
+export async function copy(name: string, songs: Song[]): Promise<void> {
+  const chosen = askName(name);
+  if (!chosen) return;
+  try {
+    await createPlaylist(chosen, songs.map((s) => s.id));
+    playlistsChanged();
+    toast(`Copied to ${chosen}`);
   } catch (e) { toast((e as Error).message); }
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
 import { useRoomy } from "../lib/media";
-import { activePlace, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
+import { activePlace, BESIDE_ACCOUNT, tabsFrom } from "../lib/nav";
 import { cx } from "../lib/ui";
 import { useShown } from "../stores/connect";
 import { setSettings, useSettings } from "../stores/settings";
@@ -48,8 +48,8 @@ export function TopBar() {
       <button type="button" className={plainButton} aria-label="Back" onClick={() => navigate(-1)}><Icon name="back" size={20} /></button>
       <button type="button" className={plainButton} aria-label="Forward" onClick={() => navigate(1)}><span className="inline-flex -scale-x-100"><Icon name="back" size={20} /></span></button>
       <nav className="flex-none flex items-center gap-0.5 mx-1" aria-label="Main">
-        {/* Settings is behind your initials at the end of this bar */}
-        {tabs.filter((place) => place.id !== REQUIRED_PLACE).map((place) => (
+        {/* People and Settings sit at the end of this bar, Settings behind your picture */}
+        {tabs.filter((place) => !BESIDE_ACCOUNT.has(place.id)).map((place) => (
           <NavLink key={place.id} to={place.to} end title={place.label} data-on={place.id === active || undefined}
             className="tap flex-none flex items-center gap-2 h-10 px-3 rounded-full font-semibold text-[.92rem] text-muted hover:text-text data-on:bg-text data-on:text-bg">
             <Icon name={place.icon} size={19} />
@@ -71,6 +71,10 @@ export function TopBar() {
           <Icon name="panel" size={20} />
         </button>
       )}
+      <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || pathname.startsWith("/people/") || undefined}
+        className="tap flex-none size-10 grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg">
+        <Icon name="people" size={20} />
+      </NavLink>
       <Link to="/settings" title="Settings" aria-label="Settings" className="tap flex-none size-10 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.75rem] hover:bg-surface-3"><UserAvatar /></Link>
     </header>
     </div>

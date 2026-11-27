@@ -68,6 +68,8 @@ type Server struct {
 	favoriteRuns map[string]*sync.Mutex // one favourites run per imported list at a time (syncFavorites)
 	favorites    sync.WaitGroup         // favourites runs going on in the background, which tests wait for
 	stars        map[string]starsEntry  // each person's stars, for lists made from the shared snapshot (stars.go)
+	copying      map[string]bool        // a person whose favourites are being copied for the others (copyFavoritesSoon)
+	copyAgain    map[string]bool        // and whose favourites changed again meanwhile
 }
 
 // New builds a server. web is the root of the static web app. ctx stops the download worker.
@@ -91,7 +93,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/rest/", s.proxy)
 	mux.HandleFunc("/rest/scrobble", s.scrobble) // passed through too, and counted (stats.go)
 	mux.HandleFunc("/rest/scrobble.view", s.scrobble)
-	mux.HandleFunc("/rest/star", s.passStar) // passed through too, so lists show the new heart at once (stars.go)
+	mux.HandleFunc("/rest/star", s.passStar) // passed through too: lists show the new heart at once, and so does your profile (stars.go)
 	mux.HandleFunc("/rest/star.view", s.passStar)
 	mux.HandleFunc("/rest/unstar", s.passStar)
 	mux.HandleFunc("/rest/unstar.view", s.passStar)
@@ -155,6 +157,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/me/wallpaper", s.authed(s.myWallpaper))
 	mux.HandleFunc("PUT /api/me/wallpaper", s.authed(s.setMyWallpaper))
 	mux.HandleFunc("DELETE /api/me/wallpaper", s.authed(s.deleteMyWallpaper))
+	mux.HandleFunc("GET /api/me/banner", s.authed(s.myBanner))
+	mux.HandleFunc("PUT /api/me/banner", s.authed(s.setMyBanner))
+	mux.HandleFunc("DELETE /api/me/banner", s.authed(s.deleteMyBanner))
+	mux.HandleFunc("GET /api/me/profile", s.authed(s.myProfile))
+	mux.HandleFunc("PUT /api/me/profile", s.authed(s.setMyProfile))
+	mux.HandleFunc("GET /api/people", s.authed(s.people))
+	mux.HandleFunc("GET /api/people/{name}", s.authed(s.person))
+	mux.HandleFunc("GET /api/people/{name}/favorites", s.authed(s.personFavorites))
+	mux.HandleFunc("GET /api/people/{name}/avatar", s.authed(s.personPicture(false)))
+	mux.HandleFunc("GET /api/people/{name}/banner", s.authed(s.personPicture(true)))
 	mux.HandleFunc("GET /api/me/look", s.authed(s.myLook))
 	mux.HandleFunc("PUT /api/me/look", s.authed(s.setMyLook))
 	mux.HandleFunc("GET /api/admin/users", s.authed(s.adminOnly(s.listUsers)))
@@ -224,6 +236,9 @@ func (s *Server) authed(h apiHandler) http.HandlerFunc {
 			s.mu.Lock()
 			s.valid[cred.Key()] = time.Now().Add(5 * time.Minute)
 			s.mu.Unlock()
+			if err := s.users.Seen(cred.User); err != nil { // so they appear among the people (userdata/profile.go)
+				log.Printf("remembering %s signed in: %v", cred.User, err)
+			}
 		}
 		h(w, r, cred)
 	}

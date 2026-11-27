@@ -306,6 +306,9 @@ type Playlist struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	SongCount int    `json:"songCount"`
+	Owner     string `json:"owner"`
+	Public    bool   `json:"public"`
+	CoverArt  string `json:"coverArt"`
 }
 
 // AllSongs lists the whole library by paging through search3.

@@ -71,7 +71,7 @@ func importWithStars(out importOut, stars map[string]string) importOut {
 }
 
 // passStar hands a favourite, or its removal, to Navidrome. Once Navidrome has accepted it, which proves who sent it,
-// the next list asks for that person's stars again.
+// the next list asks for that person's stars again, and their profile shows the change (copyFavoritesSoon).
 func (s *Server) passStar(w http.ResponseWriter, r *http.Request) {
 	cred, signed := subsonic.FromQuery(r.URL.Query())
 	r.Header.Del("Accept-Encoding") // the answer must arrive readable; it is tiny anyway
@@ -79,5 +79,6 @@ func (s *Server) passStar(w http.ResponseWriter, r *http.Request) {
 	s.proxy.ServeHTTP(answer, r)
 	if signed && accepted(answer.status, answer.body.Bytes()) {
 		s.forgetStars(cred.User)
+		s.copyFavoritesSoon(cred)
 	}
 }
