@@ -79,6 +79,11 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 			break
 		}
 	}
+	// Navidrome marks each song with the asker's stars and plays. The snapshot is everyone's, so it keeps neither: lists
+	// made from it add the asker's own stars (myStars)
+	for i := range songs {
+		songs[i].Starred, songs[i].PlayCount, songs[i].Played = "", 0, ""
+	}
 	sort.SliceStable(songs, func(i, j int) bool {
 		a, b := match.Norm(songs[i].Title), match.Norm(songs[j].Title)
 		if a != b {

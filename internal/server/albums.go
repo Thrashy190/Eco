@@ -97,14 +97,14 @@ func missingAlbums(albums []catalog.Album, artist string, lib *snapshot) []exter
 	return out
 }
 
-// albumTracks lists an album's tracks in order, marking the ones the library has.
-func albumTracks(a catalog.Album, lib *snapshot) []albumTrackOut {
+// albumTracks lists an album's tracks in order, marking the ones the library has, with the asker's stars.
+func albumTracks(a catalog.Album, lib *snapshot, stars map[string]string) []albumTrackOut {
 	out := make([]albumTrackOut, len(a.Tracks))
 	for i, t := range a.Tracks {
 		row := albumTrackOut{ID: t.ID, Title: t.Title, Artist: t.Artist, Disc: max(t.Disc, 1), Track: t.Meta.Track, Duration: t.DurationMs / 1000}
 		if lib != nil {
 			if song, ok := lib.find(t.Title, t.Artist, a.Name); ok {
-				owned := songsOut([]subsonic.Song{song})[0]
+				owned := withStars(songsOut([]subsonic.Song{song}), stars)[0]
 				row.Library = &owned
 			}
 		}
@@ -135,7 +135,7 @@ func (s *Server) catalogAlbum(w http.ResponseWriter, r *http.Request, cred subso
 		fail(w, http.StatusBadGateway, "Navidrome: "+err.Error())
 		return
 	}
-	respond(w, http.StatusOK, map[string]any{"album": externalAlbumOf(album), "tracks": albumTracks(album, lib)})
+	respond(w, http.StatusOK, map[string]any{"album": externalAlbumOf(album), "tracks": albumTracks(album, lib, s.myStars(r.Context(), cred))})
 }
 
 // albumMatch gives a library album's page the whole album from the catalogue, with which tracks are downloaded, so an
@@ -170,5 +170,5 @@ func (s *Server) albumMatch(w http.ResponseWriter, r *http.Request, cred subsoni
 	if err != nil {
 		lib = nil
 	}
-	respond(w, http.StatusOK, map[string]any{"album": externalAlbumOf(album), "tracks": albumTracks(album, lib)})
+	respond(w, http.StatusOK, map[string]any{"album": externalAlbumOf(album), "tracks": albumTracks(album, lib, s.myStars(r.Context(), cred))})
 }
