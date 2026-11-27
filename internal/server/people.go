@@ -210,6 +210,7 @@ func (s *Server) setMyProfile(w http.ResponseWriter, r *http.Request, cred subso
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	s.announce(cred.User, true) // the others see the change at once
 	respond(w, http.StatusOK, profileSettings{st.DisplayName, st.Privacy, st.Banner})
 }
 

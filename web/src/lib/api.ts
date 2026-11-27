@@ -300,6 +300,7 @@ export async function getPerson(name: string): Promise<Profile> {
 export const getPersonFavorites = async (name: string) => ((await eco<{ songs?: RawSong[] }>(`people/${part(name)}/favorites`)).songs ?? []).map(toSong);
 export const personAvatarUrl = (name: string, version: number) => `/api/people/${part(name)}/avatar?${params({ v: version })}`;
 export const personBannerUrl = (name: string, version: number) => `/api/people/${part(name)}/banner?${params({ v: version })}`;
+export const listeningEventsUrl = () => `/api/listening/events?${params()}`;
 export const getProfileSettings = () => eco<ProfileSettings>("me/profile");
 export const putProfileSettings = (settings: Omit<ProfileSettings, "banner">) => send<ProfileSettings>("me/profile", JSON.stringify(settings), "PUT");
 export const uploadBanner = (picture: Blob) => send<ProfileSettings>("me/banner", picture, "PUT", "image/jpeg");

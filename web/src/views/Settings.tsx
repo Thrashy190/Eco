@@ -121,6 +121,7 @@ function ProfileGroup() {
           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
       </Setting>
       {shown("hide_profile", "Show my profile", "Off: you are not listed under People and nobody can open your profile")}
+      {shown("hide_listening", "Show what I'm listening to", "The song playing, as it plays")}
       {shown("hide_top", "Show my top songs", "What you played most this month, in order, never how often")}
       {shown("hide_favorites", "Show my favorites", "The songs you love, newest first")}
       <Setting title="See your profile" description="As the others see it">
