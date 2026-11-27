@@ -228,6 +228,8 @@ export async function createPlaylist(name: string, songIds: string[] = []): Prom
 export const renamePlaylist = (id: string, name: string) => subsonic("updatePlaylist", { playlistId: id, name });
 export const removeFromPlaylist = (id: string, index: number) => subsonic("updatePlaylist", { playlistId: id, songIndexToRemove: index });
 export const deletePlaylist = (id: string) => subsonic("deletePlaylist", { id });
+/** Make every song of a playlist a favorite, in the playlist's order. Songs that already are keep their place. */
+export const favoritePlaylist = (id: string) => eco<{ added: number; already: number }>(`playlists/${part(id)}/favorites`, undefined, "POST");
 
 /** Tell Navidrome a song was played, which feeds "recently played" and "most played". */
 export const scrobble = (id: string) => subsonic("scrobble", { id, submission: "true" }).catch(() => undefined);
