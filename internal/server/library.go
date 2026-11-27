@@ -19,6 +19,7 @@ type snapshot struct {
 	songs   []subsonic.Song            // sorted by title
 	orders  map[string][]subsonic.Song // the same songs in each order /api/songs offers
 	byTitle map[string][]subsonic.Song // normalised title → songs with that title
+	byID    map[string]subsonic.Song   // song ID → song
 	known   map[string]bool            // normalised names that are artists in their own right (knownArtistNames)
 }
 
@@ -91,12 +92,13 @@ func (s *Server) library(ctx context.Context, cred subsonic.Cred) (*snapshot, er
 		}
 		return songs[i].Artist < songs[j].Artist
 	})
-	sn := &snapshot{at: time.Now(), songs: songs, orders: orderSongs(songs), byTitle: map[string][]subsonic.Song{}}
+	sn := &snapshot{at: time.Now(), songs: songs, orders: orderSongs(songs), byTitle: map[string][]subsonic.Song{}, byID: make(map[string]subsonic.Song, len(songs))}
 	seen := map[string]bool{} // each name counts once, or ten songs by one artist with a comma in the name made it a list
 	var names []string
 	for _, song := range songs {
 		t := match.Norm(song.Title)
 		sn.byTitle[t] = append(sn.byTitle[t], song)
+		sn.byID[song.ID] = song
 		for _, tag := range []string{song.Artist, song.AlbumArtist} {
 			for _, name := range strings.Split(tag, "; ") {
 				if !seen[name] {

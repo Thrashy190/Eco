@@ -140,6 +140,9 @@ func (s *Server) syncFavorites(ctx context.Context, cred subsonic.Cred, id, fini
 			unordered = false
 		}
 	}
+	if len(made) > 0 || unordered != imp.Unordered {
+		s.copyFavoritesSoon(cred)
+	}
 	err = s.users.UpdateImport(cred.User, id, func(saved *userdata.Import) {
 		saved.Linked = append(saved.Linked, made...)
 		saved.Unordered = unordered

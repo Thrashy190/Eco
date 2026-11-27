@@ -3,8 +3,8 @@ import { activePlace, homeOrder, moved, pageKey, tabsFrom } from "./nav";
 
 describe("tabsFrom", () => {
   const ids = (chosen?: string[]) => tabsFrom(chosen).map((p) => p.id);
-  it("starts with the original four", () => {
-    expect(ids()).toEqual(["home", "search", "library", "settings"]);
+  it("starts with the original four and People", () => {
+    expect(ids()).toEqual(["home", "search", "library", "people", "settings"]);
   });
   it("keeps Settings, or nobody could undo hiding it", () => {
     expect(ids(["favorites"])).toEqual(["favorites", "settings"]);
@@ -35,6 +35,10 @@ describe("activePlace", () => {
     expect(activePlace(tabs, "/album/123")).toBe("library");
     expect(activePlace(tabs, "/catalog-album/abc")).toBe("library");
     expect(activePlace(tabs, "/library/songs")).toBe("library");
+  });
+  it("lights People on someone's profile", () => {
+    expect(activePlace(tabsFrom(undefined), "/people/ana")).toBe("people");
+    expect(activePlace(tabsFrom(undefined), "/people")).toBe("people");
   });
   it("lights nothing when no tab fits", () => {
     expect(activePlace(tabsFrom(["home"]), "/album/1")).toBeUndefined();

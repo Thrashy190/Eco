@@ -17,7 +17,7 @@ import { PickToDownload, PlayButtons, SongList } from "../components/songs";
 import { favoriteAll, useAllStarred } from "../stores/favorites";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
-import { remove, removeSong, rename } from "../stores/playlists";
+import { copy, remove, removeSong, rename, setPublic } from "../stores/playlists";
 import { syncCollectionIfSaved } from "../stores/saving";
 import { useOnline } from "../stores/settings";
 import { openSheet, toast } from "../stores/ui";
@@ -207,14 +207,20 @@ function RegularPlaylist({ id }: { id: string }) {
   if (playlist) {
     const mine = ownsPlaylist(playlist.owner);
     const editable = mine && !playlist.readonly; // the name of a playlist that follows a file can change, its songs cannot
-    const menu = () => openSheet(playlist.name, "Playlist", [
+    const menu = () => openSheet(playlist.name, "Playlist", mine ? [
       { icon: "pencil", label: "Rename", run: () => void rename(id, playlist.name) },
+      playlist.public
+        ? { icon: "eye", label: "Make private", run: () => void setPublic(id, false) }
+        : { icon: "people", label: "Show on my profile", run: () => void setPublic(id, true) },
       { icon: "trash", label: "Delete playlist", danger: true, run: () => void remove(entry!, playlist.songs.length, pins).then((gone) => { if (gone) navigate("/library/playlists", { replace: true }); }) },
+    ] : [
+      Boolean(playlist.owner) && { icon: "user", label: `See ${playlist.owner}'s profile`, run: () => void navigate(`/people/${encodeURIComponent(playlist.owner!)}`) },
+      { icon: "plus", label: "Copy to my playlists", run: () => void copy(playlist.name, playlist.songs) },
     ]);
     return (
-      <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={`Playlist · ${plural(playlist.songs.length, "song")}${mine && playlist.readonly ? " · follows its .m3u file" : ""}`}
+      <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={<>{mine ? (playlist.public ? "Public playlist" : "Playlist") : <>{"Playlist by "}<Link className="hover:underline" to={`/people/${encodeURIComponent(playlist.owner ?? "")}`}>{playlist.owner}</Link></>}{` · ${plural(playlist.songs.length, "song")}`}{mine && playlist.readonly ? " · follows its .m3u file" : ""}</>}
         songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!}
-        extra={<><FavoriteAllButton id={id} songs={playlist.songs} />{mine && <>{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}</>}
+        extra={<><FavoriteAllButton id={id} songs={playlist.songs} />{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
         rowMenu={editable ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
     );
   }

@@ -12,6 +12,7 @@ export const PLACES: Place[] = [
   { id: "home", label: "Home", icon: "home", to: "/home" },
   { id: "search", label: "Search", icon: "search", to: "/search" },
   { id: "library", label: "Library", icon: "library", to: "/library" },
+  { id: "people", label: "People", icon: "people", to: "/people" },
   { id: "favorites", label: "Favorites", icon: "heart", to: "/playlist/favorites" },
   { id: "playlists", label: "Playlists", icon: "queue", to: "/library/playlists" },
   { id: "albums", label: "Albums", icon: "image", to: "/library/albums" },
@@ -26,7 +27,9 @@ export const PLACES: Place[] = [
 /** Settings must stay reachable, or nobody could undo hiding it. A phone has room for five tabs. */
 export const REQUIRED_PLACE = "settings";
 export const MAX_TABS = 5;
-export const DEFAULT_TABS = ["home", "search", "library", "settings"];
+export const DEFAULT_TABS = ["home", "search", "library", "people", "settings"];
+/** On a big screen People has its own button beside your picture, as Settings does, instead of a place among the tabs. */
+export const BESIDE_ACCOUNT = new Set([REQUIRED_PLACE, "people"]);
 
 /** The chosen tabs: only places that exist, at most five, and Settings always among them. */
 export function tabsFrom(chosen: readonly string[] | undefined): Place[] {

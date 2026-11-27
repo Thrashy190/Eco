@@ -29,6 +29,7 @@ import { Home } from "./views/Home";
 import { ImportDetailView, ImportView } from "./views/Import";
 import { Library } from "./views/Library";
 import { Login } from "./views/Login";
+import { PeopleView, PersonFavoritesView, ProfileView } from "./views/People";
 import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
@@ -144,6 +145,9 @@ function SignedIn({ user }: { user: string }) {
           <Route path="import" element={<ImportView />} />
           <Route path="import/:id" element={<ImportDetailView />} />
           <Route path="cleanup" element={<Cleanup />} />
+          <Route path="people" element={<PeopleView />} />
+          <Route path="people/:name" element={<ProfileView />} />
+          <Route path="people/:name/favorites" element={<PersonFavoritesView />} />
           <Route path="settings" element={<Settings />} />
           <Route path="users" element={<Users />} />
           <Route path="stats" element={<Stats />} />

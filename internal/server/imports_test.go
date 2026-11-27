@@ -90,8 +90,8 @@ func (f *fakeLibrary) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "getPlaylists":
 		list := []map[string]any{}
 		for id, who := range f.owner {
-			if who == q.Get("u") {
-				list = append(list, map[string]any{"id": id, "name": id, "songCount": len(f.playlists[id])})
+			if who == q.Get("u") || f.public[id] {
+				list = append(list, map[string]any{"id": id, "name": id, "songCount": len(f.playlists[id]), "owner": who, "public": f.public[id]})
 			}
 		}
 		reply(map[string]any{"playlists": map[string]any{"playlist": list}})

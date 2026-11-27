@@ -96,7 +96,47 @@ export interface PlaylistDetail {
   owner?: string;
   cover?: string;
   readonly?: boolean;
+  public?: boolean; // shown on its owner's profile
   songs: Song[];
+}
+
+/** Someone who uses Eco on this server. */
+export interface Person {
+  user: string;
+  name: string; // the name they chose, else their username
+  avatar?: number; // when their picture was set; none without one
+  banner?: number; // the same for the cover of their profile
+  me?: boolean;
+}
+
+/** What someone keeps from the others. Nothing hidden by default. */
+export interface Privacy {
+  hide_profile?: boolean;
+  hide_listening?: boolean;
+  hide_favorites?: boolean;
+  hide_top?: boolean;
+}
+
+export interface ProfilePlaylist {
+  id: string;
+  name: string;
+  song_count: number;
+  cover?: string;
+}
+
+/** Someone's profile: what they play most this month (the order only), public playlists and newest favorites. */
+export interface Profile extends Person {
+  top: Song[];
+  playlists: ProfilePlaylist[];
+  favorites: Song[];
+  favorite_count: number;
+  privacy?: Privacy; // only on your own
+}
+
+export interface ProfileSettings {
+  display_name: string;
+  privacy: Privacy;
+  banner?: number;
 }
 
 /** A song in the catalogue that is not in the library yet. */

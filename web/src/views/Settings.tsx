@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { approveTV, getSongs, signOut, username, wallpaperUrl, whoAmI } from "../lib/api";
+import { approveTV, deleteBanner, getProfileSettings, getSongs, personBannerUrl, putProfileSettings, signOut, uploadBanner, username, wallpaperUrl, whoAmI } from "../lib/api";
+import { queryClient } from "../lib/query";
+import type { Privacy, ProfileSettings } from "../lib/types";
 import { plural, releaseUrl } from "../lib/format";
 import { pictureToCover, pictureToWallpaper } from "../lib/image";
 import { bridge, isDesktop, serverHost, serverIsOlder } from "../lib/desktop";
@@ -36,7 +38,7 @@ const SEG = "flex p-0.75 gap-0.5 rounded-full bg-ghost [&>button]:flex-1 [&>butt
 const SWATCH = "relative size-9.5 rounded-full bg-(--c) shadow-[inset_0_0_0_2px_rgb(255_255_255/.18)] transition-transform duration-200 ease-spring active:scale-[.88] aria-pressed:scale-[1.12] aria-pressed:shadow-[0_0_0_3px_var(--bg),0_0_0_5px_var(--c)]";
 const REORDER_BUTTON = "tap size-9 grid place-items-center rounded-full text-muted flex-none disabled:opacity-25! hover:text-text";
 
-/** Your picture. Tapping it changes it. It stays on this server, and only an administrator can see someone else's. */
+/** Your picture. Tapping it changes it. It stays on this server, and shows on your profile to everyone on it. */
 function ProfilePicture() {
   const { avatar } = useLibraryState();
   const input = useRef<HTMLInputElement>(null);
@@ -63,6 +65,69 @@ function ProfilePicture() {
       </button>
       <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
+  );
+}
+
+const PROFILE_KEY = ["profile-settings"];
+
+/** What people on this server see of you: the cover of your profile, your name, and which parts show. */
+function ProfileGroup() {
+  const user = username();
+  const online = useOnline();
+  const { data } = useQuery({ queryKey: PROFILE_KEY, queryFn: getProfileSettings, enabled: online });
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  function saved(next: ProfileSettings) {
+    queryClient.setQueryData(PROFILE_KEY, next);
+    void queryClient.invalidateQueries({ queryKey: ["people"] });
+    void queryClient.invalidateQueries({ queryKey: ["person"] });
+  }
+  async function save(change: Partial<Omit<ProfileSettings, "banner">>) {
+    if (!data) return;
+    try {
+      saved(await putProfileSettings({ display_name: change.display_name ?? data.display_name, privacy: change.privacy ?? data.privacy }));
+    } catch (e) { toast((e as Error).message); }
+  }
+  async function choose(file: File | undefined) {
+    if (!file) return;
+    setBusy(true);
+    try {
+      saved(await uploadBanner(await pictureToWallpaper(file)));
+      toast("Cover updated");
+    } catch (e) { toast((e as Error).message); }
+    setBusy(false);
+  }
+  const pick = () => { if (online) input.current?.click(); else toast("Choosing a picture needs a connection"); };
+  const shown = (key: keyof Privacy, title: string, description: string) => (
+    <Setting title={title} description={description}>
+      <button type="button" className={ui.toggle} role="switch" aria-checked={!data?.privacy[key]} disabled={!data}
+        onClick={() => data && void save({ privacy: { ...data.privacy, [key]: !data.privacy[key] } })} />
+    </Setting>
+  );
+  return (
+    <Group title="Your profile">
+      <Setting title="Cover" description="The picture across the top of your profile" stack>
+        <div className="flex items-center gap-2">
+          <button type="button" className="tap relative flex-1 aspect-[4/1] overflow-hidden rounded-2xl bg-ghost text-muted grid place-items-center" aria-label="Change the cover of your profile" disabled={busy} onClick={pick}>
+            {data?.banner ? <img src={personBannerUrl(user, data.banner)} alt="" className="absolute inset-0 size-full object-cover" /> : <Icon name="image" size={24} />}
+            {busy && <span className="absolute inset-0 grid place-items-center bg-black/40"><Ring percent={-1} size={22} /></span>}
+          </button>
+          {data?.banner ? <button type="button" className={ui.pill} aria-label="Remove the cover" onClick={() => void deleteBanner().then((next) => { saved(next); toast("Cover removed"); }).catch((e: Error) => toast(e.message))}><Icon name="trash" size={16} /></button> : null}
+        </div>
+      </Setting>
+      <Setting title="Name" description={`Shown instead of ${user}. Leave it empty to use your username`} stack>
+        <input key={data?.display_name ?? ""} className={ui.input} defaultValue={data?.display_name ?? ""} maxLength={60} placeholder={user} disabled={!data}
+          aria-label="Name others see" onBlur={(e) => { const name = e.target.value.trim(); if (data && name !== data.display_name) void save({ display_name: name }); }}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }} />
+      </Setting>
+      {shown("hide_profile", "Show my profile", "Off: you are not listed under People and nobody can open your profile")}
+      {shown("hide_top", "Show my top songs", "What you played most this month, in order, never how often")}
+      {shown("hide_favorites", "Show my favorites", "The songs you love, newest first")}
+      <Setting title="See your profile" description="As the others see it">
+        <Link className={ui.pill} to={`/people/${encodeURIComponent(user)}`}><Icon name="people" size={16} />Open</Link>
+      </Setting>
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
+    </Group>
   );
 }
 
@@ -358,6 +423,8 @@ export function Settings() {
           <ProfilePicture />
           <div><h2>{user}</h2><p>{syncLook ? "Your look and your picture follow you to every device." : "Your look is saved on this device. Your picture follows you to every device."}</p></div>
         </div>
+
+        <ProfileGroup />
 
         <Group title="Appearance">
           <Setting title="Same look everywhere" description="What you choose here shows on all your devices"><Toggle name="syncLook" /></Setting>
