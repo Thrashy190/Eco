@@ -1,7 +1,7 @@
 // Favorites are Navidrome's stars. A song object can be held by many screens at once, so what changed since it
 // was fetched is kept here and every heart reads through it.
 import { create } from "zustand";
-import { favoritePlaylist, getStarred, star, unstar } from "../lib/api";
+import { favoritePlaylist, favoriteSongs, getStarred, star, unstar } from "../lib/api";
 import { plural } from "../lib/format";
 import { queryClient } from "../lib/query";
 import type { Song } from "../lib/types";
@@ -38,17 +38,28 @@ export async function toggleFavorite(song: Song): Promise<void> {
 }
 
 /**
- * Make every song of a playlist a favorite. The server stars them from the bottom up, so Favorites reads like the
- * playlist; songs that already are favorites are skipped and keep their place. Nothing is ever taken out.
+ * Make every song of a list a favorite. The server stars them from the bottom up, so Favorites reads like the list;
+ * songs that already are favorites are skipped and keep their place. Nothing is ever taken out.
  */
-export async function favoriteAll(playlistId: string, songs: Song[]): Promise<void> {
+async function starAll(songs: Song[], run: () => Promise<{ added: number }>): Promise<void> {
   try {
-    const { added } = await favoritePlaylist(playlistId);
+    const { added } = await run();
     useOverrides.setState((s) => ({ starred: { ...s.starred, ...Object.fromEntries(songs.map((song) => [song.id, true])) } }));
     toast(added > 0 ? `Added ${plural(added, "song")} to favorites` : "These songs are already in your favorites");
     refreshFavorites();
   } catch (e) {
     toast((e as Error).message);
   }
+}
+
+/** Every song of a playlist, read by the server, so a long one does not travel in the request. */
+export async function favoriteAll(playlistId: string, songs: Song[]): Promise<void> {
+  await starAll(songs, () => favoritePlaylist(playlistId));
   void queryClient.invalidateQueries({ queryKey: ["playlist", playlistId] });
+}
+
+/** Every song of an album, as its page lists them. Imported audio is not music of the library and stays out. */
+export function favoriteAlbum(songs: Song[]): Promise<void> {
+  const music = songs.filter((s) => !s.mediaId);
+  return starAll(music, () => favoriteSongs(music.map((s) => s.id)));
 }

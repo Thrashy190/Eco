@@ -59,7 +59,7 @@
 - An artist's page starts with their most played songs on your server, then their songs, the ones they appear on, their albums and what you could still download. Long lists show ten songs, with the rest a tap away.
 - Tapped songs are fetched, tagged with proper metadata, genres and cover art, and appear in your library in seconds.
 - Import a playlist exported from Spotify or anywhere else: it becomes a real playlist of what you have, and you can download the rest. Your Liked Songs become your favorites instead, in the order you liked them, and the songs you download later join them.
-- The heart on a playlist makes all its songs your favorites, in the playlist's order. Songs that already are favorites stay where they are.
+- The heart on a playlist or an album makes all its songs your favorites, in their order. Songs that already are favorites stay where they are.
 - **Library ▸ Songs ▸ Added by you** shows only the songs you downloaded or added; **All** is the whole library. Nobody else sees what you added.
 - A song search cannot find? **Library ▸ Songs ▸ Add a song**: paste its YouTube link and say what it is. Pick its album from your library or the catalogue, or describe a new one, with its cover.
 - A song saved under the wrong name or artist? An administrator fixes it from its ⋯ menu ▸ **Edit details**: title, artists, album, year, numbers and genre. Favorites and playlists keep it.
