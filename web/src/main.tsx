@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { bridge, isDesktop } from "./lib/desktop";
 import { queryClient } from "./lib/query";
-import { loadServer, nativeDialogs, openLinksOutside } from "./stores/desktop";
+import { loadServer, nativeDialogs, openLinksOutside, watchUpdates } from "./stores/desktop";
 import "./styles.css";
 
 createRoot(document.getElementById("root")!).render(
@@ -21,4 +21,5 @@ if (isDesktop) {
   void loadServer();
   openLinksOutside();
   nativeDialogs();
+  watchUpdates();
 } else if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => { /* the app works without it */ });

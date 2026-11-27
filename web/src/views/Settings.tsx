@@ -6,7 +6,8 @@ import { queryClient } from "../lib/query";
 import type { Privacy, ProfileSettings } from "../lib/types";
 import { plural, releaseUrl } from "../lib/format";
 import { pictureToCover, pictureToWallpaper } from "../lib/image";
-import { bridge, isDesktop, serverHost, serverIsOlder } from "../lib/desktop";
+import { bridge, isDesktop, serverHost, serverIsOlder, updateLook } from "../lib/desktop";
+import { updateNow } from "../components/UpdateButton";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
 import { cx, ui } from "../lib/ui";
 import { Credit } from "../components/common";
@@ -16,7 +17,7 @@ import { openDevicePicker } from "../components/Devices";
 import { ME_KEY } from "../stores/admin";
 import { removeAvatar, setAvatar, useLibraryState } from "../stores/library";
 import { myDeviceName, renameDevice, useConnect } from "../stores/connect";
-import { leaveServer, useServer } from "../stores/desktop";
+import { leaveServer, useServer, useUpdate } from "../stores/desktop";
 import * as offline from "../stores/offline";
 import { removeWallpaper, setWallpaper } from "../stores/look";
 import { ACCENTS, resetSettings, setSettings, useOnline, useSettings, type Settings as SettingValues } from "../stores/settings";
@@ -378,6 +379,25 @@ function DeviceSettings() {
 }
 
 /** In the desktop app: which Eco server it uses, and its own version, which can be ahead of the server's (lib/desktop.ts). */
+/** The desktop app's updates, also where the top bar is not shown: a narrow window. */
+function AppUpdates() {
+  const status = useUpdate((s) => s.status);
+  const look = updateLook(status);
+  if (look === "hidden" || !status) return null;
+  const busy = look === "busy";
+  const description = busy ? (status.stage === "installing" ? "Installing: Eco opens again in a moment" : `Downloading Eco ${status.available}…`)
+    : look === "ready" ? `Eco ${status.available} is ready to install`
+    : status.error ?? "Eco looks for a newer version every hour";
+  return (
+    <Setting title="Updates" description={description}>
+      <button type="button" className={look === "ready" ? ui.primary : ui.pill} disabled={busy} onClick={() => void updateNow()}>
+        {busy ? <Ring percent={status.progress !== null ? status.progress * 100 : -1} size={16} /> : <Icon name="download" size={16} />}
+        {look === "ready" ? "Update" : busy ? "Updating" : "Check"}
+      </button>
+    </Setting>
+  );
+}
+
 function DesktopServer({ serverVersion }: { serverVersion?: string }) {
   const address = useServer((s) => s.address);
   const app = bridge()?.version ?? "";
@@ -399,6 +419,7 @@ function DesktopServer({ serverVersion }: { serverVersion?: string }) {
           <span className="text-muted">v{app}</span>
         </Setting>
       )}
+      <AppUpdates />
     </>
   );
 }

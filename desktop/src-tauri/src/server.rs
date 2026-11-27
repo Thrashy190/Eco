@@ -19,6 +19,7 @@ use tauri::{AppHandle, Url};
 
 use crate::config::{self, Config};
 use crate::dialogs;
+use crate::update::{Refused, Updates};
 
 /// Fixed, because the browser inside keeps the sign-in and the saved songs per address: another port would look like
 /// another site and start empty. It is below every system's range of temporary ports (Linux's starts at 32768).
@@ -54,10 +55,11 @@ pub struct Shared {
     /// Proves a request to `/desktop/*` comes from this app's window: only its page is given it (`bridge_script`).
     token: String,
     client: reqwest::Client,
+    updates: Arc<Updates>,
 }
 
 impl Shared {
-    pub fn new(app: AppHandle, config: Config, token: String) -> Self {
+    pub fn new(app: AppHandle, config: Config, token: String, updates: Arc<Updates>) -> Self {
         let client = reqwest::Client::builder()
             // A redirect goes back to the window as it is, as it would in a browser talking to Eco
             .redirect(reqwest::redirect::Policy::none())
@@ -70,6 +72,7 @@ impl Shared {
             config,
             token,
             client,
+            updates,
         }
     }
 }
@@ -81,6 +84,9 @@ pub async fn serve(listener: std::net::TcpListener, shared: Arc<Shared>) {
         .route("/desktop/server", get(current_server).put(choose_server))
         .route("/desktop/open", post(open_link))
         .route("/desktop/dialog", post(dialog))
+        .route("/desktop/update", get(update_status))
+        .route("/desktop/update/check", post(update_check))
+        .route("/desktop/update/install", post(update_install))
         .fallback(asset)
         .layer(middleware::from_fn(only_this_app))
         .with_state(shared);
@@ -200,6 +206,36 @@ async fn dialog(
         _ => return problem(StatusCode::BAD_REQUEST, "Unknown dialog"),
     };
     Json(answer).into_response()
+}
+
+/// Whether a newer version is ready, and how installing it goes (update.rs). The page lights its Update button from this.
+async fn update_status(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    if !from_the_app(&headers, &shared.token) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    Json(shared.updates.status()).into_response()
+}
+
+/// Looks for a newer version now, when someone asks.
+async fn update_check(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    if !from_the_app(&headers, &shared.token) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    Json(shared.updates.check().await).into_response()
+}
+
+/// Installs the newer version: it downloads, then Eco closes and opens again. The page follows with `update_status`.
+async fn update_install(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
+    if !from_the_app(&headers, &shared.token) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match shared.updates.install() {
+        Ok(status) => (StatusCode::ACCEPTED, Json(status)).into_response(),
+        Err(Refused::Busy) => problem(StatusCode::CONFLICT, "Eco is already updating"),
+        Err(Refused::Nothing) => {
+            problem(StatusCode::CONFLICT, "There is no newer version to install")
+        }
+    }
 }
 
 #[derive(Deserialize)]

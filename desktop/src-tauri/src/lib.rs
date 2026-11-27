@@ -55,10 +55,12 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     };
     let config = config::Config::load(app.path().app_config_dir()?);
     let token = random_token()?;
+    let updates = update::Updates::new(app.handle().clone());
     let shared = Arc::new(server::Shared::new(
         app.handle().clone(),
         config,
         token.clone(),
+        Arc::clone(&updates),
     ));
     tauri::async_runtime::spawn(server::serve(listener, shared));
 
@@ -89,7 +91,7 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(not(target_os = "macos"))]
     shell::tray(app)?;
-    update::watch(app.handle().clone());
+    update::watch(updates);
     Ok(())
 }
 

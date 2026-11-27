@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desktopName, releaseNumbers, serverHost, serverIsOlder } from "./desktop";
+import { desktopName, releaseNumbers, serverHost, serverIsOlder, updateLook, type UpdateStatus } from "./desktop";
 
 describe("the desktop app", () => {
   it("reads release numbers with or without the v", () => {
@@ -34,5 +34,20 @@ describe("the desktop app", () => {
     expect(desktopName("macos")).toBe("Eco on Mac");
     expect(desktopName("linux")).toBe("Eco on Linux");
     expect(desktopName(undefined)).toBe("Eco on this computer");
+  });
+});
+
+describe("the Update button", () => {
+  const status = (change: Partial<UpdateStatus>): UpdateStatus => ({ current: "2.5.0", can_update: true, available: null, stage: "idle", progress: null, error: null, ...change });
+  it("stays away from builds made by hand and from browsers", () => {
+    expect(updateLook(null)).toBe("hidden");
+    expect(updateLook(status({ can_update: false, available: "2.6.0" }))).toBe("hidden");
+  });
+  it("lights up when a newer version is ready, and shows the install going on", () => {
+    expect(updateLook(status({}))).toBe("quiet");
+    expect(updateLook(status({ stage: "checking" }))).toBe("quiet");
+    expect(updateLook(status({ available: "2.6.0" }))).toBe("ready");
+    expect(updateLook(status({ available: "2.6.0", stage: "downloading", progress: 0.4 }))).toBe("busy");
+    expect(updateLook(status({ available: "2.6.0", stage: "installing" }))).toBe("busy");
   });
 });

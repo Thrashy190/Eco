@@ -74,7 +74,7 @@ The first screen asks for three things: your **server**, your **username** and y
 
 ## Updates
 
-The app looks for a new version when it opens and every six hours. When there is one it asks first, because installing restarts it. From the `.deb`, installing also asks for your computer's password, as any system package does. The AppImage replaces itself. Each update is checked against a signature before it is installed.
+The app looks for a new version when it opens and every hour. When there is one, the **Update** button at the top lights up (in a narrow window, *Settings ▸ About ▸ Updates*); tapping it asks first, because installing closes Eco and opens it again, then installs on a Mac, Windows or Linux alike. With no new version, the button looks for one right away. From the `.deb`, installing also asks for your computer's password, as any system package does. The AppImage replaces itself. Each update is checked against a signature before it is installed.
 
 ## Where it keeps things
 
@@ -117,6 +117,7 @@ The window gets an initialization script (`bridge_script` in `lib.rs`) that give
 | `PUT /desktop/server` | `{server}`: checks it is an Eco server (`/healthz` says `ok` and its page is Eco's), then saves it |
 | `POST /desktop/open` | `{url}`: opens a web or mail link in the browser |
 | `POST /desktop/dialog` | `{kind, message, value}`: `alert`, `confirm` or (on a Mac) `prompt` as the system's own message box |
+| `GET /desktop/update` · `POST /desktop/update/check`, `/install` | whether a newer version is ready (`available`) and how installing it goes (`stage`, `progress`); look now; install it, which closes the app and opens it again (409 when there is nothing to install or it is already installing) |
 
 All of them need the header `X-Eco-Desktop` with the token, and refuse another page's `Origin`.
 
@@ -145,6 +146,10 @@ make desktop-check   # rustfmt, clippy and the Rust tests; CI runs it
 The AppImage also needs `patchelf`. A build made by hand carries the version `git describe` gives (`1.12.0-3-gabc123`) and never updates itself from a release.
 
 To try a change without touching your own setup, run the app in a container with a virtual screen: an Ubuntu 22.04 image with `xvfb`, `xdotool`, `dbus-x11` and `pulseaudio` (a null sink as its output), the `.deb` installed with `apt`, and a scratch Eco and Navidrome as its server. `xdotool` clicks and types, `import -window root` takes screenshots, and `dbus-send` on the session bus reads and drives MPRIS. A small window manager (`openbox`) is needed for closing the window to arrive as a real close request. Never point it at your real library.
+
+### Updates
+
+The app looks for a newer version when it opens and every hour (`update.rs`, `latest.json` from the newest release). It installs nothing by itself: the page lights its **Update** button in the top bar (a dot and the accent colour; *Settings ▸ About ▸ Updates* in a narrow window), and a click asks first, since installing closes Eco and opens it again. Then the same code installs on every system: a Mac's app is replaced, Windows runs the new installer, Linux replaces the AppImage, or installs the `.deb` with `pkexec` (the system's password prompt; `sudo` if there is none). A build made by hand (`0.0.0`, or a version with `-`) shows no button. Checked in the container above: a `.deb` built as 2.4.0 (`make desktop DESKTOP_VERSION=2.4.0`) lit the button within a minute, installed 2.5.0 from the real release with one click and opened again, still signed in.
 
 ### Releases
 
