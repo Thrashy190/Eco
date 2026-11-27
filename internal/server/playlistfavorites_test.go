@@ -57,3 +57,34 @@ func TestFavoritePlaylist(t *testing.T) {
 		t.Errorf("a playlist that does not exist: %d", code)
 	}
 }
+
+// The heart on an album sends its songs as the page lists them: they are starred from the last up, songs already
+// favourites keep their date, and songs the library does not have are left out. Only the asker's favourites change.
+func TestFavoriteAlbumSongs(t *testing.T) {
+	fake, s := libraryServerOf(t, song("a", "Alpha", "X", "One"), song("b", "Beta", "X", "One"), song("c", "Gamma", "X", "One"))
+	h := s.Handler()
+	t.Cleanup(s.favorites.Wait)
+	fake.starred = map[string]map[string]bool{"ana": {"b": true}}
+	fake.starredAt = map[string]map[string]string{"ana": {"b": "2023-06-01T10:00:00Z"}}
+	favorite := func(user, body string) (int, string) {
+		rec := as(t, h, user, "POST", "/api/favorites", body)
+		return rec.Code, strings.TrimSpace(rec.Body.String())
+	}
+	if code, body := favorite("ana", `{"songs":["a","b","c","made-up","a"]}`); code != http.StatusOK || body != `{"added":2,"already":1}` {
+		t.Fatalf("album heart: %d %s", code, body)
+	}
+	if got := fake.starLog(); got != "ana:c,ana:a" {
+		t.Errorf("stars: %s, want ana:c,ana:a", got)
+	}
+	if code, body := favorite("luis", `{"songs":["b"]}`); code != http.StatusOK || body != `{"added":1,"already":0}` {
+		t.Errorf("luis: %d %s", code, body)
+	}
+	if fake.starred["ana"]["b"] != true || len(fake.starred["ana"]) != 3 {
+		t.Errorf("ana's favourites: %v", fake.starred["ana"])
+	}
+	for _, bad := range []string{`{"songs":[]}`, `{"songs":["made-up"]}`, `not json`} {
+		if code, _ := favorite("ana", bad); code != http.StatusBadRequest {
+			t.Errorf("%s: %d", bad, code)
+		}
+	}
+}

@@ -228,6 +228,8 @@ export async function createPlaylist(name: string, songIds: string[] = []): Prom
 export const renamePlaylist = (id: string, name: string) => subsonic("updatePlaylist", { playlistId: id, name });
 export const removeFromPlaylist = (id: string, index: number) => subsonic("updatePlaylist", { playlistId: id, songIndexToRemove: index });
 export const deletePlaylist = (id: string) => subsonic("deletePlaylist", { id });
+/** Make songs of the library favorites, in the order given (an album's). Songs that already are keep their place. */
+export const favoriteSongs = (ids: string[]) => send<{ added: number; already: number }>("favorites", JSON.stringify({ songs: ids }));
 /** Make every song of a playlist a favorite, in the playlist's order. Songs that already are keep their place. */
 export const favoritePlaylist = (id: string) => eco<{ added: number; already: number }>(`playlists/${part(id)}/favorites`, undefined, "POST");
 /** Public playlists show on their owner's profile, for everyone on this server. */

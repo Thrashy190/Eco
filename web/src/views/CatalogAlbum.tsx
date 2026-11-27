@@ -8,7 +8,8 @@ import { clock, plural } from "../lib/format";
 import type { AlbumTrack, Job, LibraryEntry, Song, CatalogAlbumPage } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { ArtistLinks } from "../components/ArtistLinks";
-import { DownloadToggle, PinButton } from "../components/cards";
+import { DownloadToggle, FavoriteAllButton, PinButton } from "../components/cards";
+import { favoriteAlbum } from "../stores/favorites";
 import { BackButton, DetailPage, Empty, Pill, Section, Skeleton } from "../components/common";
 import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
@@ -126,6 +127,7 @@ export function AlbumPage({ art, page, artistId, entry, extra = [], onWaiting }:
             <PlayButtons songs={owned} from={entry}>
               {libraryAlbum && <DownloadToggle spec={{ id: `album:${libraryAlbum}`, kind: "album", title: album.name, subtitle: album.artist }} songs={owned} />}
               <PinButton entry={entry} />
+              <FavoriteAllButton songs={owned} onFavorite={() => favoriteAlbum(owned)} />
             </PlayButtons>
           )
           : <div className={ui.actions}><PinButton entry={entry} /></div>}>

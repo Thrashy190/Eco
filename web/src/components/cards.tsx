@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router";
 import { coverUrl, getAlbum } from "../lib/api";
 import { plural } from "../lib/format";
 import type { Album, Artist, ExternalAlbum, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
+import { useAllStarred } from "../stores/favorites";
 import { albumEntry, isPinned, togglePin, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
@@ -74,6 +76,23 @@ export function Tile({ art, title, subtitle, onOpen, onMenu, menuLabel, current,
       <b className={current ? "text-accent" : undefined}>{title}</b>
       <span>{subtitle}</span>
     </div>
+  );
+}
+
+/**
+ * The heart of a playlist or an album: it makes every song of it a favorite, and fills once they all are. It never
+ * takes any out.
+ */
+export function FavoriteAllButton({ songs, onFavorite }: { songs: Song[]; onFavorite: () => Promise<void> }) {
+  const all = useAllStarred(songs);
+  const [busy, setBusy] = useState(false);
+  if (songs.length === 0) return null;
+  const label = all ? "Every song here is in your favorites" : "Add every song to your favorites";
+  return (
+    <button type="button" className={cx(ui.pill, "data-full:[&_svg]:text-love data-full:[&_svg]:animate-pop")} data-full={all || undefined} aria-label={label} title={label} disabled={busy}
+      onClick={() => { setBusy(true); void onFavorite().finally(() => setBusy(false)); }}>
+      {busy ? <Ring percent={-1} size={16} /> : <Icon name={all ? "heart-fill" : "heart"} size={16} />}
+    </button>
   );
 }
 

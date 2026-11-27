@@ -9,12 +9,12 @@ import { pictureToCover } from "../lib/image";
 import type { Album, CollectionSpec, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { ArtistLinks, artistPath } from "../components/ArtistLinks";
-import { AlbumCard, DownloadToggle, ExternalAlbumCard, PinButton } from "../components/cards";
+import { AlbumCard, DownloadToggle, ExternalAlbumCard, FavoriteAllButton, PinButton } from "../components/cards";
 import { BackButton, Breakable, DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { ArtistAvatar, Picture, PlaylistArt } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { PickToDownload, PlayButtons, SongList } from "../components/songs";
-import { favoriteAll, useAllStarred } from "../stores/favorites";
+import { favoriteAlbum, favoriteAll } from "../stores/favorites";
 import { albumEntry, artistEntry, favoritesEntry, FAVORITES_ID, playlistEntry, removePlaylistCover, setPlaylistCover, touch, useLibraryState } from "../stores/library";
 import * as offline from "../stores/offline";
 import { copy, remove, removeSong, rename, setPublic } from "../stores/playlists";
@@ -94,7 +94,7 @@ export function AlbumView() {
       <>
         <CollectionPage art={<Picture src={coverUrl(album.cover, 400)} className={ui.coverHuge} />} title={album.name}
           subtitle={<><ArtistLinks name={album.artist} id={album.artistId} />{album.year ? ` · ${album.year}` : ""}</>}
-          songs={album.songs} spec={spec} entry={entry!} numbered />
+          songs={album.songs} spec={spec} entry={entry!} numbered extra={<FavoriteAllButton songs={album.songs} onFavorite={() => favoriteAlbum(album.songs)} />} />
         {online && matching && fetchStatus === "fetching" && <p className={cx(ui.note, "flex flex-wrap items-center gap-2")}><Ring percent={-1} size={16} />Looking for the rest of this album…</p>}
         {online && noMatch && !whole && (
           <p className={cx(ui.note, "flex flex-wrap items-center gap-2")}>The catalogue is not answering, so this only shows what you have. <button type="button" className={ui.link} onClick={() => void refetch()}>Try again</button></p>
@@ -179,20 +179,6 @@ function FavoritesPlaylist() {
   return <><OfflineBanner /><Welcome title="Favorites are not downloaded"><p>Open this playlist while online and tap Download to keep your favorites without a connection.</p></Welcome></>;
 }
 
-/** The heart of a playlist: it makes every song of it a favorite, and fills once they all are. It never takes any out. */
-function FavoriteAllButton({ id, songs }: { id: string; songs: Song[] }) {
-  const all = useAllStarred(songs);
-  const [busy, setBusy] = useState(false);
-  if (songs.length === 0) return null;
-  const label = all ? "Every song here is in your favorites" : "Add every song to your favorites";
-  return (
-    <button type="button" className={cx(ui.pill, "data-full:[&_svg]:text-love data-full:[&_svg]:animate-pop")} data-full={all || undefined} aria-label={label} title={label} disabled={busy}
-      onClick={() => { setBusy(true); void favoriteAll(id, songs).finally(() => setBusy(false)); }}>
-      {busy ? <Ring percent={-1} size={16} /> : <Icon name={all ? "heart-fill" : "heart"} size={16} />}
-    </button>
-  );
-}
-
 function RegularPlaylist({ id }: { id: string }) {
   const online = useOnline();
   const navigate = useNavigate();
@@ -220,7 +206,7 @@ function RegularPlaylist({ id }: { id: string }) {
     return (
       <CollectionPage art={<EditableCover id={id} cover={playlist.cover} enabled />} title={playlist.name} subtitle={<>{mine ? (playlist.public ? "Public playlist" : "Playlist") : <>{"Playlist by "}<Link className="hover:underline" to={`/people/${encodeURIComponent(playlist.owner ?? "")}`}>{playlist.owner}</Link></>}{` · ${plural(playlist.songs.length, "song")}`}{mine && playlist.readonly ? " · follows its .m3u file" : ""}</>}
         songs={playlist.songs} spec={{ id: key, kind: "playlist", title: playlist.name, subtitle: "Playlist" }} entry={entry!}
-        extra={<><FavoriteAllButton id={id} songs={playlist.songs} />{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
+        extra={<><FavoriteAllButton songs={playlist.songs} onFavorite={() => favoriteAll(id, playlist.songs)} />{editable && <Link className={ui.pill} to={`/playlist/${id}/add`}><Icon name="plus" size={16} />Add songs</Link>}<button type="button" className={ui.pill} aria-label="More options for this playlist" onClick={menu}><Icon name="more" size={16} /></button></>}
         rowMenu={editable ? (song, index) => [{ icon: "trash", label: "Remove from this playlist", run: () => void removeSong(id, index, song) }] : undefined} />
     );
   }
