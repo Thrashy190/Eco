@@ -9,6 +9,8 @@ export interface Bridge {
   token: string; // proves a request to /desktop/* comes from the app's window
   version: string; // the app's own version, e.g. 1.13.0
   platform: "linux" | "macos" | "windows";
+  /** The window is painted on the processor (WebKitGTK with no graphics card to use): the page draws a lighter Eco. */
+  lite?: boolean;
 }
 
 /** What the window tells the page about itself (`bridge_script` in desktop/src-tauri/src/lib.rs). */

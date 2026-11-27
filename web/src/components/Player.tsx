@@ -605,7 +605,7 @@ export function Ambient() {
   const readable = useReadableDim(picture, ink);
   const wash = "absolute transition-colors duration-[1400ms] rounded-full";
   return (
-    <div aria-hidden="true" className="fixed inset-0 overflow-hidden pointer-events-none">
+    <div aria-hidden="true" data-ambient className="fixed inset-0 overflow-hidden pointer-events-none">
       {picture !== "" && (
         <>
           <img key={picture} src={picture} alt="" className="absolute inset-0 size-full object-cover animate-fade-in"
@@ -615,8 +615,8 @@ export function Ambient() {
       )}
       {(picture === "" || washOver) && (
         <>
-          <i className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />
-          <i className={cx(wash, "-right-[20%] -bottom-[45%] size-[70vmax] opacity-[calc(var(--ambient)*.35)] bg-[rgb(var(--glow))] mask-[radial-gradient(closest-side,black,transparent)]")} />
+          <i data-wash className={cx(wash, "-left-[15%] -top-[35%] size-[90vmax] opacity-(--ambient) bg-[rgb(var(--tint))] mask-[radial-gradient(closest-side,black,transparent)]")} />
+          <i data-wash className={cx(wash, "-right-[20%] -bottom-[45%] size-[70vmax] opacity-[calc(var(--ambient)*.35)] bg-[rgb(var(--glow))] mask-[radial-gradient(closest-side,black,transparent)]")} />
         </>
       )}
     </div>
