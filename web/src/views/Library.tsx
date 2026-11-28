@@ -29,9 +29,11 @@ import { MediaLibrary } from "./media";
 
 const TABS: [string, string][] = [
   ["recent", "Recent"], ["playlists", "Playlists"], ["albums", "Albums"], ["artists", "Artists"], ["songs", "Songs"],
-  ["other", "Other audio"], ["offline", "Downloads"],
+  // Podcasts and Audiobooks are sections of their own: these chips lead there (the redirect below), so they can be found
+  // without a tab of their own
+  ["podcast", "Podcasts"], ["audiobook", "Audiobooks"], ["other", "Other audio"], ["offline", "Downloads"],
 ];
-const OFFLINE_TABS = new Set(["recent", "playlists", "albums", "other", "offline"]);
+const OFFLINE_TABS = new Set(["recent", "playlists", "albums", "podcast", "audiobook", "other", "offline"]);
 const MEDIA_TABS = new Set<string>(["other"]);
 
 export function Library() {

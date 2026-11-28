@@ -149,7 +149,7 @@ Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and w
 
 ## Podcasts and audiobooks
 
-**Podcasts** and **Audiobooks** are sections of their own (add them as tabs in Settings). Episodes belong to a **show** and parts to a **book**, which anyone can make: a title, an author or host, for a book its narrator and series, a description and a picture.
+**Podcasts** and **Audiobooks** are sections of their own, reached from the Library or as tabs of their own (Settings ▸ Tabs). Episodes belong to a **show** and parts to a **book**, which anyone can make: a title, an author or host, for a book its narrator and series, a description and a picture.
 
 Add to one in two ways:
 
