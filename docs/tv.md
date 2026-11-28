@@ -53,7 +53,7 @@ Several people can each sign the TV in to their own account; one at a time, like
 | Arrows, OK | move and choose |
 | Back | the screen before, then the top bar; on Home it leaves (asking first while music plays) |
 | Play/Pause | play or pause, on any screen |
-| Rewind / Fast forward | 15 seconds back or ahead |
+| Rewind / Fast forward | 15 seconds back or ahead; 30 in a podcast or an audiobook |
 | Instant replay | the song before |
 | Options (✱) | on a song: play next, add to the queue, go to its album or artist, add to Favorites. Elsewhere: the player |
 | Down, in the player | the queue; OK on a song jumps to it |
@@ -75,7 +75,7 @@ Open **Listen on** (the devices button in the player) and choose the TV. What pl
 The app is BrightScript and SceneGraph, no build step: `roku/source/main.brs` starts `components/MainScene`, which holds the player (`Player.brs`), Connect (`Connect.brs`) and a stack of screens (`components/screens`). Network calls run in Task nodes (`components/tasks`), since Roku does not allow them on the screen's thread.
 
 - `make roku-check` validates every file with the BrighterScript compiler and bslint, and runs the tests of the pure logic (`roku/tests`, the queue rules and JSON helpers) in the brs-node interpreter. CI runs it as part of `make check`.
-- The queue follows the same rules as the web app: `components/lib/queue.brs` is `web/src/lib/queue.ts` translated, with the same tests. Change both together.
+- The queue follows the same rules as the web app: `components/lib/queue.brs` is `web/src/lib/queue.ts` translated, with the same tests. Change both together. So is `components/lib/spoken.brs` for `web/src/lib/spoken.ts`: in a podcast or an audiobook, the player's previous and next buttons move by chapter (fetched from `/api/media/{id}/chapters` when it starts), and the sleep timer's "end of this chapter" (`sleep` with `-1`) becomes the time left in it. Imported audio plays as its file is (`suffix` from the item's `file`): files sent from a device may be MP3 or FLAC, not only M4A. The TV has one playback speed, so `speed` and `set_speed` do nothing there.
 - Songs sent to the phone must keep their keys' capitals (`albumId`, `artistId`, `mediaId`). BrightScript stores `song.albumId = x` as `albumid`, so those keys are always written in brackets: `song["albumId"] = x`.
 - The brs-node simulator can run the whole app on a computer: `roku/node_modules/.bin/brs-cli bin/eco-roku.zip -e -s` (ECP keys on port 8060, Ctrl+S saves a screenshot). It draws text only with fonts from the package (`roku/fonts`), and blocks a task while it waits for a request, which is why polling and reporting run in separate tasks. Point it at a scratch Eco and a fake Navidrome, never at your real library.
 - Covers are rounded on the server, never with `MaskGroup`: inside a RowList or a grid a real Roku draws the mask in the wrong place (the simulator does not), and a card must not draw outside itself either, since the list cuts it there. That is why the focus ring sits on the cover's edge.

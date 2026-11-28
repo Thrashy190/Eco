@@ -98,6 +98,10 @@ function mediaToSong(item as Object) as Object
     song["artist"] = textOf(item["channel"])
     song["album"] = label
     song["duration"] = Int(numberOf(item["duration"]))
+    ' What the file is: YouTube imports are M4A, files sent from a device may be MP3, FLAC… (media.Probe)
+    file = LCase(textOf(item["file"]))
+    dot = file.Instr(".")
+    if dot >= 0 then song["suffix"] = file.Mid(dot + 1) else song["suffix"] = "m4a"
     return song
 end function
 

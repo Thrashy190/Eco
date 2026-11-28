@@ -25,6 +25,7 @@ sub initPlayer()
     m.sleepClock = CreateObject("roTimespan")
     m.sleepFor = 0 ' seconds until the sleep timer pauses the music, counted from m.sleepClock; 0 with no timer
     m.sleepSince = 0 ' when it was set, so a new timer of the same length is news to the other devices
+    m.chapters = [] ' of the podcast or audiobook playing (lib/spoken.brs), fetched when it starts
 end sub
 
 function currentSong() as Dynamic
@@ -60,7 +61,7 @@ sub applyCommand(action as String, value as Dynamic)
         index = Int(numberOf(request["index"]))
         if index < 0 or index >= songs.Count() then index = 0
         if isTrue(request["shuffle"]) then m.shuffle = true
-        playList(songs, index, textOf(request["source"]))
+        playList(songs, index, textOf(request["source"]), numberOf(request["at"]))
         openPlayer()
     else if action = "resume"
         adopt(objectOf(value))
@@ -75,6 +76,10 @@ sub applyCommand(action as String, value as Dynamic)
         skipPrevious()
     else if action = "seek"
         seekTo(numberOf(value))
+    else if action = "skip"
+        seekBy(numberOf(value))
+    else if action = "chapter"
+        stepChapter(numberOf(value))
     else if action = "jump"
         m.order = jumpTo(m.order, Int(numberOf(value)))
         load(0, true, false)
@@ -96,14 +101,19 @@ sub applyCommand(action as String, value as Dynamic)
         saved.Flush()
         if m.autoplay then topUpIfLast() else m.order = withoutAutoplay(m.order)
     else if action = "sleep"
-        setSleep(numberOf(value) * 60)
+        ' -1 is "at the end of this chapter" (SLEEP_CHAPTER in web/src/lib/sleep.ts): the time left in it, at its speed
+        if numberOf(value) = -1 and isSpoken(currentSong())
+            setSleep(chapterLeft(m.chapters, m.audio.position, songLength()))
+        else
+            setSleep(numberOf(value) * 60)
+        end if
     else if action = "play_next" or action = "enqueue"
         addSong(objectOf(value), action = "play_next")
     else if action = "move"
         request = objectOf(value)
         m.order = moveSong(m.order, Int(numberOf(request["from"])), Int(numberOf(request["to"])))
     end if
-    ' volume and speed: a Roku app cannot change the TV's volume, and music plays at its own speed
+    ' volume and speed (also set_speed): a Roku app cannot change the TV's volume, and its Audio node has one speed
     publish()
 end sub
 
@@ -113,7 +123,7 @@ sub onPlayerCommand(event as Object)
 end sub
 
 ' Play a list from song i. Songs added to the queue by hand and not played yet stay, right after the first song.
-sub playList(songs as Object, index as Integer, source as String)
+sub playList(songs as Object, index as Integer, source as String, startAt = 0 as Float)
     list = songs
     start = index
     if m.shuffle
@@ -126,7 +136,25 @@ sub playList(songs as Object, index as Integer, source as String)
     end if
     m.order = startList(m.order, list, start)
     m.source = source
-    load(0, true, false)
+    load(startAt, true, false) ' a podcast or a book can start at a chapter or a bookmark
+end sub
+
+' Next (1) or previous (-1) chapter of a podcast or an audiobook; past either end, the next or previous item.
+sub stepChapter(direction as Float)
+    if currentSong() = invalid then return
+    if direction < 0
+        target = previousChapterStart(m.chapters, m.audio.position)
+        if target < 0 then skipPrevious() else seekTo(target)
+    else
+        target = nextChapterStart(m.chapters, m.audio.position)
+        if target < 0 then skipNext(false) else seekTo(target)
+    end if
+end sub
+
+sub onChapters(event as Object)
+    answer = answerOf(event)
+    if answer = invalid or not isTrue(answer["ok"]) then return
+    m.chapters = chaptersFrom(objectOf(answer["data"])["chapters"])
 end sub
 
 ' Carry on from where another device stopped (Handoff in stores/player.ts).
@@ -153,7 +181,15 @@ sub load(startAt as Float, play as Boolean, convert as Boolean)
     content = CreateObject("roSGNode", "ContentNode")
     content.url = streamUrl(song, convert)
     format = streamFormatFor(suffix)
-    if textOf(song["mediaId"]) <> "" then format = "mp4" ' imported audio is always M4A (internal/media)
+    mediaId = textOf(song["mediaId"])
+    m.chapters = []
+    if mediaId <> ""
+        ' Eco serves imported audio itself, as it is: nothing to convert. Old servers sent no suffix: those were M4A
+        convert = false
+        format = streamFormatFor(suffix)
+        if format = "" then format = "mp4"
+        fetch("chapters", apiUrl("media/" + mediaId.EncodeUriComponent() + "/chapters"), "onChapters")
+    end if
     if convert then format = "mp3"
     if format <> "" then content.streamFormat = format
     content.title = textOf(song["title"])
