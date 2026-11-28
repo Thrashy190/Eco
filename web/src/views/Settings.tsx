@@ -5,7 +5,7 @@ import { approveTV, deleteBanner, getProfileSettings, getSongs, personBannerUrl,
 import { queryClient } from "../lib/query";
 import type { Privacy, ProfileSettings } from "../lib/types";
 import { plural, releaseUrl } from "../lib/format";
-import { pictureToCover, pictureToWallpaper } from "../lib/image";
+import { pictureToWallpaper } from "../lib/image";
 import { bridge, isDesktop, serverHost, serverIsOlder, updateLook } from "../lib/desktop";
 import { updateNow } from "../components/UpdateButton";
 import { HOME_SECTIONS, homeOrder, MAX_TABS, moved, PLACES, REQUIRED_PLACE, tabsFrom } from "../lib/nav";
@@ -21,7 +21,7 @@ import { leaveServer, useServer, useUpdate } from "../stores/desktop";
 import * as offline from "../stores/offline";
 import { removeWallpaper, setWallpaper } from "../stores/look";
 import { ACCENTS, resetSettings, setSettings, useOnline, useSettings, type Settings as SettingValues } from "../stores/settings";
-import { openSheet, toast } from "../stores/ui";
+import { cropPicture, openSheet, toast } from "../stores/ui";
 
 /** A pill-shaped choice between a few options. */
 function Segmented<K extends "theme" | "corners" | "density" | "motion" | "font" | "textSize" | "libraryView" | "glass" | "cardSize" | "favoritesColor">({ name, options }: { name: K; options: [SettingValues[K], string][] }) {
@@ -46,7 +46,9 @@ function ProfilePicture() {
   async function choose(file: File | undefined) {
     if (!file) return;
     try {
-      await setAvatar(await pictureToCover(file));
+      const picture = await cropPicture(file);
+      if (!picture) return;
+      await setAvatar(picture);
       toast("Picture updated");
     } catch (e) { toast((e as Error).message); }
   }

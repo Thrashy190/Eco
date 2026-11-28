@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { artistSongs, coverUrl, discover, getAlbum, getArtist, getPlaylist, getStarred, lookupArtist, matchCatalogAlbum, ownsPlaylist } from "../lib/api";
 import { ARTIST_PREVIEW, pickPopular, plural, splitOwn } from "../lib/format";
-import { pictureToCover } from "../lib/image";
 import type { Album, CollectionSpec, LibraryEntry, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { ArtistLinks, artistPath } from "../components/ArtistLinks";
@@ -20,7 +19,7 @@ import * as offline from "../stores/offline";
 import { copy, remove, removeSong, rename, setPublic } from "../stores/playlists";
 import { syncCollectionIfSaved } from "../stores/saving";
 import { useOnline } from "../stores/settings";
-import { openSheet, toast } from "../stores/ui";
+import { cropPicture, openSheet, toast } from "../stores/ui";
 import { CollectionCover } from "./Home";
 import { AlbumPage } from "./CatalogAlbum";
 
@@ -123,7 +122,9 @@ function EditableCover({ id, cover, enabled }: { id: string; cover?: string; ena
   async function choose(file: File | undefined) {
     if (!file) return;
     try {
-      await setPlaylistCover(id, await pictureToCover(file));
+      const picture = await cropPicture(file);
+      if (!picture) return;
+      await setPlaylistCover(id, picture);
       toast("Cover updated");
     } catch (e) {
       toast((e as Error).message);

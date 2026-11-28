@@ -5,14 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { addGenres, coverUrl, getCleanup, removeDuplicate, searchExternal, separateArtists, setAlbumCover, stopCleanup } from "../lib/api";
 import { clock, plural } from "../lib/format";
-import { blobToBase64, pictureToCover } from "../lib/image";
+import { blobToBase64 } from "../lib/image";
 import type { AlbumIssue, CleanupReport, DuplicateSong } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { BackButton, Empty, Section, Skeleton, useIncremental } from "../components/common";
 import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { DELETE_REASON, SONG_LISTS, withPassword } from "../stores/admin";
-import { toast } from "../stores/ui";
+import { cropPicture, toast } from "../stores/ui";
 
 const megabytes = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
 
@@ -165,7 +165,10 @@ function CoverFinder({ issue, onDone }: { issue: AlbumIssue; onDone: () => void 
     }
   }
   async function pick(file: File) {
-    try { await save({ picture: await blobToBase64(await pictureToCover(file)) }); } catch (e) { toast((e as Error).message); }
+    try {
+      const picture = await cropPicture(file);
+      if (picture) await save({ picture: await blobToBase64(picture) });
+    } catch (e) { toast((e as Error).message); }
   }
 
   return (

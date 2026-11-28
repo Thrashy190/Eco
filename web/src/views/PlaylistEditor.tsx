@@ -5,7 +5,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { addToPlaylist, createPlaylist, getPlaylist, getSongs, search, toSong } from "../lib/api";
 import { listLength, plural } from "../lib/format";
-import { pictureToCover } from "../lib/image";
 import { scrollRoot, useWide } from "../lib/media";
 import type { Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
@@ -14,7 +13,7 @@ import { PlaylistArt, SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { setPlaylistCover } from "../stores/library";
 import { playlistsChanged } from "../stores/playlists";
-import { toast } from "../stores/ui";
+import { cropPicture, toast } from "../stores/ui";
 
 const PAGE = 100;
 
@@ -152,7 +151,8 @@ export function NewPlaylist() {
 
   async function pick(file: File) {
     try {
-      const blob = await pictureToCover(file);
+      const blob = await cropPicture(file);
+      if (!blob) return;
       setPicture({ blob, url: URL.createObjectURL(blob) });
     } catch (e) { toast((e as Error).message); }
   }

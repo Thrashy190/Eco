@@ -10,6 +10,7 @@ import { Icon } from "./components/Icon";
 import { Ambient, Player } from "./components/Player";
 import { PasswordPrompt } from "./components/PasswordPrompt";
 import { TextPrompt } from "./components/TextPrompt";
+import { CropHost } from "./components/CoverCropper";
 import { watchProgress } from "./stores/spoken";
 import { SheetHost, ToastHost } from "./components/Sheet";
 import { TopBar } from "./components/TopBar";
@@ -192,6 +193,7 @@ export function App() {
       <SheetHost />
       <PasswordPrompt />
       <TextPrompt />
+      <CropHost />
       <ToastHost />
     </>
   );

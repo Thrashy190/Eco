@@ -50,6 +50,17 @@ export interface TextAnswer { text: string; option: boolean }
 
 export const useTextAsk = create<{ ask: TextAsk | null; answer: ((value: TextAnswer | null) => void) | null }>(() => ({ ask: null, answer: null }));
 
+export const useCropAsk = create<{ file: Blob | null; answer: ((jpeg: Blob | null) => void) | null }>(() => ({ file: null, answer: null }));
+
+/**
+ * Let the person frame a picture in a square (CoverCropper). Resolves to the cover as a JPEG, or null when cancelled.
+ * Every square picture goes through here: covers of books, shows, playlists and albums, and the profile picture.
+ */
+export function cropPicture(file: Blob): Promise<Blob | null> {
+  useCropAsk.getState().answer?.(null); // only one window at a time
+  return new Promise((resolve) => useCropAsk.setState({ file, answer: resolve }));
+}
+
 /** Ask for some text in a window. Resolves to what was typed, or null when cancelled. */
 export function askText(ask: TextAsk): Promise<TextAnswer | null> {
   useTextAsk.getState().answer?.(null); // only one window at a time
