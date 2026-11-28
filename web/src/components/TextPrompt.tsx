@@ -29,7 +29,7 @@ export function TextPrompt() {
   }
   const submit = (e: FormEvent) => { e.preventDefault(); close({ text: text.trim(), option }); };
   const field = ask.multiline
-    ? <textarea className={cx(ui.input, "rounded-[18px] min-h-32 resize-y py-3")} aria-label={ask.label} placeholder={ask.label} autoFocus maxLength={ask.maxLength ?? 5000} value={text} onChange={(e) => setText(e.target.value)} />
+    ? <textarea className={ui.textarea} aria-label={ask.label} placeholder={ask.label} autoFocus maxLength={ask.maxLength ?? 5000} value={text} onChange={(e) => setText(e.target.value)} />
     : <input className={ui.input} aria-label={ask.label} placeholder={ask.label} autoFocus maxLength={ask.maxLength ?? 120} value={text} onChange={(e) => setText(e.target.value)} />;
   return (
     <div className="fixed inset-0 z-80 grid place-items-center px-2 bg-black/55" onClick={(e) => { if (e.target === e.currentTarget) close(null); }}>

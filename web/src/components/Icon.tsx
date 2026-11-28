@@ -53,8 +53,9 @@ const ICONS = {
   eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></>,
   eyeOff: <path d="M4 4l16 16M10.6 6a9.6 9.6 0 0 1 1.4-.1c6 0 9.5 6.1 9.5 6.1a17 17 0 0 1-2.6 3.3M6.6 7.1C4 8.9 2.5 12 2.5 12s3.5 6.5 9.5 6.5c1.7 0 3.2-.5 4.4-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2" />,
   dice: <><rect x="4" y="4" width="16" height="16" rx="3" /><circle className="fill-current stroke-none" cx="9" cy="9" r="1.4" /><circle className="fill-current stroke-none" cx="15" cy="15" r="1.4" /><circle className="fill-current stroke-none" cx="15" cy="9" r="1.4" /><circle className="fill-current stroke-none" cx="9" cy="15" r="1.4" /></>,
-  rewind: <path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3L4.5 8.9M4.5 4.5v4.4h4.4" />,
-  forward: <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3l2.2 2.2M19.5 4.5v4.4h-4.4" />,
+  // A round arrow with its head at the top, leaving the middle free for the seconds (SpokenControls)
+  rewind: <path d="M12 4a8 8 0 1 1-8 8M14.6 1.5 12 4l2.6 2.5" />,
+  forward: <path d="M12 4a8 8 0 1 0 8 8M9.4 1.5 12 4 9.4 6.5" />,
   bookmark: <path d="M7 4h10v16l-5-3.7L7 20z" />,
   "bookmark-fill": <path className="fill-current" d="M7 4h10v16l-5-3.7L7 20z" />,
   note: <path d="M5 4h10l4 4v12H5zM14.5 4v4.5H19M8.5 12.5h7M8.5 16h5" />,

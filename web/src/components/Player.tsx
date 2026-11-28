@@ -240,7 +240,7 @@ function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: (
         {look !== "minimal" && (
           <div className={cx("grid gap-0.5", column)}>
             <h2 className="font-title text-[1.7rem] font-bold tracking-[-.03em] leading-[1.1] wrap-anywhere wide:text-[2rem]">{song.title}</h2>
-            {spoken ? <span className="text-muted font-semibold truncate">{[song.album, song.artist].filter(Boolean).join(" · ")}</span> : <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />}
+            {spoken ? <span className="text-muted font-semibold truncate">{[song.album !== song.title && song.album, song.artist].filter(Boolean).join(" · ")}</span> : <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />}
           </div>
         )}
         {spoken && <ChapterLine song={song} speed={speed} className={column} />}

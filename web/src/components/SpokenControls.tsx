@@ -35,7 +35,7 @@ function SkipButton({ back, size }: { back?: boolean; size: SpokenSize }) {
     <button type="button" className={cx(plain, s.button)} aria-label={back ? `Back ${seconds} seconds` : `Forward ${seconds} seconds`} title={back ? `Back ${seconds} s` : `Forward ${seconds} s`}
       onClick={back ? player.skipBack : player.skipForward}>
       <Icon name={back ? "rewind" : "forward"} size={s.icon} />
-      <span className={cx("absolute inset-0 grid place-items-center pt-[.1em] font-extrabold tabular-nums pointer-events-none", s.label)}>{seconds}</span>
+      <span className={cx("absolute inset-0 grid place-items-center pt-[.15em] font-extrabold tabular-nums tracking-[-.04em] pointer-events-none", s.label)}>{seconds}</span>
     </button>
   );
 }

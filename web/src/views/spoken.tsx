@@ -2,7 +2,7 @@
 // (its parts and chapters, your bookmarks and notes, what it is about), the shows you follow with their newest
 // episodes, the page of a show, and making or changing a show or a book. The library's Songs-style lists stay for music.
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import * as api from "../lib/api";
 import { clock } from "../lib/format";
@@ -22,7 +22,7 @@ import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { removeOffline, saveOffline, syncCollectionIfSaved } from "../stores/saving";
 import { useOnline } from "../stores/settings";
-import { progressOf, useSpoken } from "../stores/spoken";
+import { flush, progressOf, useSpoken } from "../stores/spoken";
 import { cancel, clearDone, sendFiles, useUploads } from "../stores/uploads";
 import { askText, openSheet, toast } from "../stores/ui";
 
@@ -167,7 +167,8 @@ function playFrom(collection: Collection, items: MediaItem[], index: number): vo
 export function ContinueListening({ kind }: { kind?: Kind }) {
   const online = useOnline();
   useAllProgress(); // redraw as positions move
-  const { data } = useQuery({ queryKey: ["continue"], queryFn: api.continueListening, enabled: online, staleTime: 10_000 });
+  // What this device heard last goes to the server first, or the list would leave it out
+  const { data } = useQuery({ queryKey: ["continue"], queryFn: async () => { await flush(); return api.continueListening(); }, enabled: online });
   const items = (data ?? []).filter((c) => (kind ? c.item.kind === kind : c.item.kind !== "other"));
   if (!items.length) return null;
   const [first, ...rest] = items;
@@ -195,7 +196,7 @@ function ContinueCard({ entry, big }: { entry: ContinueItem; big?: boolean }) {
         <SongCover song={song} size={96} className="size-14 flex-none rounded-xl object-cover bg-surface-2" />
         <span className="flex-1 min-w-0 grid gap-1">
           <b className="truncate font-semibold text-[.92rem]">{c?.title ?? entry.item.title}</b>
-          <span className="truncate text-muted text-[.8rem]">{c ? `${entry.item.title} · ${left} left` : `${left} left`}</span>
+          <span className="truncate text-muted text-[.8rem]">{c && entry.item.title !== c.title ? `${entry.item.title} · ${left} left` : `${left} left`}</span>
           <ProgressBar ratio={ratio} />
         </span>
         <span className="flex-none size-10 grid place-items-center rounded-full bg-text text-bg"><Icon name="play" size={16} /></span>
@@ -210,7 +211,7 @@ function ContinueCard({ entry, big }: { entry: ContinueItem; big?: boolean }) {
       <div className="flex-1 min-w-0 grid gap-1 justify-items-start">
         <span className="text-[.8rem] font-semibold">Continue listening</span>
         <b className="w-full font-title text-[clamp(1.35rem,3cqi,2.2rem)] font-bold leading-[1.05] tracking-[-.03em] line-clamp-2">{c?.title ?? entry.item.title}</b>
-        <span className="w-full truncate font-medium">{c ? entry.item.title : entry.item.channel}</span>
+        <span className="w-full truncate font-medium">{c && entry.item.title !== c.title ? entry.item.title : c?.author || entry.item.channel}</span>
         <ProgressBar ratio={ratio} className="w-full mt-1.5" />
         <span className="text-[.82rem] text-muted">{`${left} left`}</span>
         <button type="button" className={cx(ui.primary, "mt-2")} onClick={play}><Icon name="play" size={20} />Continue</button>
@@ -372,13 +373,23 @@ export function Podcasts() {
 
 const AUDIO_FILES = "audio/*,.m4b,.mp3,.m4a,.aac,.ogg,.opus,.flac,.wav";
 
-/** Send episodes or parts from this device. Several at once for a book in parts: they join it in the order of their names. */
-function UploadButton({ c }: { c: Collection }) {
+/**
+ * Add episodes or parts: files from this device (several at once for a book in parts: they join it in the order of their
+ * names), or a YouTube link. One button, so the page's buttons fit a phone's width.
+ */
+function AddButton({ c }: { c: Collection }) {
+  const navigate = useNavigate();
+  const files = useRef<HTMLInputElement>(null);
+  const what = c.kind === "podcast" ? "episodes" : "parts";
   return (
-    <label className={cx(ui.pill, "cursor-pointer")}>
-      <Icon name="upload" size={16} />{c.kind === "podcast" ? "Upload episodes" : "Upload files"}
-      <input type="file" multiple accept={AUDIO_FILES} className="sr-only" onChange={(e) => { if (e.target.files?.length) sendFiles(e.target.files, c.kind, c.id); e.target.value = ""; }} />
-    </label>
+    <>
+      <button type="button" className={ui.pill} onClick={() => openSheet(`Add ${what}`, c.title, [
+        { icon: "upload", label: "Upload files from this device", run: () => files.current?.click() },
+        { icon: "search", label: "From a YouTube link", run: () => navigate("/search") },
+      ])}><Icon name="plus" size={16} />Add</button>
+      <input ref={files} type="file" multiple accept={AUDIO_FILES} className="hidden" aria-label={`Upload ${what}`}
+        onChange={(e) => { if (e.target.files?.length) sendFiles(e.target.files, c.kind, c.id); e.target.value = ""; }} />
+    </>
   );
 }
 
@@ -386,7 +397,8 @@ const megabytes = (bytes: number) => `${(bytes / 1048576).toFixed(bytes < 10 * 1
 
 /** The files on their way to this show or book. */
 function UploadList({ c }: { c: Collection }) {
-  const list = useUploads((s) => s.list.filter((u) => u.collection === c.id));
+  const all = useUploads((s) => s.list); // the whole list: a filtered copy would be new on every read, and loop
+  const list = all.filter((u) => u.collection === c.id);
   if (!list.length) return null;
   return (
     <section className="mx-4 my-2 p-2 rounded-[22px] bg-glass-strong shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8" aria-label="Uploads">
@@ -480,8 +492,7 @@ export function BookPage() {
         <div className={ui.actions}>
           {items.length > 0 && <button type="button" className={ui.primary} onClick={resume}><Icon name="play" size={20} />{progress.state === "started" ? "Continue" : progress.state === "finished" ? "Listen again" : "Start listening"}</button>}
           {items.length > 0 && <DownloadToggle spec={spec} songs={songs} />}
-          <UploadButton c={book} />
-          <button type="button" className={ui.pill} onClick={() => navigate(`/search`)}><Icon name="plus" size={16} />From YouTube</button>
+          <AddButton c={book} />
           {book.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(book, navigate)}><Icon name="more" size={18} /></button>}
         </div>
       )}>
@@ -528,7 +539,7 @@ function ChapterPreview({ item, onPlay }: { item: MediaItem; onPlay: (at: number
         <li key={c.start}>
           <button type="button" className="tap w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left hover:bg-hover" onClick={() => onPlay(c.start)}>
             <span className="w-6 flex-none text-right text-muted text-[.82rem] tabular-nums">{i + 1}</span>
-            <span className="flex-1 min-w-0 grid"><b className="truncate font-[650]">{c.title}</b><span className="text-muted text-[.8rem] tabular-nums">{spokenLength(((data[i + 1]?.start ?? item.duration) || c.start) - c.start)}</span></span>
+            <span className="flex-1 min-w-0 grid"><b className="truncate font-[650]">{c.title}</b><span className="text-muted text-[.8rem] tabular-nums">{`${clock(c.start)} · ${spokenLength(((data[i + 1]?.start ?? item.duration) || c.start) - c.start)}`}</span></span>
           </button>
         </li>
       ))}
@@ -588,8 +599,7 @@ export function ShowPage() {
           <div className={ui.actions}>
             {items.length > 0 && <button type="button" className={ui.primary} onClick={() => player.play(allSongs, Math.max(0, firstNew), undefined, show.title)}><Icon name="play" size={20} />{firstNew > 0 ? "Play newest not heard" : "Play newest"}</button>}
             {items.length > 0 && <DownloadToggle spec={spec} songs={allSongs} />}
-            <UploadButton c={show} />
-            <button type="button" className={ui.pill} onClick={() => navigate("/search")}><Icon name="plus" size={16} />From YouTube</button>
+            <AddButton c={show} />
             {show.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(show, navigate)}><Icon name="more" size={18} /></button>}
           </div>
           <About text={show.description} />
@@ -687,7 +697,7 @@ function EditorForm({ kind, start, onDone }: { kind: Kind; start?: Collection; o
           </div>
         </>
       )}
-      <label className={FIELD}><span>Description</span><textarea className={cx(ui.input, "rounded-[18px] min-h-32 resize-y py-3")} maxLength={5000} value={edit.description} onChange={(e) => set({ description: e.target.value })} /></label>
+      <label className={FIELD}><span>Description</span><textarea className={ui.textarea} maxLength={5000} value={edit.description} onChange={(e) => set({ description: e.target.value })} /></label>
       <div className="flex gap-2.5">
         <button type="submit" className={ui.primary} disabled={busy || edit.title.trim() === ""}>{busy ? <Ring percent={-1} size={20} /> : <Icon name="check" size={20} />}{start ? "Save" : `Make ${w.one}`}</button>
       </div>
