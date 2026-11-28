@@ -30,7 +30,7 @@ func ValidID(id string) bool { return deviceID.MatchString(id) }
 var actions = map[string]bool{
 	"load": true, "resume": true, "transfer": true, "toggle": true, "pause": true, "next": true, "previous": true, "seek": true, "jump": true,
 	"volume": true, "speed": true, "shuffle": true, "repeat": true, "play_next": true, "enqueue": true, "move": true, "autoplay": true,
-	"sleep": true,
+	"sleep": true, "skip": true, "chapter": true, "set_speed": true,
 }
 
 // ValidAction reports whether action is a known command.
