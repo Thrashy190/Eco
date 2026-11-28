@@ -269,6 +269,12 @@ export interface MediaItem {
   duration: number;
   size?: number;
   added_at?: number;
+  /** The show or book it is in, and its place in a book */
+  parent?: string;
+  part?: number;
+  added_by?: string;
+  description?: string;
+  published?: number;
 }
 
 export interface MediaPreview {

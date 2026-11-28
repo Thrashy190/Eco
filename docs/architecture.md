@@ -77,9 +77,14 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `PUT /api/admin/cleanup/covers/{album}` | administrators: give an album with no cover one (JSON: `catalog`, a catalogue album whose cover the server fetches, or `picture`, a JPEG in base64); written as `cover.jpg` next to its songs, never over a cover that is there |
 | `GET /api/media/preview?url=` | what a YouTube link is (title, channel, length, thumbnail), whether it is already imported, and `music` (title, artists, album, year) when YouTube Music says what song it is |
 | `POST /api/songs/add` | a song added by hand (JSON: `url`, `title`, `artists`, `track`, `disc`, and `album`: `{library}` an album in the library, `{catalog}` one in the catalogue, or `{name, artists, date, cover: video\|upload\|"", picture}` a new one); queued as the job `link:<video>` |
-| `POST /api/media/import?url=&kind=` | import the audio of a link as `podcast`, `audiobook` or `other`; the same video is never imported twice |
-| `GET /api/media?kind=` | imported items, newest first |
+| `POST /api/media/import?url=&kind=&collection=` | import the audio of a link as `podcast`, `audiobook` or `other`, into a show or book (`collection`; without it, one named after the channel); the same video is never imported twice. YouTube's chapters, upload date and description are kept |
+| `GET /api/media?kind=` | imported items, newest first; each says which show or book it is in (`parent`), its place in a book (`part`) and who added it (`added_by`) |
 | `GET /api/media/{id}/file`, `/thumb` | the media (with `Range`), its thumbnail |
+| `PATCH /api/media/{id}` | change an item's `title`, `description`, the show or book it is in (`parent`, of its kind) or its `part`: whoever added it, or an administrator |
+| `GET`, `POST`, `PATCH /api/media/{id}/chapters` | its chapters, everyone's (`start` in seconds, `title`, `by`: empty when they came with the file); mark one (anyone, JSON `start`, `title`); rename one or, with an empty `title`, remove it (whoever marked it, or an administrator) |
+| `GET`, `POST /api/shows` · `/api/books` | the podcast shows or audiobooks, each with `count`, `duration`, `latest`, `thumb` and `can_edit`; make one (anyone; JSON `title`, `author`, `description`, and for a book `narrator`, `series`, `series_index`) |
+| `GET`, `PATCH`, `DELETE /api/shows/{id}` · `/api/books/{id}` | one, with its `items` (a book's parts in order, a show's episodes newest first); change it; delete it once it is empty. Changing is for whoever made it, or an administrator |
+| `GET`, `PUT`, `DELETE /api/shows/{id}/cover` · `/api/books/{id}/cover` | its picture (a JPEG; without one, its first item's thumbnail); set or remove it like changing it |
 | `GET /api/jobs` | your recent jobs (never other people's) with `state` (`queued`, `searching`, `downloading`, `tagging`, `ready`, `error`) and `progress` |
 | `GET /api/artists/songs?name=` | every song in the library that names this artist, as the main artist or alongside others, in album order, and `popular`: the IDs of up to ten of them, the most played on the server first (everyone's plays, only the order), then their own songs and the rest to fill the list |
 | `GET`, `PUT /api/me/look` | how the app looks for you (`look`, saved by the web app and only kept by the server, a JSON object of at most 32 KB), when it was saved (`at`) and the version of your background picture (`wallpaper`) |
@@ -93,7 +98,8 @@ Everything under `/api` needs the Subsonic credentials as query parameters (`u`,
 | `GET /api/jams/{id}/events` · `GET /api/time` | a member's stream (Server-Sent Events): the whole Jam now and after every change (`jam`), then `left` or `ended`; the server's clock in milliseconds, for measuring how far a device's clock is from it |
 | `GET /api/listening` · `GET /api/listening/events` | who plays what right now (`user`, `song`, `position` and how many milliseconds ago it was true, `age_ms`); the stream (Server-Sent Events) starts with everyone (`snapshot`) and then sends each change (`listening`, with no `song` when they stop) |
 | `GET /api/me` | who you are, whether you are an administrator, which `catalog` answers, and the `version` of Eco (shown in Settings, linked to its release notes) |
-| `DELETE /api/admin/songs/{id}` · `DELETE /api/media/{id}` | **administrators only**: delete a song (its file and Navidrome's record of it; `428` until the password is confirmed) or an imported item, for everyone |
+| `DELETE /api/admin/songs/{id}` | **administrators only**: delete a song (its file and Navidrome's record of it; `428` until the password is confirmed), for everyone |
+| `DELETE /api/media/{id}` | delete an imported item for everyone: whoever added it, or an administrator |
 | `POST /api/admin/unlock` | administrators: confirm the password (JSON: `password`), which opens Navidrome's own API to Eco for 15 minutes, for accounts and deleting |
 | `GET /api/connect/events?device=&name=&can_volume=` | a device's stream (Server-Sent Events): `devices`, `state`, `command` |
 | `POST /api/connect/state?device=` · `POST /api/connect/command?device=` | report what this device plays; send a command to another device of your account |

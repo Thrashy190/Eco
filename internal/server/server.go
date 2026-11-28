@@ -92,6 +92,9 @@ func New(ctx context.Context, cfg *config.Config, eng *engine.Engine, web fs.FS)
 	s.proxy.Director = func(r *http.Request) { director(r); r.Host = target.Host }
 	s.jobs = jobs.NewManager(ctx, s.runJob)
 	s.hub.OnChange(func(user string) { s.announce(user, false) })
+	if err := s.media.Group(); err != nil { // podcasts and audiobooks from before shows and books existed
+		log.Printf("grouping podcasts and audiobooks: %v", err)
+	}
 	s.jams = jam.New()
 	go s.runJams()
 	return s, nil
@@ -122,7 +125,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/media", s.authed(s.mediaList))
 	mux.HandleFunc("GET /api/media/{id}/file", s.authed(s.mediaFile(false)))
 	mux.HandleFunc("GET /api/media/{id}/thumb", s.authed(s.mediaFile(true)))
-	mux.HandleFunc("DELETE /api/media/{id}", s.authed(s.adminOnly(s.mediaDelete)))
+	mux.HandleFunc("DELETE /api/media/{id}", s.authed(s.mediaDelete))
+	mux.HandleFunc("PATCH /api/media/{id}", s.authed(s.editMedia))
+	mux.HandleFunc("GET /api/media/{id}/chapters", s.authed(s.mediaChapters))
+	mux.HandleFunc("POST /api/media/{id}/chapters", s.authed(s.addChapter))
+	mux.HandleFunc("PATCH /api/media/{id}/chapters", s.authed(s.changeChapter))
+	s.collectionRoutes(mux, "/api/shows", "podcast")
+	s.collectionRoutes(mux, "/api/books", "audiobook")
 	mux.HandleFunc("DELETE /api/admin/songs/{id}", s.authed(s.adminOnly(s.deleteSong)))
 	mux.HandleFunc("GET /api/admin/songs/{id}/tags", s.authed(s.adminOnly(s.songTags)))
 	mux.HandleFunc("PUT /api/admin/songs/{id}/tags", s.authed(s.adminOnly(s.editSong)))

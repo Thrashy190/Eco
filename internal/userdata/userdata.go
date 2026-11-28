@@ -264,13 +264,15 @@ func (s *Store) CoverPath(user, playlistID string) string {
 // SetCover stores a playlist's picture. Only real JPEG files of a sensible size are kept: the web app converts
 // whatever the user picks, and refusing anything else means eco never serves an uploaded file it cannot vouch for.
 func (s *Store) SetCover(user, playlistID string, image []byte) (State, error) {
-	if err := saveJPEG(s.CoverPath(user, playlistID), image); err != nil {
+	if err := SaveJPEG(s.CoverPath(user, playlistID), image); err != nil {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Covers[playlistID] = time.Now().UnixMilli() })
 }
 
-func saveJPEG(path string, image []byte) error {
+// SaveJPEG keeps a picture only if it is a real JPEG of a sensible size, written atomically. Covers of shows and
+// books (internal/media) use it too.
+func SaveJPEG(path string, image []byte) error {
 	if len(image) > MaxCoverBytes {
 		return errors.New("the picture is too large")
 	}
@@ -297,7 +299,7 @@ func (s *Store) AvatarPath(user string) string { return filepath.Join(s.dir(user
 
 // SetAvatar stores a user's profile picture, under the same rules as a playlist's.
 func (s *Store) SetAvatar(user string, image []byte) (State, error) {
-	if err := saveJPEG(s.AvatarPath(user), image); err != nil {
+	if err := SaveJPEG(s.AvatarPath(user), image); err != nil {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Avatar = time.Now().UnixMilli() })
@@ -316,7 +318,7 @@ func (s *Store) WallpaperPath(user string) string { return filepath.Join(s.dir(u
 
 // SetWallpaper stores a user's background picture, under the same rules as any other picture.
 func (s *Store) SetWallpaper(user string, image []byte) (State, error) {
-	if err := saveJPEG(s.WallpaperPath(user), image); err != nil {
+	if err := SaveJPEG(s.WallpaperPath(user), image); err != nil {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Wallpaper = time.Now().UnixMilli() })

@@ -2,7 +2,8 @@
 // Only the audio is kept. It lives next to the music library, not inside it, because Navidrome would mix these
 // files in with your songs (artists, albums, random mixes). eco serves them itself.
 //
-// Layout: <root>/<kind>/<id>/{media.m4a, media.jpg, meta.json}
+// Layout: <root>/<kind>/<id>/{media.m4a, media.jpg, meta.json, chapters.json}. Podcast episodes and audiobook parts
+// belong to a Collection (a show or a book, collections.go), kept in <root>/collections/<id>/.
 package media
 
 import (
@@ -46,6 +47,13 @@ type Item struct {
 	AddedAt  int64  `json:"added_at"`
 	File     string `json:"file"`
 	Thumb    string `json:"thumb,omitempty"`
+	// The show or book it belongs to (a Collection ID), empty for "other". Part orders a book's files.
+	Parent string `json:"parent,omitempty"`
+	Part   int    `json:"part,omitempty"`
+	// Who added it: that person or an administrator may change or delete it. Empty for items from before.
+	AddedBy     string `json:"added_by,omitempty"`
+	Description string `json:"description,omitempty"`
+	Published   int64  `json:"published,omitempty"` // when the source published it, Unix seconds
 }
 
 // Store keeps items under a root folder.

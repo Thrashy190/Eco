@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,14 +35,16 @@ func youtubeURL(raw string) (string, error) {
 }
 
 type mediaPayload struct {
-	Cred subsonic.Cred
-	URL  string
-	Prev ytdlp.Preview
-	Kind string
+	Cred       subsonic.Cred
+	URL        string
+	Prev       ytdlp.Preview
+	Kind       string
+	Collection string // the show or book it goes into; empty groups it by channel (media.Adopt)
 }
 
 func previewOf(p ytdlp.Preview, existing *media.Item) map[string]any {
-	out := map[string]any{"id": p.ID, "title": p.Title, "channel": p.Channel, "duration": int(p.DurationSec), "thumbnail": p.Thumbnail, "live": p.Live}
+	out := map[string]any{"id": p.ID, "title": p.Title, "channel": p.Channel, "duration": int(p.DurationSec), "thumbnail": p.Thumbnail, "live": p.Live,
+		"chapters": len(p.Chapters), "published": p.Published}
 	if existing != nil {
 		out["existing"] = existing
 	}
@@ -89,6 +92,13 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 		fail(w, http.StatusBadRequest, "kind must be one of: "+strings.Join(media.Kinds, ", "))
 		return
 	}
+	collection := q.Get("collection")
+	if collection != "" {
+		if c, err := s.media.Collection(collection); err != nil || c.Kind != kind {
+			fail(w, http.StatusBadRequest, "that show or book does not exist")
+			return
+		}
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	prev, err := s.eng.YT.Preview(ctx, link)
@@ -104,7 +114,7 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 		respond(w, http.StatusOK, map[string]any{"existing": it})
 		return
 	}
-	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind}, func(j *jobs.Job) {
+	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind, collection}, func(j *jobs.Job) {
 		j.Kind, j.Title, j.Artist, j.MediaID = kind, prev.Title, prev.Channel, prev.ID
 	})
 	code := http.StatusOK
@@ -132,12 +142,40 @@ func (s *Server) runMedia(ctx context.Context, p mediaPayload, set func(func(*jo
 		size = st.Size()
 	}
 	item := media.Item{ID: p.Prev.ID, Kind: p.Kind, Title: p.Prev.Title, Channel: p.Prev.Channel, Source: p.URL,
-		Duration: int(p.Prev.DurationSec), Size: size, AddedAt: time.Now().Unix(), File: files.Media, Thumb: files.Thumb}
+		Duration: int(p.Prev.DurationSec), Size: size, AddedAt: time.Now().Unix(), File: files.Media, Thumb: files.Thumb,
+		AddedBy: p.Cred.User, Description: media.Clip(p.Prev.Description, 5000), Published: p.Prev.Published}
+	if err := s.fileUnder(&item, p.Collection); err != nil {
+		os.RemoveAll(dir)
+		return err
+	}
 	if err := s.media.Save(item); err != nil {
 		os.RemoveAll(dir)
 		return err
 	}
+	chapters := make([]media.Chapter, len(p.Prev.Chapters))
+	for i, c := range p.Prev.Chapters {
+		chapters[i] = media.Chapter{Start: c.Start, Title: c.Title}
+	}
+	if err := s.media.SetSourceChapters(item, chapters); err != nil {
+		log.Printf("keeping the chapters of %s: %v", item.ID, err) // the audio is there; the chapters can be marked again
+	}
 	return nil
+}
+
+// fileUnder puts an item into the chosen show or book, or one named after its channel. The show may have been deleted
+// while the download ran; then it is grouped by channel, rather than losing the download.
+func (s *Server) fileUnder(it *media.Item, collection string) error {
+	if !media.HasCollections(it.Kind) {
+		return nil
+	}
+	if c, err := s.media.Collection(collection); err == nil && c.Kind == it.Kind {
+		it.Parent = c.ID
+		if c.Kind == "audiobook" {
+			it.Part = s.media.NextPart(c)
+		}
+		return nil
+	}
+	return s.media.Adopt(it)
 }
 
 func (s *Server) mediaList(w http.ResponseWriter, r *http.Request, _ subsonic.Cred) {
@@ -180,8 +218,18 @@ func (s *Server) mediaFile(thumb bool) func(http.ResponseWriter, *http.Request, 
 	}
 }
 
-func (s *Server) mediaDelete(w http.ResponseWriter, r *http.Request, _ subsonic.Cred) {
-	if err := s.media.Delete(r.PathValue("id")); err != nil {
+// mediaDelete erases an item for everyone: whoever added it, or an administrator.
+func (s *Server) mediaDelete(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	it, err := s.media.Find(r.PathValue("id"))
+	if err != nil {
+		fail(w, http.StatusNotFound, "not found")
+		return
+	}
+	if !s.mayChange(r, cred, it.AddedBy) {
+		fail(w, http.StatusForbidden, "Only whoever added it, or an administrator, can delete it")
+		return
+	}
+	if err := s.media.Delete(it.ID); err != nil {
 		fail(w, http.StatusNotFound, "not found")
 		return
 	}

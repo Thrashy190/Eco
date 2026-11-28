@@ -124,7 +124,8 @@ function itemMenu(item: MediaItem, song: Song): void {
     offline.isSaved(song.id)
       ? { icon: "trash", label: "Remove from this device", danger: true, run: () => void offline.remove(song.id).then(() => toast("Removed from this device")) }
       : { icon: "offline", label: "Save for offline", run: () => void saveOffline(song) },
-    isAdmin() && { icon: "trash", label: "Delete for everyone", danger: true, run: async () => {
+    // Whoever added it may delete it, or an administrator; the server checks again
+    (isAdmin() || (item.added_by !== undefined && item.added_by.toLowerCase() === api.username().toLowerCase())) && { icon: "trash", label: "Delete for everyone", danger: true, run: async () => {
       if (!confirm(`Delete “${item.title}” for everyone?\n\nThe file is erased from the server. This cannot be undone.`)) return;
       try {
         await api.deleteMedia(item.id);
