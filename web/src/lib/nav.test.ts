@@ -40,6 +40,13 @@ describe("activePlace", () => {
     expect(activePlace(tabsFrom(undefined), "/people/ana")).toBe("people");
     expect(activePlace(tabsFrom(undefined), "/people")).toBe("people");
   });
+  it("lights Podcasts and Audiobooks on their pages, or Library without their tab", () => {
+    expect(activePlace(tabsFrom(["home", "podcast", "audiobook"]), "/podcast/abc")).toBe("podcast");
+    expect(activePlace(tabsFrom(["home", "podcast", "audiobook"]), "/audiobooks")).toBe("audiobook");
+    expect(activePlace(tabsFrom(["home", "audiobook"]), "/book/abc")).toBe("audiobook");
+    expect(activePlace(tabs, "/book/abc")).toBe("library");
+    expect(activePlace(tabsFrom(["home"]), "/podcasts")).toBeUndefined();
+  });
   it("lights nothing when no tab fits", () => {
     expect(activePlace(tabsFrom(["home"]), "/album/1")).toBeUndefined();
   });
@@ -47,7 +54,7 @@ describe("activePlace", () => {
 
 describe("homeOrder", () => {
   it("keeps the saved order and adds new sections at the end", () => {
-    expect(homeOrder(["mix", "recent"])).toEqual(["mix", "recent", "downloaded", "newest", "frequent"]);
+    expect(homeOrder(["mix", "recent"])).toEqual(["mix", "recent", "listening", "downloaded", "newest", "frequent"]);
     expect(homeOrder(["gone", "mix"])[0]).toBe("mix");
     expect(homeOrder(undefined)[0]).toBe("recent");
   });

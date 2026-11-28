@@ -13,6 +13,7 @@ import { Icon } from "../components/Icon";
 import { Picture, PlaylistArt, SongCover, UserAvatar } from "../components/Cover";
 import { Logo } from "../components/Logo";
 import { SongList } from "../components/songs";
+import { ContinueListening } from "./spoken";
 import { albumEntry } from "../stores/library";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
@@ -79,6 +80,7 @@ function HomeOnline() {
   }
   const sections: Record<string, ReactNode> = {
     recent: data.recent.length > 0 && <Spotlight key="recent" list={data.recent} />,
+    listening: <ContinueListening key="listening" />, // podcasts and audiobooks you are in the middle of; nothing when none
     downloaded: downloaded.length > 0 && <Section key="downloaded" title="Just downloaded"><SongList songs={downloaded} hideAlbum /></Section>,
     newest: data.newest.length > 0 && <Section key="newest" title="Recently added"><Albums list={data.newest} /></Section>,
     frequent: data.frequent.length > 0 && <Section key="frequent" title="Most played"><Albums list={data.frequent} /></Section>,
@@ -131,7 +133,7 @@ export function Home() {
       {/* A phone has no top bar: the logo and your account start the page */}
       <div className="flex items-center justify-between px-5 pt-2 wide:hidden">
         <span className="flex items-center gap-2 font-title font-bold text-[1.2rem] tracking-[-.03em]"><Logo size={30} />Eco</span>
-        <Link to="/settings" aria-label="Settings" className="size-9 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.72rem]"><UserAvatar /></Link>
+        <Link to={`/people/${encodeURIComponent(user)}`} aria-label="Your profile" className="size-9 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.72rem]"><UserAvatar /></Link>
       </div>
       <header className={ui.hero}>
         <h1>{greeting()}</h1>

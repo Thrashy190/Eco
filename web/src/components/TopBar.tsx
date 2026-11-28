@@ -2,6 +2,7 @@
 // always there, and your account. There is no sidebar: the page gets the width.
 import { useEffect, useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router";
+import { username } from "../lib/api";
 import { useRoomy } from "../lib/media";
 import { activePlace, BESIDE_ACCOUNT, tabsFrom } from "../lib/nav";
 import { cx } from "../lib/ui";
@@ -26,6 +27,7 @@ export function TopBar() {
   const input = useRef<HTMLInputElement>(null);
   const tabs = tabsFrom(chosen);
   const active = activePlace(tabs, pathname);
+  const me = `/people/${encodeURIComponent(username())}`;
 
   // "/" jumps to the search box, as on most sites with one
   useEffect(() => {
@@ -49,7 +51,7 @@ export function TopBar() {
       <button type="button" className={plainButton} aria-label="Back" onClick={() => navigate(-1)}><Icon name="back" size={20} /></button>
       <button type="button" className={plainButton} aria-label="Forward" onClick={() => navigate(1)}><span className="inline-flex -scale-x-100"><Icon name="back" size={20} /></span></button>
       <nav className="flex-none flex items-center gap-0.5 mx-1" aria-label="Main">
-        {/* People and Settings sit at the end of this bar, Settings behind your picture */}
+        {/* People and Settings sit at the end of this bar, beside your picture, which opens your profile */}
         {tabs.filter((place) => !BESIDE_ACCOUNT.has(place.id)).map((place) => (
           <NavLink key={place.id} to={place.to} end title={place.label} data-on={place.id === active || undefined}
             className="tap flex-none flex items-center gap-2 h-10 px-3 rounded-full font-semibold text-[.92rem] text-muted hover:text-text data-on:bg-text data-on:text-bg">
@@ -73,11 +75,16 @@ export function TopBar() {
         </button>
       )}
       <UpdateButton />
-      <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || pathname.startsWith("/people/") || pathname.startsWith("/jam/") || undefined}
+      <NavLink to="/people" title="People" aria-label="People" data-on={pathname === "/people" || (pathname.startsWith("/people/") && pathname !== me) || pathname.startsWith("/jam/") || undefined}
         className="tap flex-none size-10 grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg">
         <Icon name="people" size={20} />
       </NavLink>
-      <Link to="/settings" title="Settings" aria-label="Settings" className="tap flex-none size-10 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.75rem] hover:bg-surface-3"><UserAvatar /></Link>
+      <NavLink to="/settings" title="Settings" aria-label="Settings" data-on={pathname === "/settings" || undefined}
+        className="tap flex-none size-10 grid place-items-center rounded-full text-muted hover:text-text hover:bg-ghost data-on:bg-text data-on:text-bg">
+        <Icon name="sliders" size={20} />
+      </NavLink>
+      <Link to={me} title="Your profile" aria-label="Your profile" data-on={pathname === me || undefined}
+        className="tap flex-none size-10 grid place-items-center rounded-full overflow-hidden bg-ghost font-extrabold text-[.75rem] hover:bg-surface-3 data-on:shadow-[0_0_0_2px_var(--accent)]"><UserAvatar /></Link>
     </header>
     </div>
   );

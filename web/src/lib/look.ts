@@ -34,6 +34,8 @@ export const RANGES: Record<string, [number, number]> = {
   backgroundBlur: [0, 40],
   backgroundDim: [0, 1],
   deckWidth: [DECK_MIN, DECK_MAX],
+  skipBack: [5, 90],
+  skipForward: [5, 90],
 };
 
 /** Settings that belong to one device and never travel: forcing offline, the deck and its width, and the choice to share the look. */

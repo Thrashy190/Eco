@@ -269,6 +269,27 @@ function PlayerSettings() {
   );
 }
 
+/** How far the back and forward buttons of a podcast or an audiobook jump. */
+function SkipChoice({ name }: { name: "skipBack" | "skipForward" }) {
+  const value = useSettings((s) => s[name]);
+  return (
+    <div className={SEG} role="group">
+      {[10, 15, 30, 45, 60].map((seconds) => (
+        <button key={seconds} type="button" aria-pressed={value === seconds} onClick={() => setSettings({ [name]: seconds })}>{`${seconds} s`}</button>
+      ))}
+    </div>
+  );
+}
+
+function SpokenSettings() {
+  return (
+    <Group title="Podcasts & audiobooks">
+      <Setting title="Back" description="How far the back button and the lock screen jump" stack><SkipChoice name="skipBack" /></Setting>
+      <Setting title="Forward" stack><SkipChoice name="skipForward" /></Setting>
+    </Group>
+  );
+}
+
 /** A tiny sample so you can see what a choice does without leaving the screen. */
 const Preview = () => (
   <div className="flex items-center gap-3 px-4 py-3 bg-surface-2" aria-hidden="true">
@@ -472,6 +493,7 @@ export function Settings() {
 
         <BackgroundSettings />
         <PlayerSettings />
+        <SpokenSettings />
 
         <Group title="Text">
           <Setting title="Font" stack><Segmented name="font" options={[["rounded", "Rounded"], ["system", "Plain"], ["serif", "Serif"], ["mono", "Mono"]]} /></Setting>

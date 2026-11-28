@@ -4,9 +4,10 @@ import { readableArtists } from "./format";
 import { md5 } from "./md5";
 import type {
   AddSongRequest, Album, AlbumDetail, AlbumTrack, Artist, ArtistDetail, CatalogAlbumPage, CleanupReport, DiscoverResponse, StatsResponse, ExternalAlbum, ExternalSearch, HomeResponse,
-  ImportDetail, ImportedList, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
+  Collection, CollectionEdit, ContinueItem, ImportDetail, ImportedList, Mark, SharedMark, ImportRow, ImportSummary, Job, LibraryEntry, LibrarySearch, LibraryState, MediaItem, MediaKind, MediaPreview, Playlist,
   JamSettings, JamSummary, JamView, Person, PlaylistDetail, Profile, ProfileSettings, RawAlbum, RawSong, Song,
 } from "./types";
+import type { Chapter, Progress } from "./spoken";
 
 const KEY = "eco.session";
 
@@ -72,7 +73,7 @@ export const mediaThumbUrl = (id: string) => `/api/media/${part(id)}/thumb?${par
 export const sourceUrl = (song: Song) => (song.mediaId ? mediaFileUrl(song.mediaId) : streamUrl(song.id));
 export const coverUrl = (id: string | null | undefined, size = 300) => (id ? `/rest/getCoverArt?${params({ id, size })}` : "");
 /** The picture for a song: Navidrome cover art, or the thumbnail of an imported episode. Empty if none. */
-export const songCover = (song: Song, size = 300) => (song.mediaId ? mediaThumbUrl(song.mediaId) : coverUrl(song.cover, size));
+export const songCover = (song: Song, size = 300) => (song.art ? song.art : song.mediaId ? mediaThumbUrl(song.mediaId) : coverUrl(song.cover, size));
 export const hasCover = (song: Song) => Boolean(song.mediaId || song.cover);
 /** A picture the user chose for a playlist. The version makes the browser fetch a new picture when it changes. */
 export const playlistCoverUrl = (id: string, version: number) => `/api/covers/playlists/${part(id)}?${params({ cover: version })}`;
@@ -339,11 +340,45 @@ export const KINDS: [MediaKind, string][] = [["podcast", "Podcast"], ["audiobook
 export const kindLabel = (kind?: string) => KINDS.find(([k]) => k === kind)?.[1] ?? "Other";
 export const addSong = (body: AddSongRequest) => send<Job>("songs/add", JSON.stringify(body));
 export const mediaPreview = (url: string) => eco<MediaPreview>("media/preview", { url });
-export const mediaImport = (url: string, kind: MediaKind) => eco<Job & { existing?: MediaItem }>("media/import", { url, kind }, "POST");
+export const mediaImport = (url: string, kind: MediaKind, collection = "") =>
+  eco<Job & { existing?: MediaItem }>("media/import", collection ? { url, kind, collection } : { url, kind }, "POST");
 export const listMedia = async (kind: MediaKind) => (await eco<{ items: MediaItem[] }>("media", { kind })).items;
 export const deleteMedia = (id: string) => eco<{ deleted: boolean }>(`media/${part(id)}`, undefined, "DELETE");
-/** An imported item shaped like a song, so the same player and rows can handle it. */
-export const mediaSong = (item: MediaItem): Song => ({
-  id: `m-${item.id}`, mediaId: item.id, title: item.title, artist: item.channel,
-  album: kindLabel(item.kind), duration: item.duration, kind: item.kind, size: item.size,
+/**
+ * An imported item shaped like a song, so the same player and rows can handle it. With its show or book, the player
+ * names that and its author, and shows the book's own picture when it has one.
+ */
+export const mediaSong = (item: MediaItem, collection?: Pick<Collection, "id" | "kind" | "title" | "author" | "cover">): Song => ({
+  id: `m-${item.id}`, mediaId: item.id, title: item.title, artist: collection?.author || item.channel,
+  album: collection?.title || kindLabel(item.kind), duration: item.duration, kind: item.kind, size: item.size,
+  collection: item.parent, art: collection?.cover ? collectionCoverUrl(collection) : undefined,
 });
+
+// ---- Shows and books ----
+const shelf = (kind: Collection["kind"]) => (kind === "podcast" ? "shows" : "books");
+export const listCollections = async (kind: Collection["kind"]) => (await eco<{ collections: Collection[] }>(shelf(kind))).collections;
+export const getCollection = (kind: Collection["kind"], id: string) => eco<{ collection: Collection; items: MediaItem[] }>(`${shelf(kind)}/${part(id)}`);
+export const createCollection = (kind: Collection["kind"], edit: CollectionEdit) => send<Collection>(shelf(kind), JSON.stringify(edit));
+export const editCollection = (kind: Collection["kind"], id: string, edit: CollectionEdit) => send<Collection>(`${shelf(kind)}/${part(id)}`, JSON.stringify(edit), "PATCH");
+export const deleteCollection = (kind: Collection["kind"], id: string) => eco<{ deleted: boolean }>(`${shelf(kind)}/${part(id)}`, undefined, "DELETE");
+export const uploadCollectionCover = (kind: Collection["kind"], id: string, picture: Blob) => send<Collection>(`${shelf(kind)}/${part(id)}/cover`, picture, "PUT", "image/jpeg");
+export const removeCollectionCover = (kind: Collection["kind"], id: string) => eco<Collection>(`${shelf(kind)}/${part(id)}/cover`, undefined, "DELETE");
+/** A show's or book's picture: its own (the address changes with it), or its first item's. */
+export const collectionCoverUrl = (c: Pick<Collection, "id" | "kind" | "cover">) => `/api/${shelf(c.kind)}/${part(c.id)}/cover?${params({ v: c.cover ?? 0 })}`;
+export const editMedia = (id: string, edit: { title?: string; description?: string; parent?: string; part?: number }) => send<MediaItem>(`media/${part(id)}`, JSON.stringify(edit), "PATCH");
+
+// ---- Chapters (everyone's) ----
+export const getChapters = async (id: string, signal?: AbortSignal) => (await eco<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, undefined, "GET", signal)).chapters;
+export const addChapter = async (id: string, start: number, title: string) => (await send<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, JSON.stringify({ start, title }))).chapters;
+/** Rename a chapter, or remove it with an empty title. */
+export const changeChapter = async (id: string, start: number, title: string) => (await send<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, JSON.stringify({ start, title }), "PATCH")).chapters;
+
+// ---- Where you are, your bookmarks and notes (yours alone) ----
+export const getProgress = async () => (await eco<{ progress: Record<string, Progress> }>("me/progress")).progress;
+export const putProgress = (id: string, p: Progress) => send<Progress>(`me/progress/${part(id)}`, JSON.stringify(p), "PUT");
+export const forgetProgress = (id: string) => eco<{ forgotten: boolean }>(`me/progress/${part(id)}`, undefined, "DELETE");
+export const continueListening = async () => (await eco<{ items: ContinueItem[] }>("me/continue")).items;
+export const getMarks = (item = "") => eco<{ marks: Mark[]; shared?: SharedMark[] }>("me/marks", item ? { item } : undefined);
+export const addMark = (mark: { item: string; at: number; note?: string; shared?: boolean }) => send<Mark>("me/marks", JSON.stringify(mark));
+export const editMark = (id: string, edit: { note?: string; shared?: boolean }) => send<Mark>(`me/marks/${part(id)}`, JSON.stringify(edit), "PATCH");
+export const deleteMark = (id: string) => eco<{ deleted: boolean }>(`me/marks/${part(id)}`, undefined, "DELETE");

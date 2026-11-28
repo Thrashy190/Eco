@@ -1,5 +1,6 @@
 // Imported audio: podcasts, audiobooks and anything else pasted from a YouTube link. Only the sound is kept.
-// The import card (shown in Search when you paste a link) and the Library sections for each category.
+// The import card (shown in Search when you paste a link), which files a podcast episode or an audiobook part under its
+// show or book, and the Library's list of everything else (views/spoken.tsx has the Podcasts and Audiobooks sections).
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -7,7 +8,7 @@ import * as api from "../lib/api";
 import { clock } from "../lib/format";
 import { queryClient } from "../lib/query";
 import { sorted } from "../lib/sorting";
-import type { MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
+import type { Collection, MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { Empty, Skeleton, Welcome } from "../components/common";
 import { Tile } from "../components/cards";
@@ -19,16 +20,47 @@ import * as offline from "../stores/offline";
 import * as player from "../stores/player";
 import { saveOffline } from "../stores/saving";
 import { useOnline, useSettings, useSort } from "../stores/settings";
-import { openSheet, toast } from "../stores/ui";
+import { askText, openSheet, toast } from "../stores/ui";
 
 const IMPORT = "grid gap-3 px-4 pt-2 pb-6 wide:px-8 wide:max-w-190";
 const DONE = "flex items-center gap-2.5 font-[650] text-accent";
 
 const CATEGORY_HINT: Record<MediaKind, string> = {
-  podcast: "Remembers where you stopped and can play faster",
-  audiobook: "Remembers your place and plays at your speed",
+  podcast: "An episode of a show. It remembers where you stopped, on every device",
+  audiobook: "A whole book or one part of it. Mark its chapters, bookmark moments and take notes",
   other: "Anything else: lectures, talks, sounds",
 };
+
+const AUTOMATIC = "";
+const pageOf = (kind: MediaKind, collection: string) =>
+  kind === "other" ? "/library/other" : collection ? `/${kind === "podcast" ? "podcast" : "book"}/${collection}` : kind === "podcast" ? "/podcasts" : "/audiobooks";
+
+/** Which show or book an import goes into: one there is, a new one, or one named after the channel. */
+function CollectionPicker({ kind, channel, value, onChange }: { kind: "podcast" | "audiobook"; channel: string; value: string; onChange: (id: string) => void }) {
+  const { data } = useQuery({ queryKey: ["collections", kind], queryFn: () => api.listCollections(kind) });
+  const one = kind === "podcast" ? "show" : "book";
+  const make = async () => {
+    const answer = await askText({ title: kind === "podcast" ? "New show" : "New book", label: "Title", initial: channel, confirm: "Make it", maxLength: 200 });
+    if (!answer || answer.text === "") return;
+    try {
+      const c = await api.createCollection(kind, { title: answer.text, author: kind === "podcast" ? channel : "" });
+      queryClient.setQueryData<Collection[]>(["collections", kind], (list) => [...(list ?? []), c]);
+      onChange(c.id);
+    } catch (e) { toast((e as Error).message); }
+  };
+  return (
+    <div className="grid gap-2">
+      <div className={ui.groupTitle}>{kind === "podcast" ? "Which show?" : "Which book?"}</div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <select className={cx(ui.input, "w-auto max-w-full pr-8")} aria-label={kind === "podcast" ? "Show" : "Book"} value={value} onChange={(e) => onChange(e.target.value)}>
+          <option value={AUTOMATIC}>{`A ${one} named “${channel || "Unsorted"}”`}</option>
+          {(data ?? []).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+        <button type="button" className={ui.pill} onClick={() => void make()}><Icon name="plus" size={16} />{`New ${one}`}</button>
+      </div>
+    </div>
+  );
+}
 
 // ---------------- Import card (Search) ----------------
 
@@ -42,15 +74,17 @@ export function ImportPanel({ link }: { link: string }) {
 function PreviewCard({ link, preview }: { link: string; preview: MediaPreview }) {
   const navigate = useNavigate();
   const [kind, setKind] = useState<MediaKind | "song">(preview.music ? "song" : "podcast"); // YouTube Music says when it is a song
+  const [collection, setCollection] = useState(AUTOMATIC);
+  const pick = (k: MediaKind | "song") => { setKind(k); setCollection(AUTOMATIC); };
   const job = useJobs((s) => s.jobs[`media:${preview.id}`]);
   // A running job (started earlier or from another device) is picked up again. A finished one is history unless
   // this card started it: the item may have been deleted since.
   const [startedHere, setStartedHere] = useState(false);
   const current = job && (isActive(job) || startedHere) ? job : undefined;
   const start = useMutation({
-    mutationFn: () => requestMedia(link, kind === "song" ? "other" : kind),
+    mutationFn: () => requestMedia(link, kind === "song" ? "other" : kind, kind === "podcast" || kind === "audiobook" ? collection : ""),
     onSuccess: (result) => {
-      if (result.existing) { toast("Already in your library"); navigate(`/library/${result.existing.kind}`); return; }
+      if (result.existing) { toast("Already in your library"); navigate(pageOf(result.existing.kind, result.existing.parent ?? "")); return; }
       setStartedHere(true);
     },
     onError: (e) => toast(e.message),
@@ -72,7 +106,7 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
       <>
         {head}
         <p className={ui.note}>{`Already in your library as ${where}.`}</p>
-        <button className={ui.primary} onClick={() => navigate(`/library/${preview.existing!.kind}`)}>{`Open ${where}`}</button>
+        <button className={ui.primary} onClick={() => navigate(pageOf(preview.existing!.kind, preview.existing!.parent ?? ""))}>{`Open ${where}`}</button>
       </>
     );
   }
@@ -86,7 +120,7 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
     action = (
       <>
         <div className={DONE}><Icon name="check" />{`Added to ${label}`}</div>
-        <button className={ui.primary} onClick={() => navigate(`/library/${current.kind ?? "other"}`)}>{`Open ${label}`}</button>
+        <button className={ui.primary} onClick={() => navigate(pageOf((current.kind ?? "other") as MediaKind, collection))}>{`Open ${label}`}</button>
       </>
     );
   } else if (current) {
@@ -103,9 +137,11 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
       {head}
       <div className={ui.groupTitle}>What is it?</div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="What is it?">
-        <button type="button" className={ui.chip} aria-pressed={kind === "song"} onClick={() => setKind("song")}>Song</button>
-        {api.KINDS.map(([value, label]) => <button key={value} type="button" className={ui.chip} aria-pressed={kind === value} onClick={() => setKind(value)}>{label}</button>)}
+        <button type="button" className={ui.chip} aria-pressed={kind === "song"} onClick={() => pick("song")}>Song</button>
+        {api.KINDS.map(([value, label]) => <button key={value} type="button" className={ui.chip} aria-pressed={kind === value} onClick={() => pick(value)}>{label}</button>)}
       </div>
+      {(kind === "podcast" || kind === "audiobook") && !current && <CollectionPicker kind={kind} channel={preview.channel} value={collection} onChange={setCollection} />}
+      {(preview.chapters ?? 0) > 0 && (kind === "podcast" || kind === "audiobook") && <p className="text-[.9rem] text-muted flex items-center gap-1.5"><Icon name="chapters" size={16} />{`Its ${preview.chapters} chapters come with it`}</p>}
       <p className={ui.note}>{kind === "song" ? "A song joins your music, with the title, artists and album you give it next." : `${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
       <div className="grid gap-2.5 justify-items-start mt-1.5">{action}</div>
     </>
@@ -161,7 +197,7 @@ export function MediaLibrary({ kind }: { kind: MediaKind }) {
       </Welcome>
     );
   } else {
-    const songs = items.map(api.mediaSong);
+    const songs = items.map((item) => api.mediaSong(item));
     body = view === "grid" ? (
       <div className={ui.grid}>
         {items.map((item, i) => {
