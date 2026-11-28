@@ -11,6 +11,7 @@ import { sorted } from "../lib/sorting";
 import type { Collection, MediaItem, MediaKind, MediaPreview, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
 import { Empty, Skeleton, Welcome } from "../components/common";
+import { isPlaylistLink } from "../lib/youtube";
 import { Tile } from "../components/cards";
 import { SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
@@ -27,7 +28,7 @@ const DONE = "flex items-center gap-2.5 font-[650] text-accent";
 
 const CATEGORY_HINT: Record<MediaKind, string> = {
   podcast: "An episode of a show. It remembers where you stopped, on every device",
-  audiobook: "A whole book or one part of it. Mark its chapters, bookmark moments and take notes",
+  audiobook: "A whole book or one part of it. Bookmark moments and take notes as you listen",
   other: "Anything else: lectures, talks, sounds",
 };
 
@@ -35,7 +36,10 @@ const AUTOMATIC = "";
 const pageOf = (kind: MediaKind, collection: string) =>
   kind === "other" ? "/library/other" : collection ? `/${kind === "podcast" ? "podcast" : "book"}/${collection}` : kind === "podcast" ? "/podcasts" : "/audiobooks";
 
-/** Which show or book an import goes into: one there is, a new one, or one named after the channel. */
+/**
+ * Which show or book an import goes into. A show: one there is, a new one, or one named after the channel. A book: one
+ * there is, or a new one, which opens Add book with this link so it gets its details and cover first.
+ */
 function CollectionPicker({ kind, channel, value, onChange }: { kind: "podcast" | "audiobook"; channel: string; value: string; onChange: (id: string) => void }) {
   const { data } = useQuery({ queryKey: ["collections", kind], queryFn: () => api.listCollections(kind) });
   const one = kind === "podcast" ? "show" : "book";
@@ -53,10 +57,10 @@ function CollectionPicker({ kind, channel, value, onChange }: { kind: "podcast" 
       <div className={ui.groupTitle}>{kind === "podcast" ? "Which show?" : "Which book?"}</div>
       <div className="flex flex-wrap gap-2 items-center">
         <select className={cx(ui.input, "w-auto max-w-full pr-8")} aria-label={kind === "podcast" ? "Show" : "Book"} value={value} onChange={(e) => onChange(e.target.value)}>
-          <option value={AUTOMATIC}>{`A ${one} named “${channel || "Unsorted"}”`}</option>
+          <option value={AUTOMATIC}>{kind === "audiobook" ? "A new book" : `A ${one} named “${channel || "Unsorted"}”`}</option>
           {(data ?? []).map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
-        <button type="button" className={ui.pill} onClick={() => void make()}><Icon name="plus" size={16} />{`New ${one}`}</button>
+        {kind === "podcast" && <button type="button" className={ui.pill} onClick={() => void make()}><Icon name="plus" size={16} />{`New ${one}`}</button>}
       </div>
     </div>
   );
@@ -65,8 +69,17 @@ function CollectionPicker({ kind, channel, value, onChange }: { kind: "podcast" 
 // ---------------- Import card (Search) ----------------
 
 export function ImportPanel({ link }: { link: string }) {
+  const navigate = useNavigate();
   const { data, error, isPending } = useQuery({ queryKey: ["media-preview", link], queryFn: () => api.mediaPreview(link), retry: false, staleTime: 60_000 });
   if (isPending) return <div className={IMPORT}><Skeleton rows={2} /></div>;
+  if (error && isPlaylistLink(link)) {
+    return (
+      <div className={IMPORT}>
+        <Welcome title="This is a playlist"><p>Songs come one link at a time. An audiobook in several videos can take the whole playlist as its parts.</p></Welcome>
+        <button type="button" className={cx(ui.primary, "justify-self-start")} onClick={() => navigate(`/audiobooks/new?url=${encodeURIComponent(link)}`)}><Icon name="book" size={20} />Add it as an audiobook</button>
+      </div>
+    );
+  }
   if (error) return <div className={IMPORT}><Welcome title="Could not read that link"><p>{error.message}</p></Welcome></div>;
   return <div className={IMPORT}><PreviewCard link={link} preview={data} /></div>;
 }
@@ -128,6 +141,8 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
     action = <div className={DONE}><Ring percent={downloading && current.progress > 0 ? current.progress : -1} size={26} />{downloading ? `Downloading ${Math.round(current.progress)}%` : "Getting ready…"}</div>;
   } else if (kind === "song") {
     action = <button className={ui.primary} type="button" onClick={() => navigate(`/add-song?url=${encodeURIComponent(link)}`)}>Continue</button>;
+  } else if (kind === "audiobook" && collection === AUTOMATIC) {
+    action = <button className={ui.primary} type="button" onClick={() => navigate(`/audiobooks/new?url=${encodeURIComponent(link)}`)}>Continue</button>;
   } else {
     action = <button className={ui.primary} type="button" disabled={start.isPending} onClick={() => start.mutate()}><Icon name="download" size={20} />Add audio to library</button>;
   }
@@ -142,7 +157,9 @@ function PreviewCard({ link, preview }: { link: string; preview: MediaPreview })
       </div>
       {(kind === "podcast" || kind === "audiobook") && !current && <CollectionPicker kind={kind} channel={preview.channel} value={collection} onChange={setCollection} />}
       {(preview.chapters ?? 0) > 0 && (kind === "podcast" || kind === "audiobook") && <p className="text-[.9rem] text-muted flex items-center gap-1.5"><Icon name="chapters" size={16} />{`Its ${preview.chapters} chapters come with it`}</p>}
-      <p className={ui.note}>{kind === "song" ? "A song joins your music, with the title, artists and album you give it next." : `${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
+      <p className={ui.note}>{kind === "song" ? "A song joins your music, with the title, artists and album you give it next."
+        : kind === "audiobook" && collection === AUTOMATIC ? "Next you give the book its title, author and cover, and can add more links if it comes in several videos."
+        : `${CATEGORY_HINT[kind]}. Only the audio is downloaded, and it stays apart from your music.`}</p>
       <div className="grid gap-2.5 justify-items-start mt-1.5">{action}</div>
     </>
   );

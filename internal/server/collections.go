@@ -2,12 +2,9 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/Thrashy190/eco/internal/media"
@@ -66,6 +63,9 @@ func (s *Server) collectionRoutes(mux *http.ServeMux, prefix, kind string) {
 	mux.HandleFunc("PATCH "+prefix+"/{id}", s.authed(s.editCollection(kind)))
 	mux.HandleFunc("DELETE "+prefix+"/{id}", s.authed(s.deleteCollection(kind)))
 	mux.HandleFunc("GET "+prefix+"/{id}/cover", s.authed(s.collectionCover(kind)))
+	if kind == "audiobook" {
+		mux.HandleFunc("PUT "+prefix+"/{id}/order", s.authed(s.orderParts))
+	}
 	mux.HandleFunc("PUT "+prefix+"/{id}/cover", s.authed(s.setCollectionCover(kind)))
 	mux.HandleFunc("DELETE "+prefix+"/{id}/cover", s.authed(s.removeCollectionCover(kind)))
 }
@@ -128,7 +128,11 @@ func (s *Server) getCollection(kind string) apiHandler {
 			return
 		}
 		items := s.media.Items(c)
-		respond(w, http.StatusOK, map[string]any{"collection": summarise(c, items, s.mayChange(r, cred, c.CreatedBy)), "items": items})
+		related := []collectionOut{}
+		for _, o := range s.media.Related(c) {
+			related = append(related, summarise(o, s.media.Items(o), false))
+		}
+		respond(w, http.StatusOK, map[string]any{"collection": summarise(c, items, s.mayChange(r, cred, c.CreatedBy)), "items": items, "related": related})
 	}
 }
 
@@ -165,12 +169,55 @@ func (s *Server) deleteCollection(kind string) apiHandler {
 			fail(w, http.StatusForbidden, "Only whoever made it, or an administrator, can delete it")
 			return
 		}
+		// With everything=1 its episodes or parts go too, but only when the person may delete every one of them:
+		// all or nothing, so a refusal never leaves half a book
+		if r.URL.Query().Get("everything") == "1" {
+			items := s.media.Items(c)
+			for _, it := range items {
+				if !s.mayChange(r, cred, it.AddedBy) {
+					fail(w, http.StatusForbidden, "Someone else added some of what is in it; only they or an administrator can delete those")
+					return
+				}
+			}
+			for _, it := range items {
+				if err := s.media.Delete(it.ID); err != nil {
+					fail(w, http.StatusInternalServerError, err.Error())
+					return
+				}
+			}
+		}
 		if err := s.media.DeleteCollection(c.ID); err != nil {
 			fail(w, http.StatusConflict, err.Error())
 			return
 		}
 		respond(w, http.StatusOK, map[string]bool{"deleted": true})
 	}
+}
+
+// orderParts puts a book's parts in the order given, numbering them from 1. Whoever may change the book may, even for
+// parts someone else added: the order is the book's.
+func (s *Server) orderParts(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
+	c, ok := s.findCollection(w, r, "audiobook")
+	if !ok {
+		return
+	}
+	if !s.mayChange(r, cred, c.CreatedBy) {
+		fail(w, http.StatusForbidden, "Only whoever made it, or an administrator, can change it")
+		return
+	}
+	var in struct {
+		Items []string `json:"items"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&in); err != nil {
+		fail(w, http.StatusBadRequest, "could not read the order")
+		return
+	}
+	items, err := s.media.Reorder(c, in.Items)
+	if err != nil {
+		fail(w, http.StatusConflict, err.Error())
+		return
+	}
+	respond(w, http.StatusOK, map[string]any{"items": items})
 }
 
 // collectionCover serves its own picture, or else the picture of its first item that has one.
@@ -310,61 +357,4 @@ func (s *Server) mediaChapters(w http.ResponseWriter, r *http.Request, _ subsoni
 		return
 	}
 	respond(w, http.StatusOK, map[string]any{"chapters": s.media.Chapters(it)})
-}
-
-type chapterIn struct {
-	Start float64 `json:"start"`
-	Title string  `json:"title"`
-}
-
-func readChapter(w http.ResponseWriter, r *http.Request) (chapterIn, bool) {
-	var in chapterIn
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&in); err != nil {
-		fail(w, http.StatusBadRequest, "could not read the chapter")
-		return in, false
-	}
-	return in, true
-}
-
-// addChapter marks a chapter. Anyone signed in may: everyone sees it, which is the point.
-func (s *Server) addChapter(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
-	it, err := s.media.Find(r.PathValue("id"))
-	if err != nil {
-		fail(w, http.StatusNotFound, "not found")
-		return
-	}
-	in, ok := readChapter(w, r)
-	if !ok {
-		return
-	}
-	list, err := s.media.AddChapter(it, in.Start, in.Title, cred.User)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	respond(w, http.StatusOK, map[string]any{"chapters": list})
-}
-
-// changeChapter renames a chapter, or removes it when the title is empty.
-func (s *Server) changeChapter(w http.ResponseWriter, r *http.Request, cred subsonic.Cred) {
-	it, err := s.media.Find(r.PathValue("id"))
-	if err != nil {
-		fail(w, http.StatusNotFound, "not found")
-		return
-	}
-	in, ok := readChapter(w, r)
-	if !ok {
-		return
-	}
-	list, err := s.media.ChangeChapter(it, in.Start, in.Title, cred.User, s.isAdmin(r, cred))
-	switch {
-	case errors.Is(err, media.ErrNotYours):
-		fail(w, http.StatusForbidden, err.Error())
-	case errors.Is(err, fs.ErrNotExist):
-		fail(w, http.StatusNotFound, "there is no chapter at "+strconv.FormatFloat(in.Start, 'f', 1, 64)+" s")
-	case err != nil:
-		fail(w, http.StatusInternalServerError, err.Error())
-	default:
-		respond(w, http.StatusOK, map[string]any{"chapters": list})
-	}
 }

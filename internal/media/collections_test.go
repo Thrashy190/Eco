@@ -1,7 +1,6 @@
 package media
 
 import (
-	"errors"
 	"os"
 	"testing"
 )
@@ -92,29 +91,5 @@ func TestChapters(t *testing.T) {
 	list := s.Chapters(it)
 	if len(list) != 2 || list[0].Title != "One" || list[1].By != "" {
 		t.Fatalf("source chapters = %+v", list)
-	}
-	if _, err := s.AddChapter(it, 600.5, "Again", "ana"); err == nil {
-		t.Error("a mark on top of another was accepted")
-	}
-	if _, err := s.AddChapter(it, 3600, "End", "ana"); err == nil {
-		t.Error("a mark past the end was accepted")
-	}
-	if list, err := s.AddChapter(it, 1200.04, "Three", "ana"); err != nil || len(list) != 3 || list[2].Start != 1200 || list[2].By != "ana" {
-		t.Fatalf("added %+v %v", list, err)
-	}
-	if _, err := s.ChangeChapter(it, 1200, "", "bob", false); !errors.Is(err, ErrNotYours) {
-		t.Errorf("bob removed ana's chapter: %v", err)
-	}
-	if _, err := s.ChangeChapter(it, 0, "First", "ana", false); !errors.Is(err, ErrNotYours) {
-		t.Errorf("a chapter from the file was renamed by a user: %v", err)
-	}
-	if list, err := s.ChangeChapter(it, 1200, "Third", "ana", false); err != nil || list[2].Title != "Third" {
-		t.Fatalf("rename %+v %v", list, err)
-	}
-	if list, err := s.ChangeChapter(it, 0, "", "admin", true); err != nil || len(list) != 2 {
-		t.Fatalf("admin remove %+v %v", list, err)
-	}
-	if _, err := s.ChangeChapter(it, 42, "", "admin", true); err == nil {
-		t.Error("changing a chapter that is not there worked")
 	}
 }

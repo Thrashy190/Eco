@@ -128,7 +128,7 @@ func (s *Server) finishUpload(w http.ResponseWriter, r *http.Request, cred subso
 	}
 	it := media.Item{ID: media.NewItemID(), Kind: u.Kind, Title: media.Clip(title, 200), Channel: media.Clip(channel, 200), Source: "upload",
 		Duration: int(p.Duration), Size: u.Size, AddedAt: time.Now().Unix(), AddedBy: cred.User, Description: media.Clip(p.Comment, 5000)}
-	if err := s.fileUnder(&it, u.Collection); err != nil {
+	if err := s.fileUnder(&it, u.Collection, 0); err != nil {
 		os.RemoveAll(dir)
 		fail(w, http.StatusInternalServerError, err.Error())
 		return

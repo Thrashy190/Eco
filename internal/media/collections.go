@@ -30,6 +30,9 @@ type Collection struct {
 	CreatedAt   int64   `json:"created_at"`
 	UpdatedAt   int64   `json:"updated_at"`
 	Cover       int64   `json:"cover,omitempty"` // when its own picture was last set; 0 uses its first item's
+	// Books that go with this one (a series, the same world), books only. Kept on both sides: linking A to B lists A on
+	// B too, so either page shows the other and either can undo it.
+	Related []string `json:"related,omitempty"`
 }
 
 // Kinds that have collections. "other" stays a flat list.
@@ -42,6 +45,7 @@ func HasCollections(kind string) bool { return collectionKinds[kind] }
 const (
 	maxTitle       = 200
 	maxDescription = 5000
+	maxRelated     = 50
 )
 
 // mu serialises every write of a collection or a chapter list: two imports from one channel at once must not make
@@ -84,7 +88,19 @@ func (c *Collection) Clean() error {
 		return errors.New("give it a title")
 	}
 	if c.Kind == "podcast" {
-		c.Narrator, c.Series, c.SeriesIndex = "", "", 0
+		c.Narrator, c.Series, c.SeriesIndex, c.Related = "", "", 0, nil
+	}
+	seen := map[string]bool{c.ID: true}
+	related := []string{}
+	for _, id := range c.Related {
+		if ValidID(id) && !seen[id] && len(related) < maxRelated {
+			seen[id] = true
+			related = append(related, id)
+		}
+	}
+	c.Related = related
+	if len(related) == 0 {
+		c.Related = nil
 	}
 	if c.SeriesIndex < 0 || c.SeriesIndex > 10000 || c.Series == "" {
 		c.SeriesIndex = 0
@@ -146,7 +162,11 @@ func (s Store) CreateCollection(c Collection, user string) (Collection, error) {
 	c.ID, c.CreatedBy, c.CreatedAt, c.UpdatedAt, c.Cover = newID(), user, now, now, 0
 	mu.Lock()
 	defer mu.Unlock()
-	return c, s.writeCollection(c)
+	c.Related = s.existing(c)
+	if err := s.writeCollection(c); err != nil {
+		return Collection{}, err
+	}
+	return c, s.linkBack(c, nil)
 }
 
 // UpdateCollection replaces what a person may edit, keeping who made it, when, and its kind.
@@ -158,11 +178,86 @@ func (s Store) UpdateCollection(id string, edit Collection) (Collection, error) 
 		return Collection{}, err
 	}
 	edit.ID, edit.Kind, edit.CreatedBy, edit.CreatedAt, edit.Cover = c.ID, c.Kind, c.CreatedBy, c.CreatedAt, c.Cover
+	if edit.Related == nil { // left out: unchanged. An empty list unlinks every book
+		edit.Related = c.Related
+	}
 	if err := edit.Clean(); err != nil {
 		return Collection{}, err
 	}
+	edit.Related = s.existing(edit)
 	edit.UpdatedAt = time.Now().Unix()
-	return edit, s.writeCollection(edit)
+	if err := s.writeCollection(edit); err != nil {
+		return Collection{}, err
+	}
+	return edit, s.linkBack(edit, c.Related)
+}
+
+// existing keeps the related books that are there and of the same kind. The caller holds mu.
+func (s Store) existing(c Collection) []string {
+	var out []string
+	for _, id := range c.Related {
+		if o, err := s.Collection(id); err == nil && o.Kind == c.Kind && o.ID != c.ID {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// linkBack makes the other side agree: books c now lists list c, and books it listed before (was) no longer do. The
+// caller holds mu.
+func (s Store) linkBack(c Collection, was []string) error {
+	now := map[string]bool{}
+	for _, id := range c.Related {
+		now[id] = true
+	}
+	touched := map[string]bool{}
+	for _, id := range append(append([]string{}, c.Related...), was...) {
+		if touched[id] {
+			continue
+		}
+		touched[id] = true
+		o, err := s.Collection(id)
+		if err != nil || o.Kind != c.Kind {
+			continue
+		}
+		has := false
+		keep := o.Related[:0:0]
+		for _, r := range o.Related {
+			if r == c.ID {
+				has = true
+				if !now[id] {
+					continue
+				}
+			}
+			keep = append(keep, r)
+		}
+		if now[id] && !has && len(keep) < maxRelated {
+			keep = append(keep, c.ID)
+		}
+		if len(keep) == len(o.Related) && has == now[id] {
+			continue
+		}
+		o.Related = keep
+		if len(keep) == 0 {
+			o.Related = nil
+		}
+		if err := s.writeCollection(o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Related lists the books that go with c, as far as they still exist, by title.
+func (s Store) Related(c Collection) []Collection {
+	out := []Collection{}
+	for _, id := range c.Related {
+		if o, err := s.Collection(id); err == nil && o.Kind == c.Kind {
+			out = append(out, o)
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return strings.ToLower(out[i].Title) < strings.ToLower(out[j].Title) })
+	return out
 }
 
 // CoverSet records that a collection's own picture was just written (by the caller, at CoverPath).
@@ -227,7 +322,43 @@ func (s Store) DeleteCollection(id string) error {
 	if len(s.Items(c)) > 0 {
 		return errors.New("it still has episodes or parts; delete those first")
 	}
+	if err := s.linkBack(Collection{ID: c.ID, Kind: c.Kind}, c.Related); err != nil {
+		return err
+	}
 	return os.RemoveAll(s.collectionDir(c.ID))
+}
+
+// Reorder numbers a book's parts 1, 2, 3… in the order of ids, which must name each of its parts exactly once: a list
+// made before a part arrived or went is refused rather than guessed at.
+func (s Store) Reorder(c Collection, ids []string) ([]Item, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	items := s.Items(c)
+	byID := map[string]Item{}
+	for _, it := range items {
+		byID[it.ID] = it
+	}
+	if len(ids) != len(items) {
+		return nil, errors.New("the book changed meanwhile; open it again")
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if _, ok := byID[id]; !ok || seen[id] {
+			return nil, errors.New("the book changed meanwhile; open it again")
+		}
+		seen[id] = true
+	}
+	for i, id := range ids {
+		it := byID[id]
+		if it.Part == i+1 {
+			continue
+		}
+		it.Part = i + 1
+		if err := s.Save(it); err != nil {
+			return nil, err
+		}
+	}
+	return s.Items(c), nil
 }
 
 // NextPart is the part number after a book's last one.

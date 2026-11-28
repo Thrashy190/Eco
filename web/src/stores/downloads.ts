@@ -62,8 +62,8 @@ export async function requestSong(catalogId: string): Promise<Job> {
 }
 
 /** Ask the server to import the audio of a YouTube link. Returns the job, or {existing} if it was imported before. */
-export async function requestMedia(url: string, kind: MediaKind, collection = "") {
-  const result = await mediaImport(url, kind, collection);
+export async function requestMedia(url: string, kind: MediaKind, collection = "", part = 0) {
+  const result = await mediaImport(url, kind, collection, part);
   if (result.existing) return result;
   store(result);
   pollJobs();

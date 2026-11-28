@@ -36,6 +36,7 @@ type Job struct {
 	LibraryID string  `json:"library_id,omitempty"` // Navidrome's ID once the song is playable
 	Kind      string  `json:"kind,omitempty"`       // for media imports: podcast, audiobook or other
 	MediaID   string  `json:"media_id,omitempty"`   // for media imports: the item's ID once it is ready
+	Parent    string  `json:"parent,omitempty"`     // for media imports: the show or book it goes into, when chosen
 	Error     string  `json:"error,omitempty"`
 	// Everyone who asked for it. Never sent to the app: people must not see what others download.
 	Users      []string `json:"-"`

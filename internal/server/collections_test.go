@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -77,27 +78,130 @@ func TestBookPartsComeInOrder(t *testing.T) {
 	}
 }
 
-// Anyone can mark a chapter and everyone sees it; only its author or an administrator changes it.
-func TestChaptersAreSharedButOwned(t *testing.T) {
+// Deleting a book with everything in it takes its parts too, but only when the person may delete every one of them.
+func TestDeletingABookWithItsParts(t *testing.T) {
 	s, h := accountsServer(t)
-	it := episode(t, s, media.Item{ID: "dQw4w9WgXcQ", Kind: "podcast", Duration: 3600})
-	if rec := as(t, h, "bob", "POST", "/api/media/"+it.ID+"/chapters", `{"start":125.5,"title":"The interview"}`); rec.Code != http.StatusOK {
-		t.Fatalf("bob marking: %d %s", rec.Code, rec.Body)
+	book, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Dune"}, "ana")
+	episode(t, s, media.Item{ID: "partOnexxxx", Kind: "audiobook", Parent: book.ID, Part: 1, AddedBy: "ana"})
+	episode(t, s, media.Item{ID: "partTwoxxxx", Kind: "audiobook", Parent: book.ID, Part: 2, AddedBy: "bob"})
+	if rec := as(t, h, "ana", "DELETE", "/api/books/"+book.ID+"?everything=1", ""); rec.Code != http.StatusForbidden {
+		t.Errorf("ana deleted bob's part with her book: %d", rec.Code)
 	}
-	if body := as(t, h, "ana", "GET", "/api/media/"+it.ID+"/chapters", "").Body.String(); !strings.Contains(body, "The interview") || !strings.Contains(body, `"by":"bob"`) {
-		t.Errorf("ana does not see bob's chapter: %s", body)
+	if _, err := s.media.Find("partOnexxxx"); err != nil {
+		t.Errorf("a refused delete still took ana's part: %v", err)
 	}
-	if rec := as(t, h, "ana", "PATCH", "/api/media/"+it.ID+"/chapters", `{"start":125.5,"title":""}`); rec.Code != http.StatusForbidden {
-		t.Errorf("ana removed bob's chapter: %d", rec.Code)
+	if rec := as(t, h, "admin", "DELETE", "/api/books/"+book.ID+"?everything=1", ""); rec.Code != http.StatusOK {
+		t.Fatalf("admin: %d %s", rec.Code, rec.Body)
 	}
-	if rec := as(t, h, "bob", "PATCH", "/api/media/"+it.ID+"/chapters", `{"start":125.5,"title":"Interview"}`); rec.Code != http.StatusOK {
-		t.Errorf("bob renaming his own: %d %s", rec.Code, rec.Body)
+	for _, id := range []string{"partOnexxxx", "partTwoxxxx"} {
+		if _, err := s.media.Find(id); err == nil {
+			t.Errorf("%s is still there", id)
+		}
 	}
-	if rec := as(t, h, "admin", "PATCH", "/api/media/"+it.ID+"/chapters", `{"start":125.5,"title":""}`); rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "Interview") {
-		t.Errorf("admin removing: %d %s", rec.Code, rec.Body)
+	if _, err := s.media.Collection(book.ID); err == nil {
+		t.Error("the book is still there")
 	}
-	if rec := as(t, h, "bob", "POST", "/api/media/"+it.ID+"/chapters", `{"start":4000,"title":"Later"}`); rec.Code != http.StatusBadRequest {
-		t.Errorf("a chapter past the end: %d", rec.Code)
+}
+
+// Related books are kept on both sides, and a book that goes stops being listed.
+func TestRelatedBooksGoBothWays(t *testing.T) {
+	s, h := accountsServer(t)
+	one, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Dune"}, "ana")
+	two, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Dune Messiah"}, "ana")
+	show, _ := s.media.CreateCollection(media.Collection{Kind: "podcast", Title: "Show"}, "ana")
+	body := `{"title":"Dune Messiah","related":["` + one.ID + `","` + show.ID + `","nothereatall","` + two.ID + `"]}`
+	if rec := as(t, h, "ana", "PATCH", "/api/books/"+two.ID, body); rec.Code != http.StatusOK {
+		t.Fatalf("linking: %d %s", rec.Code, rec.Body)
+	}
+	if c, _ := s.media.Collection(two.ID); len(c.Related) != 1 || c.Related[0] != one.ID {
+		t.Errorf("two.related = %v, want only the first book", c.Related)
+	}
+	var out struct {
+		Related []collectionOut `json:"related"`
+	}
+	json.Unmarshal(as(t, h, "bob", "GET", "/api/books/"+one.ID, "").Body.Bytes(), &out)
+	if len(out.Related) != 1 || out.Related[0].ID != two.ID {
+		t.Fatalf("the first book does not list the second: %+v", out.Related)
+	}
+	// Leaving related out keeps it; an empty list unlinks both sides
+	as(t, h, "ana", "PATCH", "/api/books/"+two.ID, `{"title":"Dune Messiah II"}`)
+	if c, _ := s.media.Collection(two.ID); len(c.Related) != 1 {
+		t.Errorf("an edit without related dropped it: %v", c.Related)
+	}
+	as(t, h, "ana", "PATCH", "/api/books/"+one.ID, `{"title":"Dune","related":[]}`)
+	if c, _ := s.media.Collection(two.ID); len(c.Related) != 0 {
+		t.Errorf("unlinking from the first book left it on the second: %v", c.Related)
+	}
+	as(t, h, "ana", "PATCH", "/api/books/"+one.ID, `{"title":"Dune","related":["`+two.ID+`"]}`)
+	if rec := as(t, h, "ana", "DELETE", "/api/books/"+one.ID, ""); rec.Code != http.StatusOK {
+		t.Fatalf("deleting: %d", rec.Code)
+	}
+	if c, _ := s.media.Collection(two.ID); len(c.Related) != 0 {
+		t.Errorf("a deleted book is still related: %v", c.Related)
+	}
+}
+
+// Whoever made a book puts its parts in order, even ones someone else added; a stale list is refused.
+func TestOrderingABooksParts(t *testing.T) {
+	s, h := accountsServer(t)
+	book, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Dune"}, "ana")
+	episode(t, s, media.Item{ID: "partOnexxxx", Kind: "audiobook", Parent: book.ID, Part: 1, AddedBy: "bob"})
+	episode(t, s, media.Item{ID: "partTwoxxxx", Kind: "audiobook", Parent: book.ID, Part: 2, AddedBy: "ana"})
+	episode(t, s, media.Item{ID: "partThreexx", Kind: "audiobook", Parent: book.ID, Part: 7, AddedBy: "ana"})
+	order := `{"items":["partThreexx","partOnexxxx","partTwoxxxx"]}`
+	if rec := as(t, h, "bob", "PUT", "/api/books/"+book.ID+"/order", order); rec.Code != http.StatusForbidden {
+		t.Errorf("bob ordered ana's book: %d", rec.Code)
+	}
+	for _, stale := range []string{`{"items":["partThreexx","partOnexxxx"]}`, `{"items":["partThreexx","partOnexxxx","partOnexxxx"]}`, `{"items":["partThreexx","partOnexxxx","nothereatal"]}`} {
+		if rec := as(t, h, "ana", "PUT", "/api/books/"+book.ID+"/order", stale); rec.Code != http.StatusConflict {
+			t.Errorf("%s: %d", stale, rec.Code)
+		}
+	}
+	if rec := as(t, h, "ana", "PUT", "/api/books/"+book.ID+"/order", order); rec.Code != http.StatusOK {
+		t.Fatalf("ordering: %d %s", rec.Code, rec.Body)
+	}
+	var got []string
+	for _, it := range s.media.Items(book) {
+		got = append(got, it.ID+":"+strconv.Itoa(it.Part))
+	}
+	if strings.Join(got, ",") != "partThreexx:1,partOnexxxx:2,partTwoxxxx:3" {
+		t.Errorf("order = %v", got)
+	}
+	show, _ := s.media.CreateCollection(media.Collection{Kind: "podcast", Title: "Show"}, "ana")
+	if rec := as(t, h, "ana", "PUT", "/api/shows/"+show.ID+"/order", `{"items":[]}`); rec.Code != http.StatusNotFound && rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("a show has an order: %d", rec.Code)
+	}
+}
+
+// Only a YouTube playlist is listed, and its address is built by the server.
+func TestPlaylistLinks(t *testing.T) {
+	for raw, want := range map[string]string{
+		"https://www.youtube.com/playlist?list=PLabcdefghij":                "https://www.youtube.com/playlist?list=PLabcdefghij",
+		"https://youtube.com/watch?v=dQw4w9WgXcQ&list=PLabcdefghij&index=3": "https://www.youtube.com/playlist?list=PLabcdefghij",
+		"https://music.youtube.com/playlist?list=OLAK5uy_abcdefg":           "https://www.youtube.com/playlist?list=OLAK5uy_abcdefg",
+		"https://www.youtube.com/watch?v=dQw4w9WgXcQ":                       "",
+		"https://evil.example/playlist?list=PLabcdefghij":                   "",
+		"https://www.youtube.com/playlist?list=PL../../etc":                 "",
+	} {
+		got, err := youtubePlaylist(raw)
+		if got != want || (want == "") != (err != nil) {
+			t.Errorf("%s: %q %v, want %q", raw, got, err, want)
+		}
+	}
+}
+
+// A book's parts take the number the app gives them, however the downloads finish.
+func TestImportedPartsKeepTheirNumber(t *testing.T) {
+	s, h := accountsServer(t)
+	book, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Book"}, "ana")
+	third := media.Item{ID: "ccccccccccc", Kind: "audiobook"}
+	if err := s.fileUnder(&third, book.ID, 3); err != nil || third.Part != 3 {
+		t.Fatalf("part 3: %+v %v", third, err)
+	}
+	for _, bad := range []string{"0", "-2", "x"} {
+		if rec := as(t, h, "ana", "POST", "/api/media/import?kind=audiobook&url=https://youtu.be/dQw4w9WgXcQ&collection="+book.ID+"&part="+bad, ""); rec.Code != http.StatusBadRequest {
+			t.Errorf("part %s: %d", bad, rec.Code)
+		}
 	}
 }
 
@@ -139,11 +243,11 @@ func TestFileUnderFallsBackToTheChannel(t *testing.T) {
 	s, _ := accountsServer(t)
 	book, _ := s.media.CreateCollection(media.Collection{Kind: "audiobook", Title: "Book"}, "ana")
 	first := media.Item{ID: "aaaaaaaaaaa", Kind: "audiobook", Channel: "Narrator"}
-	if err := s.fileUnder(&first, book.ID); err != nil || first.Parent != book.ID || first.Part != 1 {
+	if err := s.fileUnder(&first, book.ID, 0); err != nil || first.Parent != book.ID || first.Part != 1 {
 		t.Fatalf("into the book: %+v %v", first, err)
 	}
 	gone := media.Item{ID: "bbbbbbbbbbb", Kind: "audiobook", Channel: "Narrator"}
-	if err := s.fileUnder(&gone, "deletedbook"); err != nil || gone.Parent == "" || gone.Parent == book.ID {
+	if err := s.fileUnder(&gone, "deletedbook", 0); err != nil || gone.Parent == "" || gone.Parent == book.ID {
 		t.Fatalf("a deleted book: %+v %v", gone, err)
 	}
 }

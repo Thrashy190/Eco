@@ -4,21 +4,25 @@ import type { Rgb } from "./color";
 const COVER_SIZE = 640;
 
 /**
- * Turn whatever picture the user chose into a square JPEG. The server stores only JPEGs of a sensible size,
+ * Turn whatever picture the user chose into a square JPEG: the square they framed, or the middle one. The server stores only JPEGs of a sensible size,
  * and doing the conversion here means a 12 MB phone photo never has to travel to it.
  */
-export async function pictureToCover(file: Blob): Promise<Blob> {
+export async function pictureToCover(file: Blob, square?: { x: number; y: number; side: number }): Promise<Blob> {
   const url = URL.createObjectURL(file);
   try {
     const image = new Image();
     image.src = url;
     await image.decode().catch(() => { throw new Error("That file is not a picture this browser can read"); });
-    const side = Math.min(image.naturalWidth, image.naturalHeight);
+    // The square someone chose (CoverCropper), or else the middle one
+    const side = square?.side ?? Math.min(image.naturalWidth, image.naturalHeight);
+    const x = square?.x ?? (image.naturalWidth - side) / 2;
+    const y = square?.y ?? (image.naturalHeight - side) / 2;
     const canvas = document.createElement("canvas");
     canvas.width = canvas.height = COVER_SIZE;
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Could not prepare the picture");
-    context.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, 0, 0, COVER_SIZE, COVER_SIZE);
+    context.imageSmoothingQuality = "high";
+    context.drawImage(image, x, y, side, side, 0, 0, COVER_SIZE, COVER_SIZE);
     return await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Could not prepare the picture"))), "image/jpeg", 0.88);
     });

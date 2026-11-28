@@ -3,11 +3,14 @@ package server
 import (
 	"context"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,12 +37,81 @@ func youtubeURL(raw string) (string, error) {
 	return u.String(), nil
 }
 
+// playlistID finds the playlist a YouTube link names (youtube.com/playlist?list=, or a video played from one). The
+// server then builds the address itself, so only YouTube's own playlist page is ever asked for.
+var playlistID = regexp.MustCompile(`^[A-Za-z0-9_-]{10,64}$`)
+
+func youtubePlaylist(raw string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || !youtubeHosts[strings.ToLower(u.Hostname())] {
+		return "", errors.New("paste a YouTube link (youtube.com or youtu.be)")
+	}
+	list := u.Query().Get("list")
+	if !playlistID.MatchString(list) {
+		return "", errors.New("that link is not a playlist")
+	}
+	return "https://www.youtube.com/playlist?list=" + list, nil
+}
+
+// maxPlaylist is the most videos a playlist hands over: a long book has a hundred chapters or so.
+const maxPlaylist = 300
+
+// mediaPlaylist lists a playlist's videos, so a book in many videos can take them all as its parts.
+func (s *Server) mediaPlaylist(w http.ResponseWriter, r *http.Request, _ subsonic.Cred) {
+	link, err := youtubePlaylist(r.URL.Query().Get("url"))
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	videos, err := s.eng.YT.Playlist(ctx, link, maxPlaylist)
+	if err != nil {
+		fail(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	out := []map[string]any{}
+	for _, v := range videos {
+		if media.ValidID(v.ID) {
+			out = append(out, map[string]any{"id": v.ID, "title": v.Title, "duration": int(v.DurationSec), "url": "https://www.youtube.com/watch?v=" + v.ID})
+		}
+	}
+	respond(w, http.StatusOK, map[string]any{"videos": out})
+}
+
+// videoPicture hands over a video's picture whole, for someone to frame as a cover. Like videoCover, the address is
+// built from the video's ID.
+func (s *Server) videoPicture(w http.ResponseWriter, r *http.Request, _ subsonic.Cred) {
+	id := r.URL.Query().Get("id")
+	if !media.ValidID(id) {
+		fail(w, http.StatusBadRequest, "not a video")
+		return
+	}
+	for _, name := range []string{"maxresdefault.jpg", "hqdefault.jpg"} {
+		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://i.ytimg.com/vi/"+id+"/"+name, nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			break
+		}
+		data, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK && len(data) > 0 {
+			w.Header().Set("Content-Type", "image/jpeg")
+			w.Header().Set("Cache-Control", "private, max-age=86400")
+			w.Write(data)
+			return
+		}
+	}
+	fail(w, http.StatusNotFound, "this video has no picture")
+}
+
 type mediaPayload struct {
 	Cred       subsonic.Cred
 	URL        string
 	Prev       ytdlp.Preview
 	Kind       string
 	Collection string // the show or book it goes into; empty groups it by channel (media.Adopt)
+	Part       int    // where in the book, when the app says; 0 puts it after the last part when it is ready
 }
 
 func previewOf(p ytdlp.Preview, existing *media.Item) map[string]any {
@@ -99,6 +171,16 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 			return
 		}
 	}
+	// Several links for one book download side by side and finish in any order, so the app numbers them itself
+	part := 0
+	if raw := q.Get("part"); raw != "" && kind == "audiobook" && collection != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n >= 100000 {
+			fail(w, http.StatusBadRequest, "part must be a number from 1")
+			return
+		}
+		part = n
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	prev, err := s.eng.YT.Preview(ctx, link)
@@ -114,8 +196,8 @@ func (s *Server) mediaImport(w http.ResponseWriter, r *http.Request, cred subson
 		respond(w, http.StatusOK, map[string]any{"existing": it})
 		return
 	}
-	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind, collection}, func(j *jobs.Job) {
-		j.Kind, j.Title, j.Artist, j.MediaID = kind, prev.Title, prev.Channel, prev.ID
+	job, isNew := s.jobs.SubmitWith("media:"+prev.ID, cred.User, mediaPayload{cred, link, prev, kind, collection, part}, func(j *jobs.Job) {
+		j.Kind, j.Title, j.Artist, j.MediaID, j.Parent = kind, prev.Title, prev.Channel, prev.ID, collection
 	})
 	code := http.StatusOK
 	if isNew {
@@ -144,7 +226,7 @@ func (s *Server) runMedia(ctx context.Context, p mediaPayload, set func(func(*jo
 	item := media.Item{ID: p.Prev.ID, Kind: p.Kind, Title: p.Prev.Title, Channel: p.Prev.Channel, Source: p.URL,
 		Duration: int(p.Prev.DurationSec), Size: size, AddedAt: time.Now().Unix(), File: files.Media, Thumb: files.Thumb,
 		AddedBy: p.Cred.User, Description: media.Clip(p.Prev.Description, 5000), Published: p.Prev.Published}
-	if err := s.fileUnder(&item, p.Collection); err != nil {
+	if err := s.fileUnder(&item, p.Collection, p.Part); err != nil {
 		os.RemoveAll(dir)
 		return err
 	}
@@ -162,16 +244,20 @@ func (s *Server) runMedia(ctx context.Context, p mediaPayload, set func(func(*jo
 	return nil
 }
 
-// fileUnder puts an item into the chosen show or book, or one named after its channel. The show may have been deleted
-// while the download ran; then it is grouped by channel, rather than losing the download.
-func (s *Server) fileUnder(it *media.Item, collection string) error {
+// fileUnder puts an item into the chosen show or book (as the given part of a book, or after its last one), or one
+// named after its channel. The show may have been deleted while the download ran; then it is grouped by channel,
+// rather than losing the download.
+func (s *Server) fileUnder(it *media.Item, collection string, part int) error {
 	if !media.HasCollections(it.Kind) {
 		return nil
 	}
 	if c, err := s.media.Collection(collection); err == nil && c.Kind == it.Kind {
 		it.Parent = c.ID
 		if c.Kind == "audiobook" {
-			it.Part = s.media.NextPart(c)
+			it.Part = part
+			if part <= 0 {
+				it.Part = s.media.NextPart(c)
+			}
 		}
 		return nil
 	}

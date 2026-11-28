@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import * as api from "../lib/api";
 import { clock } from "../lib/format";
-import { blobToBase64, pictureToCover } from "../lib/image";
+import { blobToBase64 } from "../lib/image";
 import { guessSong } from "../lib/songguess";
 import type { AddSongRequest, Album, ExternalAlbum, MediaPreview } from "../lib/types";
 import { cx, ui } from "../lib/ui";
@@ -15,7 +15,7 @@ import { Picture } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { ArtistsField, BADGE, LABEL, NUMBER, OPTION, PAGE, PANEL, same } from "../components/fields";
 import { liveJob, requestAddSong, useJobs } from "../stores/downloads";
-import { toast } from "../stores/ui";
+import { cropPicture, toast } from "../stores/ui";
 
 
 const isYouTube = (text: string) => /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtu\.be)\//i.test(text.trim());
@@ -111,7 +111,8 @@ function AlbumSearch({ initial, artist, title, year, onChoose }: { initial: stri
 function NewAlbumFields({ album, preview, onChange }: { album: NewAlbum; preview: MediaPreview; onChange: (album: NewAlbum) => void }) {
   async function pick(file: File) {
     try {
-      const blob = await pictureToCover(file);
+      const blob = await cropPicture(file);
+      if (!blob) return;
       if (album.picture) URL.revokeObjectURL(album.picture.url);
       onChange({ ...album, cover: "upload", picture: { blob, url: URL.createObjectURL(blob) } });
     } catch (e) { toast((e as Error).message); }
