@@ -9,6 +9,8 @@ import { queryClient } from "./lib/query";
 import { Icon } from "./components/Icon";
 import { Ambient, Player } from "./components/Player";
 import { PasswordPrompt } from "./components/PasswordPrompt";
+import { TextPrompt } from "./components/TextPrompt";
+import { watchProgress } from "./stores/spoken";
 import { SheetHost, ToastHost } from "./components/Sheet";
 import { TopBar } from "./components/TopBar";
 import { ME_KEY } from "./stores/admin";
@@ -35,6 +37,7 @@ import { resumeJam } from "./stores/jam";
 import { AddSongs, NewPlaylist } from "./views/PlaylistEditor";
 import { Search } from "./views/Search";
 import { Settings } from "./views/Settings";
+import { Audiobooks, BookPage, CollectionEditor, Podcasts, ShowPage } from "./views/spoken";
 import { Stats } from "./views/Stats";
 import { Users } from "./views/Users";
 
@@ -119,7 +122,8 @@ function SignedIn({ user }: { user: string }) {
     pollJobs();
     const stopNetwork = watchNetwork((connected) => toast(connected ? "Back online" : "You are offline"));
     const stopLook = watchLook(); // after loadSettings: what this device had shows at once, the account's look follows
-    return () => { left = true; stopSaving?.(); stopNetwork(); stopLook(); };
+    const stopProgress = watchProgress(); // where you are in podcasts and audiobooks, the same on every device
+    return () => { left = true; stopSaving?.(); stopNetwork(); stopLook(); stopProgress(); };
   }, [user]);
 
   return (
@@ -154,6 +158,14 @@ function SignedIn({ user }: { user: string }) {
           <Route path="jam/new" element={<NewJamView />} />
           <Route path="jam/:id" element={<JamPage />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="podcasts" element={<Podcasts />} />
+          <Route path="podcasts/new" element={<CollectionEditor kind="podcast" />} />
+          <Route path="podcast/:id" element={<ShowPage />} />
+          <Route path="podcast/:id/edit" element={<CollectionEditor kind="podcast" />} />
+          <Route path="audiobooks" element={<Audiobooks />} />
+          <Route path="audiobooks/new" element={<CollectionEditor kind="audiobook" />} />
+          <Route path="book/:id" element={<BookPage />} />
+          <Route path="book/:id/edit" element={<CollectionEditor kind="audiobook" />} />
           <Route path="users" element={<Users />} />
           <Route path="stats" element={<Stats />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
@@ -179,6 +191,7 @@ export function App() {
       {user ? <SignedIn key={user} user={user} /> : <Login />}
       <SheetHost />
       <PasswordPrompt />
+      <TextPrompt />
       <ToastHost />
     </>
   );

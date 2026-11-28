@@ -95,6 +95,8 @@ export const ui = {
   settingLabel: "grid gap-0.5 min-w-0 [&>b]:font-[650] [&>span]:text-muted [&>span]:text-[.82rem]",
   toggle: "relative flex-none w-12.5 h-7.5 rounded-full bg-surface-3 transition-colors duration-200 aria-checked:bg-accent after:content-[''] after:absolute after:top-0.75 after:left-0.75 after:size-6 after:rounded-full after:bg-white after:shadow-[0_2px_6px_rgb(0_0_0/.3)] after:transition-transform after:duration-200 after:ease-spring aria-checked:after:translate-x-5",
   input: "w-full px-4 py-2.75 rounded-full border border-transparent bg-ghost outline-none focus:border-accent",
+  // A box of several lines: the same field, with corners a paragraph fits in
+  textarea: "w-full min-h-32 px-4 py-3 rounded-[18px] border border-transparent bg-ghost outline-none resize-y focus:border-accent",
 };
 
 /** The picture, title and details at the top of an album, playlist or artist. */

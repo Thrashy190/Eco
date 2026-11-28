@@ -150,6 +150,12 @@ function forward(action: string, value?: unknown): boolean {
     case "shuffle": case "repeat": case "autoplay":
       toast("A Jam plays its queue in order");
       return true;
+    // Podcasts and audiobooks' controls: a Jam's position is the server's, so a skip is a seek from where it is now
+    case "skip": void control("seek", Math.max(0, here.position() + Number(value))); return true;
+    case "chapter": void control(Number(value) < 0 ? "previous" : "next"); return true;
+    case "speed": case "set_speed":
+      toast("A Jam plays at normal speed");
+      return true;
     default:
       return false;
   }

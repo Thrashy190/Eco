@@ -16,6 +16,9 @@ sub Main()
     check("unknown format", streamFormatFor("xyz"), "")
     check("ogg is converted", textOf(playsAsIs("ogg")), "false")
     check("flac plays", textOf(playsAsIs("flac")), "true")
+    ' Imported audio says what its file is: an upload may be MP3; older servers sent no file name, and those were M4A
+    check("uploaded mp3", mediaToSong(ParseJson("{""id"":""up1"",""kind"":""podcast"",""file"":""media.mp3""}"))["suffix"], "mp3")
+    check("imported from youtube", mediaToSong(ParseJson("{""id"":""yt1"",""kind"":""podcast""}"))["suffix"], "m4a")
 
     ' Navidrome's song, with what a phone needs to read it back
     raw = ParseJson("{""id"":""s1"",""title"":""Song"",""artist"":""A; B"",""artistId"":""ar1"",""album"":""Al"",""albumId"":""al1"",""duration"":200,""coverArt"":""al-1"",""suffix"":""FLAC""}")

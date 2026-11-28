@@ -159,15 +159,20 @@ end sub
 
 ' ---- Keys ----
 
+function spokenNow() as Boolean
+    song = m.global.nowPlaying["song"]
+    return song <> invalid and textOf(song["kind"]) <> ""
+end function
+
 sub act(choice as Integer)
     if choice = 0
         player("shuffle")
     else if choice = 1
-        player("previous")
+        if spokenNow() then player("chapter", -1) else player("previous") ' a podcast or a book moves by chapter
     else if choice = 2
         player("toggle")
     else if choice = 3
-        player("next")
+        if spokenNow() then player("chapter", 1) else player("next")
     else if choice = 4
         player("repeat")
     else if choice = 5

@@ -270,10 +270,10 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         applyCommand("toggle", invalid)
         return true
     else if key = "fastforward"
-        seekBy(15)
+        seekBy(skipFor(1))
         return true
     else if key = "rewind"
-        seekBy(-15)
+        seekBy(skipFor(-1))
         return true
     else if key = "replay"
         applyCommand("previous", invalid)
@@ -283,6 +283,12 @@ function onKeyEvent(key as String, press as Boolean) as Boolean
         return true
     end if
     return false
+end function
+
+' The remote's skip: 30 seconds in a podcast or an audiobook (as the web app's default), 15 in music.
+function skipFor(direction as Integer) as Integer
+    if isSpoken(currentSong()) then return direction * 30
+    return direction * 15
 end function
 
 function inTopBar() as Boolean

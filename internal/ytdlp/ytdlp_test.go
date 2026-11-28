@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // yt-dlp rewrites the cookies file it is given. The original (often a read-only mount) must never be handed to it.
@@ -65,5 +66,20 @@ func TestPreviewMusic(t *testing.T) {
 		if got.Track != want[i].Track || strings.Join(got.Artists, "|") != strings.Join(want[i].Artists, "|") || got.Album != want[i].Album || got.Year != want[i].Year {
 			t.Errorf("%s: %+v, want %+v", e.ID, got, want[i])
 		}
+	}
+}
+
+// A podcast keeps the uploader's chapters and when it was published; a video without them gives none.
+func TestPreviewChaptersAndDate(t *testing.T) {
+	es := decodeLines([]byte(`{"id":"a","title":"Ep 1","upload_date":"20240131","chapters":[{"start_time":0,"end_time":90,"title":"Intro"},{"start_time":90,"end_time":300,"title":"Interview"}]}
+{"id":"b","title":"Ep 2","upload_date":"bad"}`))
+	if len(es[0].Chapters) != 2 || es[0].Chapters[1].Start != 90 || es[0].Chapters[1].Title != "Interview" {
+		t.Errorf("chapters = %+v", es[0].Chapters)
+	}
+	if got := time.Unix(es[0].published(), 0).UTC().Format("2006-01-02"); got != "2024-01-31" {
+		t.Errorf("published = %s", got)
+	}
+	if es[1].published() != 0 || es[1].Chapters != nil {
+		t.Errorf("b = %+v", es[1])
 	}
 }

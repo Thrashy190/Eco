@@ -18,8 +18,8 @@ export const PLACES: Place[] = [
   { id: "albums", label: "Albums", icon: "image", to: "/library/albums" },
   { id: "artists", label: "Artists", icon: "user", to: "/library/artists" },
   { id: "songs", label: "Songs", icon: "play", to: "/library/songs" },
-  { id: "podcast", label: "Podcasts", icon: "volume", to: "/library/podcast" },
-  { id: "audiobook", label: "Audiobooks", icon: "history", to: "/library/audiobook" },
+  { id: "podcast", label: "Podcasts", icon: "mic", to: "/podcasts" },
+  { id: "audiobook", label: "Audiobooks", icon: "book", to: "/audiobooks" },
   { id: "offline", label: "Downloads", icon: "offline", to: "/library/offline" },
   { id: "settings", label: "Settings", icon: "sliders", to: "/settings" },
 ];
@@ -43,6 +43,8 @@ export function tabsFrom(chosen: readonly string[] | undefined): Place[] {
 export const pageKey = (pathname: string) => (pathname === "/library" || pathname.startsWith("/library/") ? "/library" : pathname);
 
 const LIBRARY_SCREENS = new Set(["library", "artist", "album", "catalog-album", "album-lookup", "playlist", "import"]);
+/** Podcasts and audiobooks are sections of their own; without their tab, they are part of the library. */
+const SPOKEN_SCREENS: Record<string, string> = { podcasts: "podcast", podcast: "podcast", audiobooks: "audiobook", book: "audiobook" };
 
 /** Which of the tabs stays lit on a screen: the one that leads exactly here, else Library for anything inside it. */
 export function activePlace(tabs: Place[], pathname: string): string | undefined {
@@ -51,12 +53,14 @@ export function activePlace(tabs: Place[], pathname: string): string | undefined
   const screen = pathname.split("/")[1] || "home";
   if (LIBRARY_SCREENS.has(screen) && tabs.some((p) => p.id === "library")) return "library";
   if (screen === "jam" && tabs.some((p) => p.id === "people")) return "people";
+  const spoken = SPOKEN_SCREENS[screen];
+  if (spoken) return tabs.some((p) => p.id === spoken) ? spoken : tabs.some((p) => p.id === "library") ? "library" : undefined;
   return tabs.find((p) => p.id === screen)?.id;
 }
 
 /** The sections of Home, in their original order. */
 export const HOME_SECTIONS: [string, string][] = [
-  ["recent", "Jump back in"], ["downloaded", "Just downloaded"], ["newest", "Recently added"], ["frequent", "Most played"], ["mix", "Mix for you"],
+  ["recent", "Jump back in"], ["listening", "Continue listening"], ["downloaded", "Just downloaded"], ["newest", "Recently added"], ["frequent", "Most played"], ["mix", "Mix for you"],
 ];
 
 /** The saved order, with any section added since then at the end. */

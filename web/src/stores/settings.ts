@@ -36,13 +36,15 @@ export interface Settings {
   cardSize: "small" | "medium" | "large"; // albums, playlists and artists as cards
   syncLook: boolean; // the same look on every device of the account
   favoritesColor: "classic" | "accent"; // the picture of Favorites: its own violet, or the accent (dynamic or chosen)
+  skipBack: number; // seconds the back and forward buttons of podcasts and audiobooks jump (lib/spoken.ts SKIPS)
+  skipForward: number;
 }
 
 export const DEFAULTS: Settings = {
   theme: "system", accent: "#7cf0c0", dynamicAccent: false, tint: true, density: "comfortable", corners: "soft", motion: "full", scrobble: true, offlineMode: false,
   font: "rounded", textSize: "normal", homeOrder: [], homeHidden: [], tabs: DEFAULT_TABS, libraryView: "grid", librarySort: {}, songsFilter: "all", nowPanel: true, deckWidth: 360,
   background: "wash", backgroundBlur: 16, backgroundDim: 0.15, backgroundWash: true, wallpaper: 0, playerStyle: "cover", glass: "frosted",
-  cardSize: "medium", syncLook: true, favoritesColor: "classic",
+  cardSize: "medium", syncLook: true, favoritesColor: "classic", skipBack: 30, skipForward: 30,
 };
 
 export const ACCENTS: [string, string][] = [

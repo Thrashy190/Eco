@@ -8,7 +8,7 @@ import { hasCover, songCover, wallpaperUrl } from "../lib/api";
 import { readableDim, shownDim, type Ink } from "../lib/color";
 import { DECK_MAX, DECK_MIN, deckWidthFor, PAGE_ROOM } from "../lib/look";
 import { clock } from "../lib/format";
-import { SLEEP_MINUTES, sleepCountdown, sleepLabel, sleepLeft } from "../lib/sleep";
+import { SLEEP_CHAPTER, SLEEP_MINUTES, sleepCountdown, sleepLabel, sleepLeft } from "../lib/sleep";
 import { dominantColor, pixelsOf } from "../lib/image";
 import { useRoomy, useWide } from "../lib/media";
 import type { Song } from "../lib/types";
@@ -27,6 +27,7 @@ import { DeviceButton, openDevicePicker } from "./Devices";
 import { Icon, Ring } from "./Icon";
 import { Logo } from "./Logo";
 import { songMenu } from "./songs";
+import { addBookmark, addNote, ChapterLine, ChapterTicks, SpeedButton, SpeedStepper, SpokenPanel, SpokenTransport } from "./SpokenControls";
 
 const NEUTRAL = "60 60 70";
 
@@ -55,9 +56,10 @@ function useSleepLeft(sleepAt: number | null): number {
 }
 
 /** The sleep timer's lengths, and a way to turn it off while one runs. */
-function openSleepMenu(left: number): void {
+function openSleepMenu(left: number, spoken: boolean): void {
   const choose = (minutes: number) => { player.setSleepTimer(minutes); player.sleepToast(minutes); };
-  openSheet("Sleep timer", left > 0 ? `Music pauses in ${sleepCountdown(left)}` : "Pause the music after", [
+  openSheet("Sleep timer", left > 0 ? `Pauses in ${sleepCountdown(left)}` : spoken ? "Pause after" : "Pause the music after", [
+    spoken && { icon: "chapters" as const, label: "End of this chapter", run: () => choose(SLEEP_CHAPTER) },
     ...SLEEP_MINUTES.map((minutes) => ({ icon: "moon" as const, label: sleepLabel(minutes), run: () => choose(minutes) })),
     left > 0 && { icon: "close" as const, label: "Turn off the timer", run: () => choose(0) },
   ]);
@@ -67,12 +69,12 @@ function openSleepMenu(left: number): void {
  * The sleep timer: a moon, and while it runs the time left beside it in the accent colour. When the queue ends first,
  * the timer goes with it (stores/player.ts).
  */
-function SleepButton({ sleepAt, className, size = 20 }: { sleepAt: number | null; className: string; size?: number }) {
+function SleepButton({ sleepAt, className, size = 20, spoken = false }: { sleepAt: number | null; className: string; size?: number; spoken?: boolean }) {
   const left = useSleepLeft(sleepAt);
   const on = left > 0;
   return (
     <button className={cx(className, on && "w-auto! px-3 gap-1.5 flex! items-center")} data-on={on || undefined} aria-label={on ? `Sleep timer, ${sleepCountdown(left)} left` : "Sleep timer"}
-      title={on ? `Music pauses in ${sleepCountdown(left)}` : "Sleep timer"} onClick={() => openSleepMenu(left)}>
+      title={on ? `Music pauses in ${sleepCountdown(left)}` : "Sleep timer"} onClick={() => openSleepMenu(left, spoken)}>
       <Icon name="moon" size={size} />{on && <span className="text-[.82rem] font-bold tabular-nums">{sleepCountdown(left)}</span>}
     </button>
   );
@@ -97,14 +99,16 @@ function Hairline() {
   return <i className="absolute inset-x-5 bottom-0.5 h-0.5 rounded-full bg-accent origin-left" style={{ transform: `scaleX(${ratio})` }} />;
 }
 
-function SeekBar({ inline }: { inline?: boolean }) {
+function SeekBar({ inline, song }: { inline?: boolean; song?: Song | null }) {
   const position = player.useTime((t) => t.position);
   const length = player.useTime((t) => t.length);
   const [dragging, setDragging] = useState<number | null>(null);
   const shown = dragging ?? (length ? (position / length) * 1000 : 0);
   const finish = () => { if (dragging !== null) { player.seek((dragging / 1000) * length); setDragging(null); } };
   const at = clock(dragging !== null ? (dragging / 1000) * length : position);
-  const slider = <input type="range" className={cx("range", inline && "flex-1 min-w-0")} style={{ "--fill": shown / 1000 } as React.CSSProperties} min="0" max="1000" value={Math.round(shown)} aria-label="Position" onChange={(e) => setDragging(Number(e.target.value))} onPointerUp={finish} onKeyUp={finish} />;
+  const input = <input type="range" className={cx("range", inline ? "w-full" : "w-full block")} style={{ "--fill": shown / 1000 } as React.CSSProperties} min="0" max="1000" value={Math.round(shown)} aria-label="Position" onChange={(e) => setDragging(Number(e.target.value))} onPointerUp={finish} onKeyUp={finish} />;
+  // Podcasts and audiobooks show where their chapters start along the bar
+  const slider = song && player.isSpoken(song) ? <div className={cx("relative", inline && "flex-1 min-w-0")}>{input}<ChapterTicks song={song} /></div> : inline ? <div className="flex-1 min-w-0 flex">{input}</div> : input;
   const time = "text-muted text-[.75rem] tabular-nums min-w-[2.6em]";
   if (inline) return <div className="flex items-center gap-2 flex-1 min-w-0"><span className={cx(time, "text-right")}>{at}</span>{slider}<span className={time}>{clock(length)}</span></div>;
   return (
@@ -215,7 +219,7 @@ function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: (
       <div className="self-stretch flex items-center justify-between wide:col-span-full">
         <button className="w-11 h-9 grid place-items-center -ml-2 text-text" aria-label="Minimise" onClick={onClose}><Icon name="down" size={28} /></button>
         <div className="flex items-center gap-1 -mr-2">
-          <SleepButton sleepAt={shown.sleepAt} className="tap h-9 min-w-11 grid place-items-center rounded-full text-text data-on:text-accent data-on:bg-[rgb(var(--glow)/.16)]" size={22} />
+          <SleepButton sleepAt={shown.sleepAt} spoken={spoken} className="tap h-9 min-w-11 grid place-items-center rounded-full text-text data-on:text-accent data-on:bg-[rgb(var(--glow)/.16)]" size={22} />
           {onFullScreen && <button className="hidden wide:grid w-11 h-9 place-items-center text-text" aria-label="Full screen" title="Full screen" onClick={onFullScreen}><Icon name="expand" size={22} /></button>}
         </div>
       </div>
@@ -236,30 +240,37 @@ function NowPlaying({ open, onClose, onFullScreen }: { open: boolean; onClose: (
         {look !== "minimal" && (
           <div className={cx("grid gap-0.5", column)}>
             <h2 className="font-title text-[1.7rem] font-bold tracking-[-.03em] leading-[1.1] wrap-anywhere wide:text-[2rem]">{song.title}</h2>
-            <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
+            {spoken ? <span className="text-muted font-semibold truncate">{[song.album !== song.title && song.album, song.artist].filter(Boolean).join(" · ")}</span> : <ArtistLinks className="text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />}
           </div>
         )}
-        <div className={column}><SeekBar /></div>
-        <div className={cx("flex items-center justify-between", column)}>
+        {spoken && <ChapterLine song={song} speed={speed} className={column} />}
+        <div className={column}><SeekBar song={song} /></div>
+        {spoken ? <SpokenTransport playing={playing} loading={loading} size="large" className={column} /> : <div className={cx("flex items-center justify-between", column)}>
           <button className={ghost} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" /></button>
           <button className={ghost} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={30} /></button>
           <button className="tap size-19 grid place-items-center rounded-full bg-accent text-accent-ink shadow-[0_12px_32px_rgb(var(--glow)/.35)] active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={24} /> : <Icon name={playing ? "pause" : "play"} size={24} />}</button>
           <button className={ghost} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={30} /></button>
           <button className={ghost} data-on={repeat !== "off" || undefined} data-mode={repeat} aria-label="Repeat" onClick={player.cycleRepeat}><Icon name="repeat" /></button>
-        </div>
+        </div>}
         {shown.canVolume && <VolumeSlider volume={shown.volume} className={column} />}
         <DeviceButton name={shown.deviceName} />
         <div className={cx("flex gap-2.5", column)}>
           {!spoken && <button className={heart} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} /></button>}
           {!spoken && <button className={roundToggle} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" /></button>}
-          {spoken && <button className={ghostWide} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${speed}×`}</button>}
-          <button className={ghostWide} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={20} />{saved ? "Saved offline" : "Save offline"}</button>
+          {spoken && <SpeedStepper speed={speed} />}
+          {spoken && <button className={roundToggle} aria-label="Add a bookmark" title="Bookmark this moment" onClick={() => void addBookmark(song, player.useTime.getState().position)}><Icon name="bookmark" size={20} /></button>}
+          {spoken && <button className={roundToggle} aria-label="Add a note" title="A note at this moment" onClick={() => void addNote(song, player.useTime.getState().position)}><Icon name="note" size={20} /></button>}
+          {spoken
+            ? <button className={roundToggle} data-on={saved || undefined} aria-label={saved ? "Remove from this device" : "Save offline"} title={saved ? "Saved on this device" : "Save offline"} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={20} /></button>
+            : <button className={ghostWide} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={20} />{saved ? "Saved offline" : "Save offline"}</button>}
           {/* Round, like the heart: as a wide button it left "Save offline" too little room, and the label broke in two */}
           <button className={roundToggle} aria-label="More" title="More" onClick={() => songMenu(song, navigate)}><Icon name="more" size={20} /></button>
         </div>
       </div>
       <div className="contents wide:block wide:min-h-0 wide:max-h-full wide:overflow-y-auto wide:no-scrollbar">
-        <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2 mb-1 [&:not(:first-child)]:mt-5" />
+        {spoken
+          ? <SpokenPanel song={song} className={cx(column, "mx-auto mt-2")} next={upcoming.length > 0 ? <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={false} heading="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2 mb-1 [&:not(:first-child)]:mt-5" /> : undefined} />
+          : <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="text-[.8rem] uppercase tracking-[.08em] text-muted mt-2 mb-1 [&:not(:first-child)]:mt-5" />}
       </div>
     </section>
     </>
@@ -281,11 +292,15 @@ function Capsule({ onOpen, expanded, onFullScreen }: { onOpen: () => void; expan
         {isRemote ? <span className={onDevice}>{`Playing on ${deviceName}`}</span> : <ArtistLinks name={song.artist} id={song.artistId} className="text-muted text-[.82rem]" />}
       </div>
       {!spoken && <button className={heartPlain} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} size={20} /></button>}
-      <button className={ghostSmall} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={20} /></button>
-      <button className="tap flex-none size-11 grid place-items-center rounded-full bg-text text-bg hover:scale-105" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={20} /> : <Icon name={playing ? "pause" : "play"} size={18} />}</button>
-      <button className={ghostSmall} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={20} /></button>
-      <SeekBar inline />
-      {spoken && <button className={ghostSmall} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${shown.speed}×`}</button>}
+      {spoken ? <SpokenTransport playing={playing} loading={loading} size="small" className="flex-none gap-0.5" /> : (
+        <>
+          <button className={ghostSmall} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={20} /></button>
+          <button className="tap flex-none size-11 grid place-items-center rounded-full bg-text text-bg hover:scale-105" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={20} /> : <Icon name={playing ? "pause" : "play"} size={18} />}</button>
+          <button className={ghostSmall} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={20} /></button>
+        </>
+      )}
+      <SeekBar inline song={song} />
+      {spoken && <SpeedButton speed={shown.speed} className={cx(ghostSmall, "w-auto! px-2 font-bold tabular-nums text-[.85rem]")} />}
       <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={20} /></button>
       {shown.canVolume && <VolumeSlider volume={shown.volume} className="hidden min-[1000px]:flex w-28 flex-none" />}
       <button className={ghostSmall} aria-label={expanded ? "Show the deck" : "Open the player"} title="Now playing" onClick={onOpen}><Icon name="panel" size={20} /></button>
@@ -316,30 +331,35 @@ function DeckNow({ song }: { song: Song }) {
         <div className="flex items-start gap-2 mt-3.5">
           <div className="flex-1 min-w-0 grid gap-0.5">
             <h2 className={cx("font-title font-bold tracking-[-.025em] leading-[1.12]", look === "minimal" || look === "backdrop" ? "text-[2rem] leading-[1.02] tracking-[-.035em] line-clamp-3" : "text-[1.4rem] line-clamp-2")} title={song.title}>{song.title}</h2>
-            {isRemote ? <span className={onDevice}>{`Playing on ${deviceName}`}</span> : <ArtistLinks className="truncate text-muted font-medium text-[.92rem]" name={song.artist} id={song.artistId} />}
+            {isRemote ? <span className={onDevice}>{`Playing on ${deviceName}`}</span> : spoken ? <span className="truncate text-muted font-medium text-[.92rem]">{song.artist}</span> : <ArtistLinks className="truncate text-muted font-medium text-[.92rem]" name={song.artist} id={song.artistId} />}
           </div>
           {!spoken && <button className={heartPlain} data-on={starred || undefined} aria-label="Favorite" aria-pressed={starred} onClick={() => void toggleFavorite(song)}><Icon name={starred ? "heart-fill" : "heart"} size={22} /></button>}
           <button className={ghostSmall} aria-label="More" onClick={() => songMenu(song, navigate)}><Icon name="more" size={20} /></button>
         </div>
-        <div className="mt-1"><SeekBar /></div>
-        <div className="flex items-center justify-between">
+        {spoken && <ChapterLine song={song} speed={shown.speed} className="mt-1.5" />}
+        <div className="mt-1"><SeekBar song={song} /></div>
+        {spoken ? <SpokenTransport playing={playing} loading={loading} size="medium" /> : <div className="flex items-center justify-between">
           <button className={ghostSmall} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" size={18} /></button>
           <button className={ghostSmall} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={24} /></button>
           <button className="tap flex-none size-14 grid place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_28px_rgb(var(--glow)/.3)] hover:scale-105 active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={22} /> : <Icon name={playing ? "pause" : "play"} size={22} />}</button>
           <button className={ghostSmall} aria-label="Next" onClick={() => player.next()}><Icon name="next" size={24} /></button>
           <button className={ghostSmall} data-on={repeat !== "off" || undefined} data-mode={repeat} aria-label="Repeat" onClick={player.cycleRepeat}><Icon name="repeat" size={18} /></button>
-        </div>
+        </div>}
         <div className="flex items-center gap-1 mt-1">
           <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title={isRemote ? `Playing on ${deviceName}` : "Choose a device"} onClick={openDevicePicker}><Icon name="devices" size={19} /></button>
           <button className={ghostSmall} data-on={saved || undefined} aria-label={saved ? "Remove from this device" : "Save offline"} title={saved ? "Saved on this device" : "Save offline"} onClick={() => void (saved ? removeOffline(song) : saveOffline(song))}><Icon name={saved ? "check" : "offline"} size={19} /></button>
           {!spoken && <button className={ghostSmall} data-on={shown.autoplay || undefined} aria-label="Autoplay" aria-pressed={shown.autoplay} title={AUTOPLAY_HINT} onClick={() => toggleAutoplay(shown.autoplay)}><Icon name="sparkle" size={19} /></button>}
-          <SleepButton sleepAt={shown.sleepAt} className={ghostSmall} size={19} />
-          {spoken && <button className={ghostSmall} aria-label="Playback speed" onClick={player.cycleSpeed}>{`${shown.speed}×`}</button>}
+          <SleepButton sleepAt={shown.sleepAt} spoken={spoken} className={ghostSmall} size={19} />
+          {spoken && <SpeedButton speed={shown.speed} className={cx(ghostSmall, "w-auto! px-2 font-bold tabular-nums text-[.85rem]")} />}
+          {spoken && <button className={ghostSmall} aria-label="Add a bookmark" title="Bookmark this moment" onClick={() => void addBookmark(song, player.useTime.getState().position)}><Icon name="bookmark" size={19} /></button>}
+          {spoken && <button className={ghostSmall} aria-label="Add a note" title="A note at this moment" onClick={() => void addNote(song, player.useTime.getState().position)}><Icon name="note" size={19} /></button>}
           {shown.canVolume && <VolumeSlider volume={shown.volume} className="flex-1 min-w-0 pl-1" />}
         </div>
       </div>
       <div className="flex-1 min-h-24 overflow-y-auto px-2 pb-3 border-t border-line [scrollbar-width:thin]">
-        <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" fill />
+        {spoken
+          ? <SpokenPanel song={song} heading="px-1 pt-3" next={upcoming.length > 0 ? <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={false} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" /> : undefined} />
+          : <Queue upcoming={upcoming} index={index} source={shown.source} autoplay={shown.autoplay} heading="px-2 pt-3 pb-1 text-[.8rem] font-semibold text-muted" fill />}
       </div>
     </div>
   );
@@ -440,10 +460,23 @@ function Stage({ onClose }: { onClose: () => void }) {
         <div className="min-w-0 grid gap-[1.2vh]">
           {song.album && <span className="text-[clamp(.9rem,1.3vw,1.3rem)] uppercase tracking-[.14em] font-semibold text-muted truncate">{song.album}</span>}
           <h2 className="font-title font-bold text-[clamp(2.4rem,5.6vw,6.5rem)] leading-[.98] tracking-[-.04em] wrap-anywhere line-clamp-3" title={song.title}>{song.title}</h2>
-          <ArtistLinks className="text-[clamp(1.1rem,2vw,2.1rem)] text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />
+          {spoken ? <span className="text-[clamp(1.1rem,2vw,2.1rem)] text-muted font-semibold truncate">{song.artist}</span> : <ArtistLinks className="text-[clamp(1.1rem,2vw,2.1rem)] text-muted font-semibold justify-self-start" name={song.artist} id={song.artistId} />}
           <div className={cx("min-w-0 grid gap-3 mt-[3vh] max-w-[760px]", fade)}>
-            <SeekBar />
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+            {spoken && <ChapterLine song={song} speed={shown.speed} className="text-[1rem]" />}
+            <SeekBar song={song} />
+            {spoken ? (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+                <SpokenTransport playing={playing} loading={loading} size="stage" className="gap-2" />
+                <span className="flex-1 min-w-4" />
+                <span className="flex items-center gap-2">
+                  <SpeedStepper speed={shown.speed} />
+                  <SleepButton sleepAt={shown.sleepAt} spoken className={ghostSmall} size={22} />
+                  <button className={ghostSmall} aria-label="Add a bookmark" title="Bookmark this moment" onClick={() => void addBookmark(song, player.useTime.getState().position)}><Icon name="bookmark" size={22} /></button>
+                  <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={22} /></button>
+                  {shown.canVolume && <VolumeSlider volume={shown.volume} className="w-36 flex-none" />}
+                </span>
+              </div>
+            ) : <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
               <button className={bigGhost} data-on={shuffle || undefined} aria-label="Shuffle" aria-pressed={shuffle} onClick={player.toggleShuffle}><Icon name="shuffle" size={24} /></button>
               <button className={bigGhost} aria-label="Previous" onClick={player.previous}><Icon name="prev" size={32} /></button>
               <button className="tap size-20 grid place-items-center rounded-full bg-accent text-accent-ink shadow-[0_14px_36px_rgb(var(--glow)/.35)] hover:scale-105 active:scale-[.96]" aria-label={playing ? "Pause" : "Play"} onClick={player.toggle}>{loading ? <Ring percent={-1} size={28} /> : <Icon name={playing ? "pause" : "play"} size={28} />}</button>
@@ -456,7 +489,7 @@ function Stage({ onClose }: { onClose: () => void }) {
                 <button className={ghostSmall} data-on={isRemote || undefined} aria-label="Choose a device" title="Choose a device" onClick={openDevicePicker}><Icon name="devices" size={22} /></button>
                 {shown.canVolume && <VolumeSlider volume={shown.volume} className="w-36 flex-none" />}
               </span>
-            </div>
+            </div>}
           </div>
         </div>
       </div>

@@ -35,3 +35,23 @@ export function openSheet(title: string, subtitle: string | undefined, items: (S
   useSheet.setState({ sheet: { title, subtitle, items: items.filter((item): item is SheetItem => Boolean(item)) } });
 }
 export const closeSheet = () => useSheet.setState({ sheet: null });
+
+/** What a text window asks for: a name for a chapter, a note… With `option`, a box to tick goes with it. */
+export interface TextAsk {
+  title: string;
+  label: string;
+  initial?: string;
+  multiline?: boolean;
+  confirm?: string;
+  option?: { label: string; on: boolean };
+  maxLength?: number;
+}
+export interface TextAnswer { text: string; option: boolean }
+
+export const useTextAsk = create<{ ask: TextAsk | null; answer: ((value: TextAnswer | null) => void) | null }>(() => ({ ask: null, answer: null }));
+
+/** Ask for some text in a window. Resolves to what was typed, or null when cancelled. */
+export function askText(ask: TextAsk): Promise<TextAnswer | null> {
+  useTextAsk.getState().answer?.(null); // only one window at a time
+  return new Promise((resolve) => useTextAsk.setState({ ask, answer: resolve }));
+}

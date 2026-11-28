@@ -29,10 +29,12 @@ import { MediaLibrary } from "./media";
 
 const TABS: [string, string][] = [
   ["recent", "Recent"], ["playlists", "Playlists"], ["albums", "Albums"], ["artists", "Artists"], ["songs", "Songs"],
-  ["podcast", "Podcasts"], ["audiobook", "Audiobooks"], ["other", "Other"], ["offline", "Downloads"],
+  // Podcasts and Audiobooks are sections of their own: these chips lead there (the redirect below), so they can be found
+  // without a tab of their own
+  ["podcast", "Podcasts"], ["audiobook", "Audiobooks"], ["other", "Other audio"], ["offline", "Downloads"],
 ];
 const OFFLINE_TABS = new Set(["recent", "playlists", "albums", "podcast", "audiobook", "other", "offline"]);
-const MEDIA_TABS = new Set<string>(["podcast", "audiobook", "other"]);
+const MEDIA_TABS = new Set<string>(["other"]);
 
 export function Library() {
   const { tab } = useParams();
@@ -40,6 +42,9 @@ export function Library() {
   offline.useOfflineVersion();
   // Favorites used to be a tab and Videos no longer exist: old links and home-screen shortcuts still land somewhere
   if (tab === "favorites") return <Navigate to={`/playlist/${FAVORITES_ID}`} replace />;
+  // Podcasts and audiobooks became sections of their own; their old addresses are on home screens
+  if (tab === "podcast") return <Navigate to="/podcasts" replace />;
+  if (tab === "audiobook") return <Navigate to="/audiobooks" replace />;
   const tabs = online ? TABS : TABS.filter(([key]) => OFFLINE_TABS.has(key));
   const active = tabs.some(([key]) => key === tab) ? tab! : "recent";
   return (

@@ -113,7 +113,7 @@ func (s *Store) BannerPath(user string) string { return filepath.Join(s.dir(user
 
 // SetBanner stores the cover of a person's profile, under the same rules as any other picture.
 func (s *Store) SetBanner(user string, image []byte) (State, error) {
-	if err := saveJPEG(s.BannerPath(user), image); err != nil {
+	if err := SaveJPEG(s.BannerPath(user), image); err != nil {
 		return State{}, err
 	}
 	return s.update(user, func(st *State) { st.Banner = time.Now().UnixMilli() })

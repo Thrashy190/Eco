@@ -16,6 +16,9 @@ export interface Song {
   mediaId?: string;
   kind?: MediaKind;
   size?: number;
+  /** Imported audio only: the show or book it is in, and the picture to show for it (the book's own, when it has one) */
+  collection?: string;
+  art?: string;
   /** Only in the player's queue: added by hand ("Play next", "Add to queue"), not part of the album or playlist. */
   queued?: boolean;
   /** Only in the player's queue: picked by Autoplay when the queue ran out. */
@@ -269,6 +272,58 @@ export interface MediaItem {
   duration: number;
   size?: number;
   added_at?: number;
+  /** The show or book it is in, and its place in a book */
+  parent?: string;
+  part?: number;
+  added_by?: string;
+  description?: string;
+  published?: number;
+}
+
+/** A podcast show or an audiobook, as /api/shows and /api/books describe one. */
+export interface Collection {
+  id: string;
+  kind: "podcast" | "audiobook";
+  title: string;
+  author: string;
+  narrator?: string;
+  series?: string;
+  series_index?: number;
+  description?: string;
+  created_by?: string;
+  created_at: number;
+  updated_at: number;
+  cover?: number;
+  count: number;
+  duration: number;
+  latest: number;
+  thumb?: string;
+  can_edit: boolean;
+}
+
+export type CollectionEdit = Pick<Collection, "title" | "author" | "narrator" | "series" | "series_index" | "description">;
+
+/** A bookmark, or a note when it has text. Private unless shared. */
+export interface Mark {
+  id: string;
+  item: string;
+  at: number;
+  note?: string;
+  shared?: boolean;
+  created: number;
+  updated: number;
+}
+
+/** Someone else's shared note. */
+export interface SharedMark extends Mark {
+  user: string;
+  name?: string;
+}
+
+export interface ContinueItem {
+  item: MediaItem;
+  collection?: Omit<Collection, "count" | "duration" | "latest" | "thumb" | "can_edit">;
+  progress: { position: number; finished?: boolean; at: number };
 }
 
 export interface MediaPreview {
@@ -279,6 +334,9 @@ export interface MediaPreview {
   thumbnail?: string;
   live: boolean;
   existing?: MediaItem;
+  /** How many chapters its uploader marked (they come with it), and when it was published */
+  chapters?: number;
+  published?: number;
   /** What YouTube Music says the song is, when the video is one of its songs. */
   music?: { track: string; artists?: string[]; album?: string; year?: number };
 }
@@ -322,7 +380,7 @@ export interface LibraryState {
   avatar?: number;
 }
 
-export type CollectionKind = "favorites" | "playlist" | "album";
+export type CollectionKind = "favorites" | "playlist" | "album" | "podcast" | "book";
 
 /** What "Download" remembers about a favorites list, a playlist or an album. */
 export interface CollectionSpec {

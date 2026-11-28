@@ -50,7 +50,7 @@
 - On a Roku TV: browse with the remote, or send music to the TV from your phone. The player fills the screen with the album, in your colours. You install it yourself, with no store involved ([docs/tv.md](docs/tv.md)).
 - On your computer: the desktop app for Linux, macOS and Windows is the same app in its own window. Closing it keeps the music playing, the media keys work, it plays your downloads with no connection and it updates itself ([docs/desktop.md](docs/desktop.md)).
 - Make playlists from the songs you have, and add to them from any song's menu.
-- Paste a YouTube link to keep its audio as a podcast or an audiobook. Those remember where you stopped and play at your speed.
+- Podcasts and audiobooks have sections of their own: make a show or a book, add episodes or parts from a YouTube link or a file on your device, and carry on where you stopped on any device, with chapters, 30-second skips, bookmarks and notes.
 
 **Find and download**
 
@@ -142,20 +142,34 @@ Use whichever fits you; they all end up in the same library.
 | **`scripts/upload.sh`** | Your own recordings: converts, tags and uploads them. |
 | **A YouTube link to a song** | **Library ▸ Songs ▸ Add a song** (or paste it in the search box and choose *Song*): you give its title, artists and album, and it joins your music like any download. |
 | **A YouTube link** (podcast, audiobook...) | Paste it in the search box. Only the audio is kept, apart from your music, in `data/media/`. |
+| **A podcast or audiobook file** | **Podcasts** or **Audiobooks ▸** a show or book **▸ Add ▸ Upload files**: MP3, M4A/M4B, AAC, Ogg/Opus, FLAC or WAV, up to `MEDIA_UPLOAD_MAX_MB`. |
 | **Lidarr** (`--profile downloads`) | Whole albums through the \*arr stack. [Guide](docs/downloads-stack.md). |
 
 Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and with a cover.
 
 ## Podcasts and audiobooks
 
-Paste a YouTube link into the search box (a single video, not a playlist). Eco shows what it is, you choose a category, and it downloads **only the audio** in the background:
+**Podcasts** and **Audiobooks** are sections of their own, reached from the Library or as tabs of their own (Settings ▸ Tabs). Episodes belong to a **show** and parts to a **book**, which anyone can make: a title, an author or host, for a book its narrator and series, a description and a picture.
 
-| Category | Good for | Extras |
-|---|---|---|
-| **Podcast**, **Audiobook** | long listening | remembers where you stopped, speed button (0.75x to 2x), can be saved for offline |
-| **Other** | talks, lectures, sounds | the same |
+Add to one in two ways:
 
-These files live in `data/media/<category>/<video id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. Eco stores and serves them itself. Only YouTube links are accepted.
+- **A YouTube link**: paste it into the search box (a single video, not a playlist), choose *Podcast* or *Audiobook* and the show or book. Only the audio is downloaded, with the chapters its uploader marked.
+- **A file from your device**: on the show's or book's page, **Add ▸ Upload files**. A whole book in one file (an `.m4b` keeps its chapters and cover), or one file per part: they join in the order of their names. Files go in pieces, so a large book survives a dropped connection.
+
+While one plays, the player changes for it:
+
+| | |
+|---|---|
+| **Back / forward** | 30 seconds by default (10 to 60 in Settings), also on the lock screen |
+| **Chapters** | previous and next move by chapter; the list shows each one; anyone can **mark a chapter** where a part begins, and everyone sees it |
+| **Speed** | 0.5x to 3x in steps of 0.05, remembered for each show or book |
+| **Sleep timer** | also **at the end of this chapter** |
+| **Bookmarks and notes** | yours alone, unless you share a note with everyone who listens |
+| **Where you stopped** | kept on the server: carry on from another device; after a long pause it steps back a few seconds |
+
+Home and your profile show what you are in the middle of. Everything can be saved for offline, a whole book or show at once.
+
+These files live in `data/media/<category>/<id>/`, **not** in your music folder, so Navidrome never sees them or mixes them into your artists, albums or shuffled mixes. Eco stores and serves them itself. Only YouTube links are accepted, never other addresses. Anything else imported from a link (talks, lectures, sounds) is under **Library ▸ Other audio**.
 
 ## Use it from your phone
 

@@ -1,6 +1,7 @@
 // The people on this server and their profiles, read like an artist's page: what they play most this month (the order,
 // never how often), their public playlists and their favorites. Each part shows unless its owner hid it, which the server
 // decides; a profile needs a connection.
+import { ContinueListening, RecentMarks } from "./spoken";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState, type CSSProperties } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -166,7 +167,10 @@ function ProfileBody({ profile }: { profile: Profile }) {
       <div className={ui.actions}>
         {profile.top.length > 0 && <PlayButtons songs={profile.top} />}
         {profile.me && <Link className={ui.pill} to="/settings"><Icon name="pencil" size={16} />Edit profile</Link>}
+        {profile.me && <Link className={ui.pill} to="/stats"><Icon name="chart" size={16} />Your statistics</Link>}
       </div>
+      {profile.me && <ContinueListening />}
+      {profile.me && <RecentMarks />}
       {profile.top.length > 0 && (
         <Section title="Top this month" action={hidden.hide_top ? <OnlyYou /> : undefined}>
           <SongList songs={profile.top} ranked />

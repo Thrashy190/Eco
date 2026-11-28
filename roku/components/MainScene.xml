@@ -13,6 +13,7 @@
   <script type="text/brightscript" uri="pkg:/components/lib/api.brs" />
   <script type="text/brightscript" uri="pkg:/components/lib/request.brs" />
   <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+  <script type="text/brightscript" uri="pkg:/components/lib/spoken.brs" />
   <script type="text/brightscript" uri="pkg:/components/Player.brs" />
   <script type="text/brightscript" uri="pkg:/components/Connect.brs" />
   <script type="text/brightscript" uri="pkg:/components/Theme.brs" />

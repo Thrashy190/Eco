@@ -4,6 +4,9 @@
 /** The lengths offered, in minutes. Only these are accepted, from this device or another one. */
 export const SLEEP_MINUTES = [5, 10, 15, 20, 30, 45, 60] as const;
 
+/** Not minutes: "at the end of this chapter", for podcasts and audiobooks (the end of the item when it has none). */
+export const SLEEP_CHAPTER = -1;
+
 /** A length someone asked for, or 0 (turn the timer off) for anything that is not one of the offered lengths. */
 export function sleepMinutes(value: unknown): number {
   const minutes = Number(value);

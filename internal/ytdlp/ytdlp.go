@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Thrashy190/eco/internal/match"
 )
@@ -121,6 +122,25 @@ type entry struct {
 	Year     int      `json:"release_year"`
 	Thumb    string   `json:"thumbnail"`
 	Live     bool     `json:"is_live"`
+	// Only read for imports of podcasts and audiobooks (Preview)
+	Chapters    []Chapter `json:"chapters"`
+	UploadDate  string    `json:"upload_date"` // YYYYMMDD
+	Description string    `json:"description"`
+}
+
+// Chapter is one of a video's chapters, as its uploader marked them (the timestamps in its description).
+type Chapter struct {
+	Start float64 `json:"start_time"`
+	Title string  `json:"title"`
+}
+
+// published turns yt-dlp's upload date into Unix seconds, or 0 when it has none.
+func (e entry) published() int64 {
+	t, err := time.Parse("20060102", e.UploadDate)
+	if err != nil {
+		return 0
+	}
+	return t.Unix()
 }
 
 func (e entry) video(music bool) match.Video {
@@ -267,6 +287,10 @@ type Preview struct {
 	// What YouTube Music says the song is, when the video is one of its songs ("Artist - Topic" channels and
 	// music.youtube.com). Empty for anything else.
 	Music Music
+	// What a podcast or an audiobook keeps: the uploader's chapters, when it was published (Unix seconds) and its text.
+	Chapters    []Chapter
+	Published   int64
+	Description string
 }
 
 // Music is a video's song information, as YouTube Music gives it.
@@ -302,7 +326,8 @@ func (r *Runner) Preview(ctx context.Context, link string) (Preview, error) {
 	}
 	e := es[0]
 	v := e.video(false)
-	return Preview{ID: e.ID, Title: e.Title, Channel: v.Channel, Thumbnail: e.Thumb, DurationSec: e.Duration, Live: e.Live, Music: e.music()}, nil
+	return Preview{ID: e.ID, Title: e.Title, Channel: v.Channel, Thumbnail: e.Thumb, DurationSec: e.Duration, Live: e.Live, Music: e.music(),
+		Chapters: e.Chapters, Published: e.published(), Description: e.Description}, nil
 }
 
 // MediaFiles are the files DownloadMedia produced inside its folder.

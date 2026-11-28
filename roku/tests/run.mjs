@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Only the files with no SceneGraph in them: api.brs reads m.global, which only exists on a TV
-const libs = ["queue.brs", "format.brs"].map((f) => join(root, "components", "lib", f));
+const libs = ["queue.brs", "format.brs", "spoken.brs"].map((f) => join(root, "components", "lib", f));
 const cli = join(root, "node_modules", ".bin", "brs-cli");
 
 let failed = false;

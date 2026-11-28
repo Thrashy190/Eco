@@ -4,11 +4,13 @@ import { create } from "zustand";
 import { getRandomSongs, hasCover, scrobble, songCover, sourceUrl, streamUrl } from "../lib/api";
 import { isDesktop } from "../lib/desktop";
 import * as order from "../lib/queue";
-import { sleepLabel, sleepLeft, sleepMinutes } from "../lib/sleep";
+import { SLEEP_CHAPTER, sleepLabel, sleepLeft, sleepMinutes } from "../lib/sleep";
+import { chapterAt, chapterEnd, cleanSpeed, nextChapterStart, previousChapterStart, rewindAfterPause, skipLength, skipTarget, SPEED_PRESETS } from "../lib/spoken";
 import type { LibraryEntry, Song } from "../lib/types";
 import { touch } from "./library";
 import * as offline from "./offline";
 import { isOnline, settings } from "./settings";
+import * as spoken from "./spoken";
 import { toast } from "./ui";
 
 export type Repeat = "off" | "all" | "one";
@@ -26,6 +28,7 @@ interface PlayerState {
   blocked: boolean; // the browser refused to start playing until someone taps the screen
   loading: boolean; // asked to play and no sound yet: without showing it, a slow start looks like the app froze
   sleepAt: number | null; // when the sleep timer pauses the music (Date.now() time), or null with no timer
+  sleepChapter: boolean; // the timer is "at the end of this chapter": sleepAt follows the position and the speed
 }
 
 /** Everything another device needs to take over playback. */
@@ -53,7 +56,6 @@ let jamForward: Forward | null = null;
 export const setJamForward = (fn: Forward | null) => { jamForward = fn; };
 const remote = (action: string, value?: unknown) => !applying && ((jamForward?.(action, value) ?? false) || (forward?.(action, value) ?? false));
 
-const SPEEDS = [1, 1.25, 1.5, 1.75, 2, 0.75];
 
 const readNumber = (key: string): number | null => {
   try {
@@ -68,8 +70,8 @@ const remember = (key: string, value: number) => { try { localStorage.setItem(ke
 const audio = document.getElementById("audio") as HTMLAudioElement;
 
 export const usePlayer = create<PlayerState>(() => ({
-  queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false, sleepAt: null,
-  speed: SPEEDS.includes(readNumber("eco.speed") ?? 1) ? readNumber("eco.speed") ?? 1 : 1,
+  queue: [], index: -1, source: "", shuffle: false, repeat: "off", playing: false, blocked: false, loading: false, sleepAt: null, sleepChapter: false,
+  speed: cleanSpeed(readNumber("eco.speed") ?? 1),
   autoplay: readNumber("eco.autoplay") === 1,
   volume: Math.min(Math.max(readNumber("eco.volume") ?? 1, 0), 1),
 }));
@@ -99,18 +101,90 @@ export function setVolume(volume: number): void {
 }
 
 const applySpeed = () => { const rate = isSpoken(current()) ? state().speed : 1; audio.defaultPlaybackRate = rate; audio.playbackRate = rate; };
-export function cycleSpeed(): void {
-  if (remote("speed")) return;
-  const speed = SPEEDS[(SPEEDS.indexOf(state().speed) + 1) % SPEEDS.length];
+
+// Speed is for spoken audio only, and each show or book remembers its own (as Audible does): a fast podcast host and a
+// slow narrator need different speeds. The last speed chosen is the one for anything new.
+const speedKey = (collection: string) => `eco.speed.${collection}`;
+
+/** Play podcasts and audiobooks at this speed (0.5–3×, in steps of 0.05). */
+export function setSpeed(value: number): void {
+  const speed = cleanSpeed(value);
+  if (remote("set_speed", speed)) return;
   usePlayer.setState({ speed });
   remember("eco.speed", speed);
+  const collection = current()?.collection;
+  if (collection) remember(speedKey(collection), speed);
   applySpeed();
+  followChapterSleep();
 }
 
+/** The next of the usual speeds, for a single button (and the TV, which only cycles). */
+export function cycleSpeed(): void {
+  if (remote("speed")) return;
+  const now = state().speed;
+  setSpeed(SPEED_PRESETS.find((s) => s > now + 0.01) ?? SPEED_PRESETS[0]);
+}
+
+/** A show's or book's own speed, applied when one of its items starts. */
+function speedFor(song: Song): void {
+  if (!isSpoken(song) || !song.collection) return;
+  const own = readNumber(speedKey(song.collection));
+  if (own !== null && cleanSpeed(own) !== state().speed) usePlayer.setState({ speed: cleanSpeed(own) });
+}
+
+// Songs remember nothing; spoken audio remembers where you stopped, on the server for every device (stores/spoken.ts).
 const posKey = (id: string) => `eco.pos.${id}`;
-export const savedPosition = (id: string) => readNumber(posKey(id)) ?? 0;
-const savePosition = (id: string, seconds: number) => remember(posKey(id), Math.floor(seconds));
-export const clearPosition = (id: string) => { try { localStorage.removeItem(posKey(id)); } catch { /* ignore */ } };
+const mediaOf = (songId: string) => (songId.startsWith("m-") ? songId.slice(2) : "");
+export const savedPosition = (id: string) => (mediaOf(id) ? spoken.startPosition(mediaOf(id)) : readNumber(posKey(id)) ?? 0);
+const savePosition = (song: Song, seconds: number, urgent = false) => {
+  if (song.mediaId) spoken.report(song.mediaId, seconds, false, urgent);
+};
+export const clearPosition = (id: string) => {
+  try { localStorage.removeItem(posKey(id)); } catch { /* ignore */ }
+  if (mediaOf(id)) void spoken.forget(mediaOf(id));
+};
+
+// ---- Moving around spoken audio: skips and chapters ----
+
+/** Jump back (negative) or forward by some seconds. */
+export function skip(by: number): void {
+  const seconds = Number(by);
+  if (!Number.isFinite(seconds) || seconds === 0) return;
+  if (remote("skip", seconds)) return;
+  audio.currentTime = skipTarget(audio.currentTime, seconds, length());
+  followChapterSleep();
+}
+export const skipBack = () => skip(-skipLength(settings().skipBack, 30));
+export const skipForward = () => skip(skipLength(settings().skipForward, 30));
+
+const currentChapters = () => spoken.chaptersOf(current()?.mediaId);
+
+/** To the next chapter, or the next item after the last chapter. */
+export function nextChapter(): void {
+  if (remote("chapter", 1)) return;
+  const to = nextChapterStart(currentChapters(), audio.currentTime);
+  if (to === null) { next(); return; }
+  audio.currentTime = to;
+  followChapterSleep();
+}
+
+/** To the start of this chapter, or the one before if it only just began; before the first, the previous item. */
+export function previousChapter(): void {
+  if (remote("chapter", -1)) return;
+  const to = previousChapterStart(currentChapters(), audio.currentTime);
+  if (to === null) { previous(); return; }
+  audio.currentTime = to;
+  followChapterSleep();
+}
+
+/** Mark the item playing here as heard to the end, or not. */
+export function markFinished(song: Song, finished: boolean): void {
+  if (!song.mediaId) return;
+  if (finished) spoken.report(song.mediaId, 0, true, true); else void spoken.forget(song.mediaId);
+}
+
+// Played again after a pause: step back a little, so the cut sentence makes sense (lib/spoken.ts rewindAfterPause)
+let pausedAt = 0;
 
 let objectUrl: string | null = null;
 let scrobbled = false;
@@ -172,12 +246,18 @@ function nextChanged(): void {
  * Play a list of songs starting at position i. `from` is the album or playlist it belongs to, for the Recent view and
  * the queue. Songs added to the queue by hand and not played yet stay, right after the first song.
  */
-export function play(songs: Song[], i = 0, from?: LibraryEntry, source = from?.name ?? ""): void {
+export function play(songs: Song[], i = 0, from?: LibraryEntry, source = from?.name ?? "", startAt = 0): void {
   if (from) touch(from);
-  if (remote("load", { songs, index: i, source })) return;
+  if (remote("load", startAt > 0 ? { songs, index: i, source, at: startAt } : { songs, index: i, source })) return;
   const list = state().shuffle ? [songs[i], ...mixed(songs.filter((_, k) => k !== i))] : songs;
   usePlayer.setState({ ...order.startList(state(), list, state().shuffle ? 0 : i), source });
-  void load();
+  void load(startAt);
+}
+
+/** Play spoken audio from a moment of it: a chapter, a bookmark. Played here, or wherever the music is. */
+export function playAt(song: Song, at: number, source = ""): void {
+  if (current()?.id === song.id) { seek(at); if (!state().playing) toggle(); return; }
+  play([song], 0, undefined, source, Math.max(0.1, at));
 }
 
 /** Play the songs shuffled from a random start. */
@@ -232,7 +312,10 @@ async function load(startAt = 0, autoplay = true): Promise<void> {
     objectUrl = saved;
   }
   audio.src = objectUrl ?? sourceUrl(song);
+  pausedAt = 0;
+  speedFor(song);
   applySpeed();
+  if (song.mediaId) void spoken.loadChapters(song.mediaId).then(() => followChapterSleep());
   // A position handed over from another device wins; otherwise spoken audio picks up where you left off
   const at = startAt > 0 ? startAt : isSpoken(song) ? savedPosition(song.id) : 0;
   if (at > 5 || startAt > 0) audio.addEventListener("loadedmetadata", () => { if (serial === loadSerial && at < audio.duration - (startAt > 0 ? 1 : 10)) audio.currentTime = at; }, { once: true });
@@ -241,6 +324,11 @@ async function load(startAt = 0, autoplay = true): Promise<void> {
 }
 
 function start(): void {
+  if (pausedAt && isSpoken(current())) {
+    const back = rewindAfterPause(Date.now() - pausedAt);
+    if (back > 0) audio.currentTime = Math.max(0, audio.currentTime - back);
+  }
+  pausedAt = 0;
   audio.play().catch((e: DOMException) => {
     if (e.name !== "NotAllowedError") return;
     usePlayer.setState({ blocked: true, loading: false }); // whoever asked from another device needs to know
@@ -284,7 +372,7 @@ let sleepTimer: ReturnType<typeof setTimeout> | undefined;
 
 function endSleep(): void {
   clearTimeout(sleepTimer);
-  if (state().sleepAt !== null) usePlayer.setState({ sleepAt: null });
+  if (state().sleepAt !== null || state().sleepChapter) usePlayer.setState({ sleepAt: null, sleepChapter: false });
 }
 
 /** The time is up: pause, once. */
@@ -295,20 +383,45 @@ function sleepNow(): void {
 
 function sleepAfter(ms: number): void {
   clearTimeout(sleepTimer);
-  usePlayer.setState({ sleepAt: Date.now() + ms });
+  usePlayer.setState({ sleepAt: Date.now() + ms, sleepChapter: false });
   sleepTimer = setTimeout(sleepNow, ms);
 }
 
-/** Pause the music after this many minutes (one of SLEEP_MINUTES), or 0 to turn the timer off. */
+/** Where the chapter playing ends (the end of the item when it has no chapters), in seconds into the file. */
+function chapterEndsAt(): number {
+  const chapters = currentChapters();
+  const i = chapterAt(chapters, audio.currentTime);
+  return i < 0 && chapters.length ? chapters[0].start : chapterEnd(chapters, i, length());
+}
+
+/**
+ * With the timer set to the end of the chapter, the moment it ends moves with the position and the speed: it is
+ * worked out again after every jump, so the countdown here and on other devices stays true. The pause itself happens
+ * on timeupdate, when the position gets there.
+ */
+function followChapterSleep(): void {
+  if (!state().sleepChapter) return;
+  const left = Math.max(0, chapterEndsAt() - audio.currentTime) / (audio.playbackRate || 1);
+  usePlayer.setState({ sleepAt: Date.now() + left * 1000 });
+}
+
+/** Pause after this many minutes (one of SLEEP_MINUTES), at the end of the chapter (SLEEP_CHAPTER), or 0 for off. */
 export function setSleepTimer(minutes: number): void {
   if (remote("sleep", minutes)) return;
+  if (minutes === SLEEP_CHAPTER && isSpoken(current())) {
+    clearTimeout(sleepTimer);
+    usePlayer.setState({ sleepChapter: true });
+    followChapterSleep();
+    return;
+  }
   const wanted = sleepMinutes(minutes);
   if (!wanted || !current()) { endSleep(); return; }
   sleepAfter(wanted * 60_000);
 }
 
 /** What the person sees after choosing: the player's button only shows a moon and a countdown. */
-export const sleepToast = (minutes: number) => toast(minutes ? `Music pauses in ${sleepLabel(minutes)}` : "Sleep timer off");
+export const sleepToast = (minutes: number) =>
+  toast(minutes === SLEEP_CHAPTER ? "Pauses at the end of this chapter" : minutes ? `Music pauses in ${sleepLabel(minutes)}` : "Sleep timer off");
 
 // ---- Autoplay ----
 // When the queue runs out, random songs from the library follow, a few at a time, until someone pauses or chooses
@@ -370,6 +483,7 @@ export function jumpTo(i: number): void {
 export function seek(seconds: number): void {
   if (remote("seek", seconds)) return;
   audio.currentTime = Math.max(0, seconds);
+  followChapterSleep();
 }
 export function toggleShuffle(): void {
   if (remote("shuffle")) return;
@@ -415,9 +529,9 @@ export function applyCommand(action: string, value: unknown): void {
   try {
     switch (action) {
       case "load": {
-        const { songs, index, shuffle, source } = value as { songs: Song[]; index: number; shuffle?: boolean; source?: string };
+        const { songs, index, shuffle, source, at } = value as { songs: Song[]; index: number; shuffle?: boolean; source?: string; at?: number };
         if (shuffle) usePlayer.setState({ shuffle: true });
-        play(songs, index, undefined, typeof source === "string" ? source : "");
+        play(songs, index, undefined, typeof source === "string" ? source : "", Number(at) > 0 ? Number(at) : 0);
         break;
       }
       case "resume": adopt(value as Handoff); break;
@@ -429,6 +543,9 @@ export function applyCommand(action: string, value: unknown): void {
       case "jump": jumpTo(Number(value)); break;
       case "volume": setVolume(Number(value)); break;
       case "speed": cycleSpeed(); break;
+      case "set_speed": setSpeed(Number(value)); break;
+      case "skip": skip(Number(value)); break;
+      case "chapter": if (Number(value) < 0) previousChapter(); else nextChapter(); break;
       case "shuffle": toggleShuffle(); break;
       case "repeat": cycleRepeat(); break;
       case "autoplay": toggleAutoplay(); break;
@@ -494,7 +611,7 @@ export function forgetSong(id: string): void {
   endSleep();
 }
 
-audio.addEventListener("play", () => usePlayer.setState({ playing: true, blocked: false }));
+audio.addEventListener("play", () => { usePlayer.setState({ playing: true, blocked: false }); followChapterSleep(); });
 audio.addEventListener("playing", () => {
   failedInARow = 0;
   retried = "";
@@ -508,9 +625,12 @@ audio.addEventListener("canplay", () => { if (audio.paused) usePlayer.setState({
 audio.addEventListener("pause", () => {
   usePlayer.setState({ playing: false, loading: false });
   const song = current();
-  if (song && isSpoken(song) && audio.currentTime > 5) savePosition(song.id, audio.currentTime);
+  if (song && isSpoken(song) && !audio.ended) {
+    pausedAt = Date.now();
+    if (audio.currentTime > 5) savePosition(song, audio.currentTime, true);
+  }
 });
-audio.addEventListener("ended", () => { const song = current(); if (song && isSpoken(song)) clearPosition(song.id); next(true); });
+audio.addEventListener("ended", () => { const song = current(); if (song && isSpoken(song)) markFinished(song, true); next(true); });
 
 // A failure is usually the connection, not the song. Try once more, in case it was a moment's trouble or a prepared copy
 // this browser could not read (the second try streams). Then move on, but a dead connection must not race through the
@@ -544,11 +664,11 @@ audio.addEventListener("timeupdate", () => {
     scrobbled = true;
     if (isOnline() && settings().scrobble) void scrobble(song.id);
   }
-  if (song && isSpoken(song) && Math.abs(audio.currentTime - lastSaved) >= 5) { lastSaved = audio.currentTime; savePosition(song.id, audio.currentTime); }
+  if (song && isSpoken(song) && Math.abs(audio.currentTime - lastSaved) >= 5) { lastSaved = audio.currentTime; savePosition(song, audio.currentTime); }
   useTime.setState({ position: audio.currentTime, length: total });
   // A browser may hold back a timer in a tab out of sight; the music playing on says the time is up all the same
-  const { sleepAt } = state();
-  if (sleepAt !== null && Date.now() >= sleepAt) sleepNow();
+  const { sleepAt, sleepChapter } = state();
+  if (sleepChapter ? audio.currentTime >= chapterEndsAt() - 0.3 : sleepAt !== null && Date.now() >= sleepAt) sleepNow();
   if ("mediaSession" in navigator && navigator.mediaSession.setPositionState && total > 0) {
     try { navigator.mediaSession.setPositionState({ duration: total, position: Math.min(audio.currentTime, total), playbackRate: audio.playbackRate }); } catch { /* out of range */ }
   }
@@ -581,11 +701,12 @@ if ("mediaSession" in navigator) {
   const session = navigator.mediaSession;
   session.setActionHandler("play", () => void audio.play());
   session.setActionHandler("pause", () => audio.pause());
-  session.setActionHandler("nexttrack", () => next());
-  session.setActionHandler("previoustrack", previous);
+  // For podcasts and audiobooks the lock screen's buttons move by chapter, and its skips are the ones chosen in Settings
+  session.setActionHandler("nexttrack", () => (isSpoken(current()) ? nextChapter() : next()));
+  session.setActionHandler("previoustrack", () => (isSpoken(current()) ? previousChapter() : previous()));
   session.setActionHandler("seekto", (d) => seek(d.seekTime ?? 0));
-  session.setActionHandler("seekbackward", (d) => seek(audio.currentTime - (d.seekOffset || 10)));
-  session.setActionHandler("seekforward", (d) => seek(audio.currentTime + (d.seekOffset || 10)));
+  session.setActionHandler("seekbackward", (d) => skip(-(d.seekOffset || (isSpoken(current()) ? skipLength(settings().skipBack, 30) : 10))));
+  session.setActionHandler("seekforward", (d) => skip(d.seekOffset || (isSpoken(current()) ? skipLength(settings().skipForward, 30) : 10)));
 }
 
 // The desktop app's tray menu (`command` in desktop/src-tauri/src/shell.rs). They go through the same controls as a
