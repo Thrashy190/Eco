@@ -173,7 +173,7 @@ func TestCoverEndpointsCheckThePlaylist(t *testing.T) {
 
 func TestEveryAPIRouteNeedsCredentials(t *testing.T) {
 	h := newTestServer(t)
-	for _, target := range []string{"GET /api/me/library", "POST /api/me/pins", "PUT /api/covers/playlists/favorites", "GET /api/catalog/albums/b3073a10-2d7c-484c-b387-e49ae629da3d", "GET /api/shows", "POST /api/books", "POST /api/media/dQw4w9WgXcQ/chapters"} {
+	for _, target := range []string{"GET /api/me/library", "POST /api/me/pins", "PUT /api/covers/playlists/favorites", "GET /api/catalog/albums/b3073a10-2d7c-484c-b387-e49ae629da3d", "GET /api/shows", "POST /api/books", "GET /api/media/dQw4w9WgXcQ/chapters"} {
 		method, path, _ := strings.Cut(target, " ")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest(method, path, nil))

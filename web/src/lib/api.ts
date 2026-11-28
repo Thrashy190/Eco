@@ -340,8 +340,20 @@ export const KINDS: [MediaKind, string][] = [["podcast", "Podcast"], ["audiobook
 export const kindLabel = (kind?: string) => KINDS.find(([k]) => k === kind)?.[1] ?? "Other";
 export const addSong = (body: AddSongRequest) => send<Job>("songs/add", JSON.stringify(body));
 export const mediaPreview = (url: string) => eco<MediaPreview>("media/preview", { url });
-export const mediaImport = (url: string, kind: MediaKind, collection = "") =>
-  eco<Job & { existing?: MediaItem }>("media/import", collection ? { url, kind, collection } : { url, kind }, "POST");
+/** Import a YouTube link. A book's part can be given its number: several links download at once and finish in any order. */
+export const mediaImport = (url: string, kind: MediaKind, collection = "", partNumber = 0) =>
+  eco<Job & { existing?: MediaItem }>("media/import", { url, kind, ...(collection ? { collection } : {}), ...(collection && partNumber > 0 ? { part: String(partNumber) } : {}) }, "POST");
+/** The videos of a YouTube playlist, in its order: a book in many videos takes them as its parts. */
+export const mediaPlaylist = async (url: string) =>
+  (await eco<{ videos: { id: string; title: string; duration: number; url: string }[] }>("media/playlist", { url })).videos;
+/** A video's picture, whole, to frame as a cover. */
+export const videoPictureUrl = (id: string) => `/api/media/preview/picture?${params({ id })}`;
+/** Fetch a picture of this server as a file, to frame it. */
+export async function fetchPicture(url: string): Promise<Blob> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("That picture is not available");
+  return response.blob();
+}
 export const listMedia = async (kind: MediaKind) => (await eco<{ items: MediaItem[] }>("media", { kind })).items;
 export const deleteMedia = (id: string) => eco<{ deleted: boolean }>(`media/${part(id)}`, undefined, "DELETE");
 /**
@@ -357,10 +369,15 @@ export const mediaSong = (item: MediaItem, collection?: Pick<Collection, "id" | 
 // ---- Shows and books ----
 const shelf = (kind: Collection["kind"]) => (kind === "podcast" ? "shows" : "books");
 export const listCollections = async (kind: Collection["kind"]) => (await eco<{ collections: Collection[] }>(shelf(kind))).collections;
-export const getCollection = (kind: Collection["kind"], id: string) => eco<{ collection: Collection; items: MediaItem[] }>(`${shelf(kind)}/${part(id)}`);
+export const getCollection = (kind: Collection["kind"], id: string) => eco<{ collection: Collection; items: MediaItem[]; related?: Collection[] }>(`${shelf(kind)}/${part(id)}`);
 export const createCollection = (kind: Collection["kind"], edit: CollectionEdit) => send<Collection>(shelf(kind), JSON.stringify(edit));
 export const editCollection = (kind: Collection["kind"], id: string, edit: CollectionEdit) => send<Collection>(`${shelf(kind)}/${part(id)}`, JSON.stringify(edit), "PATCH");
-export const deleteCollection = (kind: Collection["kind"], id: string) => eco<{ deleted: boolean }>(`${shelf(kind)}/${part(id)}`, undefined, "DELETE");
+/** Put a book's parts in this order, numbered from 1. Every part must be named once. */
+export const orderParts = async (id: string, items: string[]) =>
+  (await send<{ items: MediaItem[] }>(`books/${part(id)}/order`, JSON.stringify({ items }), "PUT")).items;
+/** Delete a show or book; with `everything`, its episodes or parts too (only when the person may delete each one). */
+export const deleteCollection = (kind: Collection["kind"], id: string, everything = false) =>
+  eco<{ deleted: boolean }>(`${shelf(kind)}/${part(id)}`, everything ? { everything: "1" } : undefined, "DELETE");
 export const uploadCollectionCover = (kind: Collection["kind"], id: string, picture: Blob) => send<Collection>(`${shelf(kind)}/${part(id)}/cover`, picture, "PUT", "image/jpeg");
 export const removeCollectionCover = (kind: Collection["kind"], id: string) => eco<Collection>(`${shelf(kind)}/${part(id)}/cover`, undefined, "DELETE");
 /** A show's or book's picture: its own (the address changes with it), or its first item's. */
@@ -376,11 +393,8 @@ export const finishUpload = (id: string) => eco<MediaItem>(`uploads/${part(id)}/
 export const cancelUpload = (id: string) => eco<{ cancelled: boolean }>(`uploads/${part(id)}`, undefined, "DELETE");
 export const editMedia = (id: string, edit: { title?: string; description?: string; parent?: string; part?: number }) => send<MediaItem>(`media/${part(id)}`, JSON.stringify(edit), "PATCH");
 
-// ---- Chapters (everyone's) ----
+// ---- Chapters (the ones that came with the file) ----
 export const getChapters = async (id: string, signal?: AbortSignal) => (await eco<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, undefined, "GET", signal)).chapters;
-export const addChapter = async (id: string, start: number, title: string) => (await send<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, JSON.stringify({ start, title }))).chapters;
-/** Rename a chapter, or remove it with an empty title. */
-export const changeChapter = async (id: string, start: number, title: string) => (await send<{ chapters: Chapter[] }>(`media/${part(id)}/chapters`, JSON.stringify({ start, title }), "PATCH")).chapters;
 
 // ---- Where you are, your bookmarks and notes (yours alone) ----
 export const getProgress = async () => (await eco<{ progress: Record<string, Progress> }>("me/progress")).progress;

@@ -330,6 +330,33 @@ func (r *Runner) Preview(ctx context.Context, link string) (Preview, error) {
 		Chapters: e.Chapters, Published: e.published(), Description: e.Description}, nil
 }
 
+// PlaylistVideo is one video of a playlist, as a flat listing gives it: no download, no extra request per video.
+type PlaylistVideo struct {
+	ID          string
+	Title       string
+	DurationSec float64
+}
+
+// unavailable are the placeholders a playlist keeps where a video was taken down or made private.
+var unavailable = map[string]bool{"[Private video]": true, "[Deleted video]": true, "[Unavailable video]": true}
+
+// Playlist lists the videos of a playlist in its order, at most max of them, leaving out the ones nobody can watch.
+func (r *Runner) Playlist(ctx context.Context, link string, max int) ([]PlaylistVideo, error) {
+	cookies, done := r.cookieCopy()
+	defer done()
+	out, err := r.run(ctx, r.args(cookies, "--flat-playlist", "--dump-json", "--playlist-end", strconv.Itoa(max), link)...)
+	if err != nil {
+		return nil, err
+	}
+	var vs []PlaylistVideo
+	for _, e := range decodeLines(out) {
+		if !unavailable[e.Title] {
+			vs = append(vs, PlaylistVideo{ID: e.ID, Title: e.Title, DurationSec: e.Duration})
+		}
+	}
+	return vs, nil
+}
+
 // MediaFiles are the files DownloadMedia produced inside its folder.
 type MediaFiles struct{ Media, Thumb string }
 

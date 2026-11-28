@@ -2,21 +2,22 @@
 // (its parts and chapters, your bookmarks and notes, what it is about), the shows you follow with their newest
 // episodes, the page of a show, and making or changing a show or a book. The library's Songs-style lists stay for music.
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState, type ReactNode } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
 import * as api from "../lib/api";
 import { clock } from "../lib/format";
-import { pictureToCover } from "../lib/image";
 import { queryClient } from "../lib/query";
 import { bookPosition, itemState, progressRatio, resumePoint, spokenLength, type ItemState, type Progress } from "../lib/spoken";
-import type { Collection, CollectionEdit, CollectionSpec, ContinueItem, MediaItem, Song } from "../lib/types";
+import type { Collection, CollectionEdit, CollectionSpec, ContinueItem, Job, MediaItem, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
+import { isPlaylistLink, videoIdOf } from "../lib/youtube";
 import { DownloadToggle } from "../components/cards";
 import { DetailPage, Empty, OfflineBanner, Section, Shelf, Skeleton, Welcome } from "../components/common";
 import { Picture, SongCover } from "../components/Cover";
 import { Icon, Ring } from "../components/Icon";
 import { ChapterList, MarkList } from "../components/SpokenControls";
 import { isAdmin } from "../stores/admin";
+import { isActive, requestMedia, useJobs } from "../stores/downloads";
 import { useIsCurrent } from "../stores/connect";
 import * as offline from "../stores/offline";
 import * as player from "../stores/player";
@@ -24,12 +25,12 @@ import { removeOffline, saveOffline, syncCollectionIfSaved } from "../stores/sav
 import { useOnline } from "../stores/settings";
 import { flush, progressOf, useSpoken } from "../stores/spoken";
 import { cancel, clearDone, sendFiles, useUploads } from "../stores/uploads";
-import { askText, openSheet, toast } from "../stores/ui";
+import { askText, cropPicture, openSheet, toast } from "../stores/ui";
 
 type Kind = Collection["kind"];
 const WORDS = {
   podcast: { section: "Podcasts", one: "show", item: "episode", items: "episodes", author: "Host", page: "podcast", make: "New show" },
-  audiobook: { section: "Audiobooks", one: "book", item: "part", items: "parts", author: "Author", page: "book", make: "New book" },
+  audiobook: { section: "Audiobooks", one: "book", item: "part", items: "parts", author: "Author", page: "book", make: "Add book" },
 } as const;
 
 const showsKey = (kind: Kind) => ["collections", kind];
@@ -250,7 +251,7 @@ function SectionHeader({ kind }: { kind: Kind }) {
       {online && (
         <div className={ui.actions}>
           <button type="button" className={ui.primary} onClick={() => navigate(`/${kind === "podcast" ? "podcasts" : "audiobooks"}/new`)}><Icon name="plus" size={20} />{w.make}</button>
-          <button type="button" className={ui.pill} onClick={() => navigate("/search")}><Icon name="search" size={16} />Add from a YouTube link</button>
+          {kind === "podcast" && <button type="button" className={ui.pill} onClick={() => navigate("/search")}><Icon name="search" size={16} />Add from a YouTube link</button>}
         </div>
       )}
     </>
@@ -270,7 +271,7 @@ export function Audiobooks() {
   if (books.isPending || items.isPending) body = <Skeleton rows={3} />;
   else if (books.error) body = <Empty>{books.error.message}</Empty>;
   else if (!books.data.length) {
-    body = <Welcome title="No audiobooks yet"><p>Make a book, then add its parts from YouTube links. A whole book in one video works too: mark its chapters as you go.</p></Welcome>;
+    body = <Welcome title="No audiobooks yet"><p>Tap Add book: give it its details and a cover, then paste one YouTube link (the whole book in one video) or several (one per chapter).</p></Welcome>;
   } else {
     const byBook = new Map<string, MediaItem[]>();
     for (const it of items.data ?? []) byBook.set(it.parent ?? "", [...(byBook.get(it.parent ?? "") ?? []), it]);
@@ -288,7 +289,7 @@ export function Audiobooks() {
             {shown.map(({ book, progress }) => (
               <Link key={book.id} to={`/book/${book.id}`} className={ui.card}>
                 <span className={ui.cardArt}>
-                  <CollectionArt c={book} className={cx(ui.coverBig, ui.cardCover, "aspect-[3/4]!")} />
+                  <CollectionArt c={book} className={cx(ui.coverBig, ui.cardCover)} />
                   {progress.state === "finished" && <span className="absolute right-2 bottom-3.5 size-7 grid place-items-center rounded-full bg-accent text-accent-ink"><Icon name="check" size={16} /></span>}
                 </span>
                 <b>{book.title}</b>
@@ -385,7 +386,9 @@ function AddButton({ c }: { c: Collection }) {
     <>
       <button type="button" className={ui.pill} onClick={() => openSheet(`Add ${what}`, c.title, [
         { icon: "upload", label: "Upload files from this device", run: () => files.current?.click() },
-        { icon: "search", label: "From a YouTube link", run: () => navigate("/search") },
+        c.kind === "audiobook" && c.can_edit
+          ? { icon: "plus", label: "From YouTube links", run: () => navigate(`/book/${c.id}/edit`) }
+          : { icon: "search", label: "From a YouTube link", run: () => navigate("/search") },
       ])}><Icon name="plus" size={16} />Add</button>
       <input ref={files} type="file" multiple accept={AUDIO_FILES} className="hidden" aria-label={`Upload ${what}`}
         onChange={(e) => { if (e.target.files?.length) sendFiles(e.target.files, c.kind, c.id); e.target.value = ""; }} />
@@ -426,15 +429,60 @@ function UploadList({ c }: { c: Collection }) {
   );
 }
 
+/** The YouTube links on their way into this book or show. The page reloads its parts as each one is ready. */
+function ImportList({ c }: { c: Collection }) {
+  const jobs = useJobs((s) => s.jobs);
+  const list = Object.values(jobs).filter((j) => j.parent === c.id && (isActive(j) || j.state === "error"));
+  const running = list.filter(isActive).length;
+  const before = useRef(running);
+  useEffect(() => {
+    if (running < before.current) refreshShelves(); // one finished: its part is in the book now
+    before.current = running;
+  }, [running]);
+  if (!list.length) return null;
+  return (
+    <section className="mx-4 my-2 p-2 rounded-[22px] bg-glass-strong shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8" aria-label="Downloading">
+      <b className="block px-2 py-1 text-[.9rem]">Downloading from YouTube</b>
+      <ul className="grid">{list.map((j) => <JobRow key={j.key} job={j} />)}</ul>
+    </section>
+  );
+}
+
+function JobRow({ job }: { job: Job }) {
+  const downloading = job.state === "downloading" && job.progress > 0;
+  return (
+    <li className="flex items-center gap-3 px-2 py-2">
+      <span className="flex-none text-accent">{job.state === "error" ? <Icon name="close" size={20} /> : <Ring percent={downloading ? job.progress : -1} size={22} />}</span>
+      <span className="flex-1 min-w-0 grid">
+        <b className="truncate font-[650] text-[.92rem]">{job.title}</b>
+        <span className={cx("truncate text-[.8rem]", job.state === "error" ? "text-danger" : "text-muted")}>{job.state === "error" ? job.error : downloading ? `${Math.round(job.progress)}%` : "Waiting"}</span>
+      </span>
+    </li>
+  );
+}
+
 // ---------------- One show or book ----------------
 
-function collectionMenu(c: Collection, navigate: ReturnType<typeof useNavigate>): void {
+function collectionMenu(c: Collection, items: MediaItem[], navigate: ReturnType<typeof useNavigate>): void {
+  const w = WORDS[c.kind];
   openSheet(c.title, c.author, [
-    c.can_edit && { icon: "pencil", label: "Edit details", run: () => navigate(`/${WORDS[c.kind].page}/${c.id}/edit`) },
-    c.can_edit && { icon: "trash", label: `Delete this ${WORDS[c.kind].one}`, danger: true, run: async () => {
-      if (c.count > 0) { toast(`Delete or move its ${WORDS[c.kind].items} first`); return; }
-      if (!confirm(`Delete “${c.title}”?`)) return;
-      try { await api.deleteCollection(c.kind, c.id); refreshShelves(); navigate(c.kind === "podcast" ? "/podcasts" : "/audiobooks"); } catch (e) { toast((e as Error).message); }
+    c.can_edit && { icon: "pencil", label: c.kind === "audiobook" ? "Edit book" : "Edit details", run: () => navigate(`/${w.page}/${c.id}/edit`) },
+    c.can_edit && { icon: "trash", label: `Delete this ${w.one}`, danger: true, run: async () => {
+      const question = items.length > 0
+        ? `Delete “${c.title}” and its ${items.length === 1 ? `${w.item}` : `${items.length} ${w.items}`} for everyone?\n\nThe files are erased from the server. This cannot be undone.`
+        : `Delete “${c.title}”?`;
+      if (!confirm(question)) return;
+      try {
+        await api.deleteCollection(c.kind, c.id, items.length > 0);
+        for (const it of items) {
+          const song = api.mediaSong(it, c);
+          await offline.remove(song.id);
+          player.forgetSong(song.id);
+        }
+        toast("Deleted");
+        refreshShelves();
+        navigate(c.kind === "podcast" ? "/podcasts" : "/audiobooks", { replace: true });
+      } catch (e) { toast((e as Error).message); }
     } },
   ]);
 }
@@ -462,11 +510,12 @@ export function BookPage() {
   const all = useAllProgress();
   const read = progressFrom(all);
   const [tab, setTab] = useState<BookTab>("chapters");
+  const jobs = useJobs((s) => s.jobs);
   const { data, error, isPending } = useQuery({ queryKey: collectionKey("audiobook", id), queryFn: () => api.getCollection("audiobook", id), enabled: online });
   if (!online) return <><OfflineBanner /><OfflineShelf kind="audiobook" /></>;
   if (isPending) return <Skeleton />;
   if (error) return <Empty>{error.message}</Empty>;
-  const { collection: book, items } = data;
+  const { collection: book, items, related = [] } = data;
   const songs = items.map((it) => api.mediaSong(it, book));
   const progress = bookProgress(items, read);
   const spec: CollectionSpec = { id: `book:${book.id}`, kind: "book", title: book.title, subtitle: book.author || "Audiobook" };
@@ -477,7 +526,7 @@ export function BookPage() {
   const tabs: [BookTab, string][] = [["chapters", onePart ? "Chapters" : "Parts"], ["marks", "Bookmarks & notes"], ["about", "About"]];
   return (
     <DetailPage
-      art={<CollectionArt c={book} className={cx(ui.coverHuge, "aspect-[3/4]!")} />}
+      art={<CollectionArt c={book} className={ui.coverHuge} />}
       info={(
         <>
           <span className="text-[.8rem] font-semibold text-muted">{book.series ? `${book.series}${book.series_index ? `, book ${book.series_index}` : ""}` : "Audiobook"}</span>
@@ -493,15 +542,16 @@ export function BookPage() {
           {items.length > 0 && <button type="button" className={ui.primary} onClick={resume}><Icon name="play" size={20} />{progress.state === "started" ? "Continue" : progress.state === "finished" ? "Listen again" : "Start listening"}</button>}
           {items.length > 0 && <DownloadToggle spec={spec} songs={songs} />}
           <AddButton c={book} />
-          {book.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(book, navigate)}><Icon name="more" size={18} /></button>}
+          {book.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(book, items, navigate)}><Icon name="more" size={18} /></button>}
         </div>
       )}>
       <UploadList c={book} />
+      <ImportList c={book} />
       <nav className={ui.segments} aria-label="Book">
         {tabs.map(([t, label]) => <button key={t} type="button" className={ui.segment} data-on={tab === t || undefined} aria-pressed={tab === t} onClick={() => setTab(t)}>{label}</button>)}
       </nav>
       {tab === "chapters" && (items.length === 0
-        ? <Welcome title="No parts yet"><p>Upload the book from this device (one file, or one per part), or paste a YouTube link in Search and choose this book. Its chapters come with it when the file has them.</p></Welcome>
+        ? Object.values(jobs).some((j) => j.parent === book.id && isActive(j)) ? null : <Welcome title="No parts yet"><p>{book.can_edit ? "Add its YouTube links with Edit book (one for the whole book, or one per chapter), or upload files from this device. Chapters come with the video when it has them." : "Nothing has been added to this book yet."}</p></Welcome>
         : onePart
           ? <OnePartChapters book={book} item={items[0]} song={songs[0]} />
           : (
@@ -510,7 +560,19 @@ export function BookPage() {
             </ul>
           ))}
       {tab === "marks" && <BookMarks items={items} songs={songs} />}
-      {tab === "about" && (book.description ? <About text={book.description} /> : <Empty>{book.can_edit ? "No description yet. Add one with Edit details." : "No description yet."}</Empty>)}
+      {tab === "about" && (book.description ? <About text={book.description} /> : <Empty>{book.can_edit ? "No description yet. Add one with Edit book." : "No description yet."}</Empty>)}
+      {related.length > 0 && (
+        <Section title="Related books">
+          <Shelf>
+            {related.map((r) => (
+              <Link key={r.id} to={`/book/${r.id}`} className={ui.card}>
+                <span className={ui.cardArt}><CollectionArt c={r} className={cx(ui.coverBig, ui.cardCover)} /></span>
+                <b>{r.title}</b><span>{r.author || plainCount(r)}</span>
+              </Link>
+            ))}
+          </Shelf>
+        </Section>
+      )}
     </DetailPage>
   );
 }
@@ -532,7 +594,7 @@ function OnePartChapters({ book, item, song }: { book: Collection; item: MediaIt
 function ChapterPreview({ item, onPlay }: { item: MediaItem; onPlay: (at: number) => void }) {
   const { data } = useQuery({ queryKey: ["chapters", item.id], queryFn: () => api.getChapters(item.id) });
   if (!data) return <Skeleton rows={2} />;
-  if (!data.length) return <p className="text-muted text-[.9rem] px-2 py-1.5">No chapters yet. Play it and mark one where a part begins: everyone who listens can jump to it.</p>;
+  if (!data.length) return <p className="text-muted text-[.9rem] px-2 py-1.5">This video has no chapters. Bookmark a moment to come back to it.</p>;
   return (
     <ol className="grid">
       {data.map((c, i) => (
@@ -600,7 +662,7 @@ export function ShowPage() {
             {items.length > 0 && <button type="button" className={ui.primary} onClick={() => player.play(allSongs, Math.max(0, firstNew), undefined, show.title)}><Icon name="play" size={20} />{firstNew > 0 ? "Play newest not heard" : "Play newest"}</button>}
             {items.length > 0 && <DownloadToggle spec={spec} songs={allSongs} />}
             <AddButton c={show} />
-            {show.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(show, navigate)}><Icon name="more" size={18} /></button>}
+            {show.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(show, items, navigate)}><Icon name="more" size={18} /></button>}
           </div>
           <About text={show.description} />
         </>
@@ -627,46 +689,206 @@ export function ShowPage() {
 
 const FIELD = "grid gap-1.5 [&>span]:text-[.75rem] [&>span]:uppercase [&>span]:tracking-[.09em] [&>span]:text-muted [&>span]:font-bold [&>span]:px-1.5";
 
-/** The form for a new show or book, or one being changed. */
+/** The form for a new show or book, or one being changed. A book also takes its YouTube links and related books here. */
 export function CollectionEditor({ kind }: { kind: Kind }) {
   const { id } = useParams();
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const online = useOnline();
-  const existing = useQuery({ queryKey: collectionKey(kind, id ?? ""), queryFn: () => api.getCollection(kind, id!), enabled: Boolean(id) && online });
+  // Always asked again: the copy the book's page left may be from before its last parts arrived
+  const existing = useQuery({ queryKey: collectionKey(kind, id ?? ""), queryFn: () => api.getCollection(kind, id!), enabled: Boolean(id) && online, refetchOnMount: "always" });
   if (id && existing.isPending) return <Skeleton />;
   if (id && existing.error) return <Empty>{existing.error.message}</Empty>;
   if (id && existing.data && !existing.data.collection.can_edit) return <Navigate to={`/${WORDS[kind].page}/${id}`} replace />;
-  return <EditorForm key={id ?? "new"} kind={kind} start={existing.data?.collection} onDone={(c) => navigate(`/${WORDS[kind].page}/${c.id}`, { replace: true })} />;
+  const link = params.get("url") ?? "";
+  return <EditorForm key={id ?? "new"} kind={kind} start={existing.data?.collection} parts={existing.data?.items ?? []} firstLink={link}
+    onDone={(c) => navigate(`/${WORDS[kind].page}/${c.id}`, { replace: true })} />;
 }
 
-function EditorForm({ kind, start, onDone }: { kind: Kind; start?: Collection; onDone: (c: Collection) => void }) {
+/** A playlist pasted as a book's link: how many videos it has, and taking them all as the parts. */
+function PlaylistOffer({ link, onExpand }: { link: string; onExpand: (links: string[]) => void }) {
+  const list = useQuery({ queryKey: ["media-playlist", link], queryFn: () => api.mediaPlaylist(link), retry: false, staleTime: 5 * 60_000 });
+  if (list.isPending) return <span className="flex items-center gap-1.5"><Ring percent={-1} size={14} />Reading the playlist…</span>;
+  if (list.error) return <span className="text-danger">{list.error.message}</span>;
+  const videos = list.data;
+  if (!videos.length) return <span className="text-danger">This playlist has no videos anyone can watch</span>;
+  const total = videos.reduce((n, v) => n + (v.duration || 0), 0);
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <span>{`A playlist of ${videos.length} ${videos.length === 1 ? "video" : "videos"}${total ? ` · ${spokenLength(total)}` : ""}`}</span>
+      <button type="button" className={cx(ui.pill, "py-1.5")} onClick={() => onExpand(videos.map((v) => v.url))}><Icon name="queue" size={16} />{`Use all ${videos.length} as the parts`}</button>
+    </span>
+  );
+}
+
+/** One YouTube link of a book, with what it is once YouTube answers. A playlist offers to become every part. */
+function LinkField({ value, index, onChange, onRemove, onExpand, removable }: { value: string; index: number; onChange: (v: string) => void; onRemove: () => void; onExpand: (links: string[]) => void; removable: boolean }) {
+  const [asked, setAsked] = useState(value.trim());
+  useEffect(() => {
+    const t = setTimeout(() => setAsked(value.trim()), 600); // only once the typing or pasting stops
+    return () => clearTimeout(t);
+  }, [value]);
+  const looksRight = /^https?:\/\/(www\.|m\.|music\.)?(youtube\.com|youtu\.be)\//i.test(asked);
+  const playlist = looksRight && isPlaylistLink(asked);
+  const preview = useQuery({ queryKey: ["media-preview", asked], queryFn: () => api.mediaPreview(asked), enabled: looksRight && !playlist, retry: false, staleTime: 5 * 60_000 });
+  let note: ReactNode = null;
+  if (asked && !looksRight) note = <span className="text-danger">Paste a YouTube link (youtube.com or youtu.be)</span>;
+  else if (playlist) note = <PlaylistOffer link={asked} onExpand={onExpand} />;
+  else if (preview.isFetching) note = <span className="flex items-center gap-1.5"><Ring percent={-1} size={14} />Reading the link…</span>;
+  else if (preview.error) note = <span className="text-danger">{preview.error.message}</span>;
+  else if (preview.data) {
+    const p = preview.data;
+    note = p.existing ? <span className="text-danger">{`Already in the library: ${p.existing.title}`}</span>
+      : p.live ? <span className="text-danger">A live stream cannot be added</span>
+      : <span className="truncate">{[p.title, p.duration ? spokenLength(p.duration) : "", p.chapters ? `${p.chapters} chapters` : ""].filter(Boolean).join(" · ")}</span>;
+  }
+  return (
+    <li className="grid gap-1">
+      <div className="flex items-center gap-2">
+        <span className="w-6 flex-none text-right text-muted text-[.85rem] tabular-nums">{index + 1}</span>
+        <input className={ui.input} type="url" inputMode="url" placeholder="https://www.youtube.com/watch?v=…" aria-label={`YouTube link ${index + 1}`} value={value} onChange={(e) => onChange(e.target.value)} />
+        {removable && <button type="button" className={ui.iconButton} aria-label={`Remove link ${index + 1}`} onClick={onRemove}><Icon name="close" size={18} /></button>}
+      </div>
+      {note && <p className="pl-8 pr-2 text-[.82rem] text-muted min-w-0 grid">{note}</p>}
+    </li>
+  );
+}
+
+/** A book's parts in the order they play: drag one by its handle, or move it with the arrows. */
+function PartOrder({ parts, order, onChange }: { parts: MediaItem[]; order: string[]; onChange: (ids: string[]) => void }) {
+  const byId = new Map(parts.map((p) => [p.id, p]));
+  const rows = useRef<(HTMLLIElement | null)[]>([]);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= order.length || from === to) return;
+    const next = [...order];
+    next.splice(to, 0, ...next.splice(from, 1));
+    onChange(next);
+  };
+  // Where the pointer is decides the place: past the middle of a row is after it
+  const drag = (e: React.PointerEvent, id: string) => {
+    if (dragging !== id) return;
+    const from = order.indexOf(id);
+    let to = from;
+    rows.current.forEach((row, i) => {
+      if (!row || i === from) return;
+      const box = row.getBoundingClientRect();
+      if (i < from && e.clientY < box.top + box.height / 2) to = Math.min(to, i);
+      if (i > from && e.clientY > box.top + box.height / 2) to = Math.max(to, i);
+    });
+    move(from, to);
+  };
+  return (
+    <ol className="grid gap-1 select-none">
+      {order.map((id, i) => {
+        const it = byId.get(id);
+        if (!it) return null;
+        return (
+          <li key={id} ref={(el) => { rows.current[i] = el; }} data-on={dragging === id || undefined}
+            className="flex items-center gap-2 pl-1 pr-1 py-1 rounded-2xl bg-ghost data-on:bg-[rgb(var(--glow)/.18)] data-on:shadow-[0_8px_24px_rgb(0_0_0/.25)]">
+            <span className="tap size-9 flex-none grid place-items-center text-muted cursor-grab active:cursor-grabbing touch-none" aria-hidden="true"
+              onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDragging(id); }}
+              onPointerMove={(e) => drag(e, id)} onPointerUp={() => setDragging(null)} onPointerCancel={() => setDragging(null)}>
+              <Icon name="grip" size={18} />
+            </span>
+            <span className="w-6 flex-none text-right text-muted text-[.85rem] tabular-nums">{i + 1}</span>
+            <span className="flex-1 min-w-0 grid">
+              <b className="truncate font-[650] text-[.92rem]">{it.title}</b>
+              <span className="text-muted text-[.8rem]">{it.duration ? spokenLength(it.duration) : ""}</span>
+            </span>
+            <button type="button" className={cx(ui.iconButton, "size-9 disabled:opacity-25")} aria-label={`Move ${it.title} up`} disabled={i === 0} onClick={() => move(i, i - 1)}><Icon name="up" size={18} /></button>
+            <button type="button" className={cx(ui.iconButton, "size-9 disabled:opacity-25")} aria-label={`Move ${it.title} down`} disabled={i === order.length - 1} onClick={() => move(i, i + 1)}><Icon name="down" size={18} /></button>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Pick the books that go with this one. Optional; the server keeps the link on both books. */
+function RelatedPicker({ self, value, onChange }: { self?: string; value: string[]; onChange: (ids: string[]) => void }) {
+  const books = useQuery({ queryKey: showsKey("audiobook"), queryFn: () => api.listCollections("audiobook") });
+  const [filter, setFilter] = useState("");
+  const others = (books.data ?? []).filter((b) => b.id !== self);
+  if (books.isPending) return <Skeleton rows={1} />;
+  if (!others.length) return <p className="text-muted text-[.9rem] px-1.5">There are no other books yet.</p>;
+  const q = filter.trim().toLowerCase();
+  const shown = others.filter((b) => !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q) || value.includes(b.id));
+  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  return (
+    <div className="grid gap-2">
+      {others.length > 8 && <input className={ui.input} type="search" placeholder="Find a book" aria-label="Find a book" value={filter} onChange={(e) => setFilter(e.target.value)} />}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Related books">
+        {shown.map((b) => <button key={b.id} type="button" className={ui.chip} aria-pressed={value.includes(b.id)} onClick={() => toggle(b.id)}>{b.title}</button>)}
+      </div>
+    </div>
+  );
+}
+
+function EditorForm({ kind, start, parts, firstLink, onDone }: { kind: Kind; start?: Collection; parts: MediaItem[]; firstLink: string; onDone: (c: Collection) => void }) {
   const w = WORDS[kind];
+  const book = kind === "audiobook";
   const [edit, setEdit] = useState<CollectionEdit>({
     title: start?.title ?? "", author: start?.author ?? "", narrator: start?.narrator ?? "", series: start?.series ?? "",
-    series_index: start?.series_index ?? 0, description: start?.description ?? "",
+    series_index: start?.series_index ?? 0, description: start?.description ?? "", related: start?.related ?? [],
   });
+  const [links, setLinks] = useState<string[]>([firstLink]);
+  const [order, setOrder] = useState<string[]>(() => parts.map((p) => p.id));
+  // Parts can arrive (or go) while the page is open: keep the order chosen so far, then the new ones at the end
+  const partIds = parts.map((p) => p.id).join(",");
+  useEffect(() => {
+    const ids = partIds ? partIds.split(",") : [];
+    setOrder((was) => [...was.filter((id) => ids.includes(id)), ...ids.filter((id) => !was.includes(id))]);
+  }, [partIds]);
   const [picture, setPicture] = useState<Blob | null>(null);
   const [preview, setPreview] = useState("");
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<CollectionEdit>) => setEdit({ ...edit, ...patch });
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 
-  async function choose(file: File | undefined) {
-    if (!file) return;
+  async function frame(source: Blob | Promise<Blob>) {
     try {
-      const jpeg = await pictureToCover(file);
+      const jpeg = await cropPicture(await source);
+      if (!jpeg) return;
       setPicture(jpeg);
       setPreview(URL.createObjectURL(jpeg));
-    } catch { toast("That picture could not be read"); }
+    } catch (e) { toast((e as Error).message); }
   }
 
+  // The pictures of its videos, to frame as the cover: the parts it has, then the links being added
+  const videoPictures = [
+    ...parts.filter((p) => p.thumb).map((p) => ({ label: `Part ${p.part ?? 0}: ${p.title}`, url: api.mediaThumbUrl(p.id) })),
+    ...links.map(videoIdOf).filter(Boolean).map((id, i) => ({ label: `Link ${i + 1}`, url: api.videoPictureUrl(id) })),
+  ];
+  const useVideoPicture = () => {
+    if (videoPictures.length === 1) { void frame(api.fetchPicture(videoPictures[0].url)); return; }
+    openSheet("Use a video's picture", edit.title || undefined, videoPictures.slice(0, 30).map((v) => ({ icon: "image" as const, label: v.label, run: () => void frame(api.fetchPicture(v.url)) })));
+  };
+  const reordered = order.some((id, i) => id !== parts[i]?.id);
+
+  const wanted = links.map((l) => l.trim()).filter(Boolean);
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
       let c = start ? await api.editCollection(kind, start.id, edit) : await api.createCollection(kind, edit);
       if (picture) c = { ...c, ...(await api.uploadCollectionCover(kind, c.id, picture)) };
+      if (start && reordered) await api.orderParts(c.id, order);
+      // Each link gets its number now: they download side by side and finish in any order
+      const after = Math.max(reordered ? order.length : 0, parts.reduce((n, it) => Math.max(n, it.part ?? 0), 0));
+      const problems: string[] = [];
+      let started = 0;
+      for (const [i, link] of wanted.entries()) {
+        try {
+          const result = await requestMedia(link, "audiobook", c.id, after + i + 1);
+          if (result.existing) problems.push(`Link ${i + 1} is already in the library (${result.existing.title})`);
+          else started++;
+        } catch (err) { problems.push(`Link ${i + 1}: ${(err as Error).message}`); }
+      }
       refreshShelves();
-      toast(start ? "Saved" : `${kind === "podcast" ? "Show" : "Book"} made. Add its ${w.items} from a YouTube link`);
+      if (problems.length) toast(problems.join(". "));
+      else if (started) toast(`${start ? "Saved" : "Book added"}. Downloading ${started === 1 ? "its audio" : `${started} parts`}`);
+      else toast(start ? "Saved" : `${book ? "Book" : "Show"} added`);
       onDone(c);
     } catch (err) {
       toast((err as Error).message);
@@ -675,20 +897,27 @@ function EditorForm({ kind, start, onDone }: { kind: Kind; start?: Collection; o
   }
 
   const art = preview || (start && (start.cover || start.thumb) ? api.collectionCoverUrl(start) : "");
+  const title = start ? (book ? "Edit book" : "Edit show") : w.make;
   return (
     <form className="grid gap-5 px-5 pt-2 pb-10 wide:px-8 max-w-190" onSubmit={(e) => void save(e)}>
-      <header className={cx(ui.heroCompact, "px-0!")}><h1>{start ? `Edit ${w.one}` : w.make}</h1></header>
+      <header className={cx(ui.heroCompact, "px-0!")}><h1>{title}</h1></header>
       <div className="flex items-center gap-4">
         <label className="tap relative flex-none w-28 cursor-pointer group/pic" aria-label="Choose a picture">
-          <Picture src={art} className={cx(ui.coverBig, kind === "audiobook" && "aspect-[3/4]!")} />
+          <Picture src={art} className={ui.coverBig} />
           <span className="absolute inset-0 grid place-items-center rounded-big bg-black/40 text-white opacity-0 group-hover/pic:opacity-100 transition-opacity"><Icon name="image" size={26} /></span>
-          <input type="file" accept="image/*" className="sr-only" onChange={(e) => void choose(e.target.files?.[0])} />
+          <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) void frame(f); e.target.value = ""; }} />
         </label>
-        <p className="text-muted text-[.9rem]">{kind === "audiobook" ? "The book's cover. Without one, the picture of its first part shows." : "The show's picture. Without one, the newest episode's shows."}</p>
+        <div className="grid gap-2 justify-items-start">
+          <p className="text-muted text-[.9rem]">{book ? "The book's cover. You frame it in the square after choosing it. Without one, the picture of its first part shows." : "The show's picture. Without one, the newest episode's shows."}</p>
+          <div className="flex flex-wrap gap-2">
+            {videoPictures.length > 0 && <button type="button" className={ui.pill} onClick={useVideoPicture}><Icon name="image" size={16} />Use a video's picture</button>}
+            {picture && <button type="button" className={ui.pill} onClick={() => { setPicture(null); setPreview(""); }}><Icon name="close" size={16} />Undo the new picture</button>}
+          </div>
+        </div>
       </div>
       <label className={FIELD}><span>Title</span><input className={ui.input} required maxLength={200} value={edit.title} onChange={(e) => set({ title: e.target.value })} /></label>
       <label className={FIELD}><span>{w.author}</span><input className={ui.input} maxLength={200} value={edit.author} onChange={(e) => set({ author: e.target.value })} /></label>
-      {kind === "audiobook" && (
+      {book && (
         <>
           <label className={FIELD}><span>Narrator</span><input className={ui.input} maxLength={200} value={edit.narrator} onChange={(e) => set({ narrator: e.target.value })} /></label>
           <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
@@ -698,8 +927,44 @@ function EditorForm({ kind, start, onDone }: { kind: Kind; start?: Collection; o
         </>
       )}
       <label className={FIELD}><span>Description</span><textarea className={ui.textarea} maxLength={5000} value={edit.description} onChange={(e) => set({ description: e.target.value })} /></label>
+      {book && start && parts.length > 1 && (
+        <section className="grid gap-2.5" aria-labelledby="order-title">
+          <div className="grid gap-0.5 px-1.5">
+            <b id="order-title" className="text-[.75rem] uppercase tracking-[.09em] text-muted font-bold">Order of the parts</b>
+            <p className="text-muted text-[.88rem]">Drag a part by its handle, or move it with the arrows. It is saved with the rest.</p>
+          </div>
+          <PartOrder parts={parts} order={order} onChange={setOrder} />
+        </section>
+      )}
+      {book && (
+        <section className="grid gap-2.5" aria-labelledby="links-title">
+          <div className="grid gap-0.5 px-1.5">
+            <b id="links-title" className="text-[.75rem] uppercase tracking-[.09em] text-muted font-bold">{start ? "Add parts from YouTube" : "YouTube links"}</b>
+            <p className="text-muted text-[.88rem]">{start && parts.length > 0
+              ? `They come after its ${parts.length === 1 ? "part" : `${parts.length} parts`}, in this order.`
+              : "One link when the whole book is one video, or one per chapter, in order. A playlist can fill them all. Only the audio is kept."}</p>
+          </div>
+          <ol className="grid gap-2">
+            {links.map((l, i) => (
+              <LinkField key={i} value={l} index={i} removable={links.length > 1}
+                onChange={(v) => setLinks(links.map((x, j) => (j === i ? v : x)))} onRemove={() => setLinks(links.filter((_, j) => j !== i))}
+                onExpand={(more) => setLinks([...links.slice(0, i), ...more, ...links.slice(i + 1)].filter((x, j, all) => x.trim() === "" || all.indexOf(x) === j))} />
+            ))}
+          </ol>
+          <button type="button" className={cx(ui.pill, "justify-self-start ml-8")} onClick={() => setLinks([...links, ""])}><Icon name="plus" size={16} />Another link</button>
+        </section>
+      )}
+      {book && (
+        <section className="grid gap-2.5" aria-labelledby="related-title">
+          <div className="grid gap-0.5 px-1.5">
+            <b id="related-title" className="text-[.75rem] uppercase tracking-[.09em] text-muted font-bold">Related books</b>
+            <p className="text-muted text-[.88rem]">Optional. Each one shows on the other's page.</p>
+          </div>
+          <RelatedPicker self={start?.id} value={edit.related ?? []} onChange={(related) => set({ related })} />
+        </section>
+      )}
       <div className="flex gap-2.5">
-        <button type="submit" className={ui.primary} disabled={busy || edit.title.trim() === ""}>{busy ? <Ring percent={-1} size={20} /> : <Icon name="check" size={20} />}{start ? "Save" : `Make ${w.one}`}</button>
+        <button type="submit" className={ui.primary} disabled={busy || edit.title.trim() === ""}>{busy ? <Ring percent={-1} size={20} /> : <Icon name="check" size={20} />}{start ? "Save" : book ? "Add book" : "Make show"}</button>
       </div>
     </form>
   );

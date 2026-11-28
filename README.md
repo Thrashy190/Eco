@@ -149,11 +149,13 @@ Downloads land in `data/music/YouTube/Artist/Album/NN - Title.m4a`, tagged and w
 
 ## Podcasts and audiobooks
 
-**Podcasts** and **Audiobooks** are sections of their own, reached from the Library or as tabs of their own (Settings ▸ Tabs). Episodes belong to a **show** and parts to a **book**, which anyone can make: a title, an author or host, for a book its narrator and series, a description and a picture.
+**Podcasts** and **Audiobooks** are sections of their own, reached from the Library or as tabs of their own (Settings ▸ Tabs). Episodes belong to a **show** and parts to a **book**, which anyone can make: a title, an author or host, for a book its narrator and series, a description and a picture, framed in the square as you choose it.
 
-Add to one in two ways:
+**Add book** takes everything in one page: the details, the cover, and one YouTube link when the whole book is one video, or several when each chapter is its own (they become its parts, in the order given). A **playlist** link offers to fill them all, one part per video. The cover can be any picture, or the picture of one of its videos; either way you frame it in the square (so are playlist and album covers and your profile picture). **Edit book** also puts the parts in order (drag them, or use the arrows) and takes more links. A book can list **related books** (a series, the same world), which show on each other's page. Deleting a book takes its parts with it, after asking.
 
-- **A YouTube link**: paste it into the search box (a single video, not a playlist), choose *Podcast* or *Audiobook* and the show or book. Only the audio is downloaded, with the chapters its uploader marked.
+Add to a show or book in two ways:
+
+- **A YouTube link**: paste it into the search box (a single video, not a playlist) and choose *Podcast* or *Audiobook*. A podcast goes into the show you choose; an audiobook goes into a book you have, or opens Add book with the link. For a book you have, **Edit book** also takes more links. Only the audio is downloaded, with the chapters its uploader marked.
 - **A file from your device**: on the show's or book's page, **Add ▸ Upload files**. A whole book in one file (an `.m4b` keeps its chapters and cover), or one file per part: they join in the order of their names. Files go in pieces, so a large book survives a dropped connection.
 
 While one plays, the player changes for it:
@@ -161,7 +163,7 @@ While one plays, the player changes for it:
 | | |
 |---|---|
 | **Back / forward** | 30 seconds by default (10 to 60 in Settings), also on the lock screen |
-| **Chapters** | previous and next move by chapter; the list shows each one; anyone can **mark a chapter** where a part begins, and everyone sees it |
+| **Chapters** | the ones that came with the video or file: previous and next move by chapter, and the list shows each one |
 | **Speed** | 0.5x to 3x in steps of 0.05, remembered for each show or book |
 | **Sleep timer** | also **at the end of this chapter** |
 | **Bookmarks and notes** | yours alone, unless you share a note with everyone who listens |

@@ -6,13 +6,12 @@ import { useState } from "react";
 import * as api from "../lib/api";
 import { clock } from "../lib/format";
 import { queryClient } from "../lib/query";
-import { chapterAt, chapterEnd, cleanSpeed, leftAtSpeed, MAX_SPEED, MIN_SPEED, skipLength, speedLabel, spokenLength, type Chapter } from "../lib/spoken";
+import { chapterAt, chapterEnd, cleanSpeed, leftAtSpeed, MAX_SPEED, MIN_SPEED, skipLength, speedLabel, spokenLength } from "../lib/spoken";
 import type { Mark, SharedMark, Song } from "../lib/types";
 import { cx, ui } from "../lib/ui";
-import { isAdmin } from "../stores/admin";
 import * as player from "../stores/player";
 import { useOnline, useSettings } from "../stores/settings";
-import { setChapters, useChapters } from "../stores/spoken";
+import { useChapters } from "../stores/spoken";
 import { askText, openSheet, toast } from "../stores/ui";
 import { Icon, Ring, type IconName } from "./Icon";
 
@@ -107,17 +106,6 @@ export async function addNote(song: Song, at: number): Promise<void> {
   } catch (e) { toast((e as Error).message); }
 }
 
-/** Mark a chapter at this moment, for everyone. */
-export async function markChapter(song: Song, at: number): Promise<void> {
-  if (!song.mediaId) return;
-  const answer = await askText({ title: `A chapter starts at ${clock(at)}`, label: "Name of the chapter", confirm: "Add chapter", maxLength: 120 });
-  if (!answer || answer.text === "") return;
-  try {
-    setChapters(song.mediaId, await api.addChapter(song.mediaId, at, answer.text));
-    toast("Chapter added. Everyone sees it");
-  } catch (e) { toast((e as Error).message); }
-}
-
 /** The tools beside the controls: speed, sleep, a bookmark, a note. */
 export function SpokenTools({ song, speed, className, button, sleep }: { song: Song; speed: number; className?: string; button: string; sleep: React.ReactNode }) {
   const at = () => player.useTime.getState().position;
@@ -161,37 +149,18 @@ export function ChapterTicks({ song }: { song: Song }) {
   );
 }
 
-function chapterMenu(song: Song, c: Chapter, mine: boolean): void {
-  if (!song.mediaId) return;
-  const id = song.mediaId;
-  openSheet(c.title, `${clock(c.start)}${c.by ? ` · marked by ${c.by}` : " · came with the file"}`, [
-    { icon: "play", label: "Play from here", run: () => player.seek(c.start) },
-    mine && { icon: "pencil", label: "Rename", run: async () => {
-      const answer = await askText({ title: "Rename the chapter", label: "Name of the chapter", initial: c.title, maxLength: 120 });
-      if (!answer || answer.text === "") return;
-      try { setChapters(id, await api.changeChapter(id, c.start, answer.text)); } catch (e) { toast((e as Error).message); }
-    } },
-    mine && { icon: "trash", label: "Remove the chapter", danger: true, run: async () => {
-      try { setChapters(id, await api.changeChapter(id, c.start, "")); toast("Chapter removed"); } catch (e) { toast((e as Error).message); }
-    } },
-  ]);
-}
-
-/** Every chapter, the one playing lit, and a way to mark one where it is now. */
+/** Every chapter, the one playing lit. Tapping one goes there. */
 export function ChapterList({ song, className }: { song: Song; className?: string }) {
   const chapters = useChapters(song.mediaId);
   const position = player.useTime((t) => Math.floor(t.position));
   const length = player.useTime((t) => t.length);
-  const online = useOnline();
-  const me = api.username().toLowerCase();
   const playing = chapterAt(chapters, position);
   return (
     <div className={cx("grid gap-1", className)}>
-      {chapters.length === 0 && <p className="text-muted text-[.9rem] px-2 py-1.5">No chapters yet. Mark one where a part begins, and everyone who listens can jump to it.</p>}
+      {chapters.length === 0 && <p className="text-muted text-[.9rem] px-2 py-1.5">This one has no chapters. Bookmark a moment to come back to it.</p>}
       <ol className="grid">
         {chapters.map((c, i) => {
           const end = chapterEnd(chapters, i, length);
-          const mine = Boolean(c.by) && c.by!.toLowerCase() === me;
           return (
             <li key={c.start} className="group/ch flex items-center rounded-2xl hover:bg-hover data-current:bg-[rgb(var(--glow)/.14)]" data-current={i === playing || undefined}>
               <button type="button" className="tap flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 text-left" onClick={() => player.seek(c.start)}>
@@ -201,12 +170,10 @@ export function ChapterList({ song, className }: { song: Song; className?: strin
                   <span className="text-muted text-[.8rem] tabular-nums">{`${clock(c.start)}${length ? ` · ${spokenLength(end - c.start)}` : ""}`}</span>
                 </span>
               </button>
-              <button type="button" className={ui.rowMore} aria-label={`More about ${c.title}`} onClick={() => chapterMenu(song, c, mine || isAdmin())}><Icon name="more" size={18} /></button>
             </li>
           );
         })}
       </ol>
-      {online && <button type="button" className={cx(ui.pill, "justify-self-start ml-2")} onClick={() => void markChapter(song, player.useTime.getState().position)}><Icon name="flag" size={16} />Mark a chapter here</button>}
     </div>
   );
 }

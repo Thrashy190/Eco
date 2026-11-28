@@ -252,6 +252,8 @@ export interface Job {
   library_id?: string;
   kind?: MediaKind;
   media_id?: string;
+  /** For a media import: the show or book it goes into, when one was chosen. */
+  parent?: string;
   error?: string;
   finished_at?: number;
 }
@@ -278,6 +280,8 @@ export interface MediaItem {
   added_by?: string;
   description?: string;
   published?: number;
+  /** The name of its picture in its folder, when it has one (served at /api/media/{id}/thumb). */
+  thumb?: string;
 }
 
 /** A podcast show or an audiobook, as /api/shows and /api/books describe one. */
@@ -299,9 +303,11 @@ export interface Collection {
   latest: number;
   thumb?: string;
   can_edit: boolean;
+  /** Books that go with this one, kept on both sides by the server. */
+  related?: string[];
 }
 
-export type CollectionEdit = Pick<Collection, "title" | "author" | "narrator" | "series" | "series_index" | "description">;
+export type CollectionEdit = Pick<Collection, "title" | "author" | "narrator" | "series" | "series_index" | "description" | "related">;
 
 /** A bookmark, or a note when it has text. Private unless shared. */
 export interface Mark {
