@@ -171,6 +171,8 @@ You only need these when running the `eco` binary yourself instead of the contai
 | `ECO_LISTEN` | `127.0.0.1:8000` | address Eco serves on |
 | `YTDLP_BIN` | `yt-dlp` on `PATH`, else `./bin/yt-dlp` | the yt-dlp binary (`make tools` downloads one) |
 | `FFMPEG_BIN` | `ffmpeg` | the ffmpeg binary |
+| `FFPROBE_BIN` | `ffprobe`, next to `FFMPEG_BIN` | the ffprobe binary, which checks podcasts and audiobooks sent from a device |
+| `MEDIA_UPLOAD_MAX_MB` | `4096` | the largest podcast or audiobook file anyone may send from a device, in MB (it arrives in pieces of 32 MB, so Cloudflare's 100 MB limit does not apply) |
 | `ECO_ROOT` | current folder | where `.env` and `.spotify_token.json` live |
 
 Run `eco doctor` any time to check what is missing.

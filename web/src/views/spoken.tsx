@@ -23,6 +23,7 @@ import * as player from "../stores/player";
 import { removeOffline, saveOffline, syncCollectionIfSaved } from "../stores/saving";
 import { useOnline } from "../stores/settings";
 import { progressOf, useSpoken } from "../stores/spoken";
+import { cancel, clearDone, sendFiles, useUploads } from "../stores/uploads";
 import { askText, openSheet, toast } from "../stores/ui";
 
 type Kind = Collection["kind"];
@@ -367,6 +368,52 @@ export function Podcasts() {
   );
 }
 
+// ---------------- Files from this device ----------------
+
+const AUDIO_FILES = "audio/*,.m4b,.mp3,.m4a,.aac,.ogg,.opus,.flac,.wav";
+
+/** Send episodes or parts from this device. Several at once for a book in parts: they join it in the order of their names. */
+function UploadButton({ c }: { c: Collection }) {
+  return (
+    <label className={cx(ui.pill, "cursor-pointer")}>
+      <Icon name="upload" size={16} />{c.kind === "podcast" ? "Upload episodes" : "Upload files"}
+      <input type="file" multiple accept={AUDIO_FILES} className="sr-only" onChange={(e) => { if (e.target.files?.length) sendFiles(e.target.files, c.kind, c.id); e.target.value = ""; }} />
+    </label>
+  );
+}
+
+const megabytes = (bytes: number) => `${(bytes / 1048576).toFixed(bytes < 10 * 1048576 ? 1 : 0)} MB`;
+
+/** The files on their way to this show or book. */
+function UploadList({ c }: { c: Collection }) {
+  const list = useUploads((s) => s.list.filter((u) => u.collection === c.id));
+  if (!list.length) return null;
+  return (
+    <section className="mx-4 my-2 p-2 rounded-[22px] bg-glass-strong shadow-[inset_0_0_0_1px_var(--line)] wide:mx-8" aria-label="Uploads">
+      <div className="flex items-center justify-between px-2 py-1">
+        <b className="text-[.9rem]">Uploading</b>
+        {list.some((u) => u.state === "done") && <button type="button" className="text-[.85rem] font-semibold text-muted hover:text-text" onClick={clearDone}>Clear finished</button>}
+      </div>
+      <ul className="grid">
+        {list.map((u) => (
+          <li key={u.key} className="flex items-center gap-3 px-2 py-2">
+            <span className="flex-none text-accent">
+              {u.state === "done" ? <Icon name="check" size={20} /> : u.state === "failed" ? <Icon name="close" size={20} /> : <Ring percent={u.state === "checking" || u.state === "waiting" ? -1 : (u.sent / u.size) * 100} size={22} />}
+            </span>
+            <span className="flex-1 min-w-0 grid">
+              <b className="truncate font-[650] text-[.92rem]">{u.name}</b>
+              <span className={cx("truncate text-[.8rem]", u.state === "failed" ? "text-danger" : "text-muted")}>
+                {u.state === "waiting" ? "Waiting" : u.state === "checking" ? "Checking the file…" : u.state === "done" ? "Added" : u.state === "failed" ? u.error : `${megabytes(u.sent)} of ${megabytes(u.size)}`}
+              </span>
+            </span>
+            {u.state !== "done" && <button type="button" className={ui.iconButton} aria-label={`Stop sending ${u.name}`} onClick={() => cancel(u.key)}><Icon name="close" size={18} /></button>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 // ---------------- One show or book ----------------
 
 function collectionMenu(c: Collection, navigate: ReturnType<typeof useNavigate>): void {
@@ -433,15 +480,17 @@ export function BookPage() {
         <div className={ui.actions}>
           {items.length > 0 && <button type="button" className={ui.primary} onClick={resume}><Icon name="play" size={20} />{progress.state === "started" ? "Continue" : progress.state === "finished" ? "Listen again" : "Start listening"}</button>}
           {items.length > 0 && <DownloadToggle spec={spec} songs={songs} />}
-          <button type="button" className={ui.pill} onClick={() => navigate(`/search`)}><Icon name="plus" size={16} />Add a part</button>
+          <UploadButton c={book} />
+          <button type="button" className={ui.pill} onClick={() => navigate(`/search`)}><Icon name="plus" size={16} />From YouTube</button>
           {book.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(book, navigate)}><Icon name="more" size={18} /></button>}
         </div>
       )}>
+      <UploadList c={book} />
       <nav className={ui.segments} aria-label="Book">
         {tabs.map(([t, label]) => <button key={t} type="button" className={ui.segment} data-on={tab === t || undefined} aria-pressed={tab === t} onClick={() => setTab(t)}>{label}</button>)}
       </nav>
       {tab === "chapters" && (items.length === 0
-        ? <Welcome title="No parts yet"><p>Paste a YouTube link in Search and choose this book. A whole book in one video, or one part at a time.</p></Welcome>
+        ? <Welcome title="No parts yet"><p>Upload the book from this device (one file, or one per part), or paste a YouTube link in Search and choose this book. Its chapters come with it when the file has them.</p></Welcome>
         : onePart
           ? <OnePartChapters book={book} item={items[0]} song={songs[0]} />
           : (
@@ -539,12 +588,14 @@ export function ShowPage() {
           <div className={ui.actions}>
             {items.length > 0 && <button type="button" className={ui.primary} onClick={() => player.play(allSongs, Math.max(0, firstNew), undefined, show.title)}><Icon name="play" size={20} />{firstNew > 0 ? "Play newest not heard" : "Play newest"}</button>}
             {items.length > 0 && <DownloadToggle spec={spec} songs={allSongs} />}
-            <button type="button" className={ui.pill} onClick={() => navigate("/search")}><Icon name="plus" size={16} />Add an episode</button>
+            <UploadButton c={show} />
+            <button type="button" className={ui.pill} onClick={() => navigate("/search")}><Icon name="plus" size={16} />From YouTube</button>
             {show.can_edit && <button type="button" className={ui.round} aria-label="More" onClick={() => collectionMenu(show, navigate)}><Icon name="more" size={18} /></button>}
           </div>
           <About text={show.description} />
         </>
       )}>
+      <UploadList c={show} />
       <div className="flex items-center gap-2 pr-4 wide:pr-8">
         <nav className={cx(ui.segments, "flex-1")} aria-label="Show">
           {FILTERS.map(([f, label]) => <button key={f} type="button" className={ui.segment} data-on={filter === f || undefined} aria-pressed={filter === f} onClick={() => setFilter(f)}>{label}</button>)}
@@ -552,7 +603,7 @@ export function ShowPage() {
         <button type="button" className={ui.pill} onClick={() => setOldest(!oldest)}><Icon name="sort" size={16} />{oldest ? "Oldest first" : "Newest first"}</button>
       </div>
       {items.length === 0
-        ? <Welcome title="No episodes yet"><p>Paste a YouTube link in Search and choose this show.</p></Welcome>
+        ? <Welcome title="No episodes yet"><p>Upload episodes from this device, or paste a YouTube link in Search and choose this show.</p></Welcome>
         : shown.length === 0 ? <Empty>Nothing here.</Empty> : (
           <ul className={ui.rows}>
             {shown.map((it, i) => <ItemRow key={it.id} item={it} song={songs[i]} label={dateOf(it)} progress={read(it.id)} onPlay={() => player.play(songs, i, undefined, show.title)} onMenu={() => itemMenu(it, songs[i], show, songs, i)} />)}

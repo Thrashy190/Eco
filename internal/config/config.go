@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -23,6 +24,8 @@ type Config struct {
 
 	YtDlp          string // yt-dlp binary
 	FFmpeg         string // ffmpeg binary
+	FFprobe        string // ffprobe binary, which reads files sent from a device (next to ffmpeg unless set)
+	MaxUploadMB    int64  // the largest podcast or audiobook file a person may send from a device
 	CookiesBrowser string // e.g. "firefox"; yt-dlp reads that browser's YouTube session
 	CookiesFile    string // Netscape cookies.txt, for servers with no browser
 	JSRuntimes     []string
@@ -60,6 +63,8 @@ func Load() *Config {
 
 		YtDlp:          env("YTDLP_BIN", findBinary("yt-dlp", filepath.Join(root, "bin", "yt-dlp"))),
 		FFmpeg:         env("FFMPEG_BIN", "ffmpeg"),
+		FFprobe:        env("FFPROBE_BIN", sibling(env("FFMPEG_BIN", "ffmpeg"), "ffprobe")),
+		MaxUploadMB:    envInt("MEDIA_UPLOAD_MAX_MB", 4096),
 		CookiesBrowser: os.Getenv("YT_COOKIES_BROWSER"),
 		CookiesFile:    os.Getenv("YT_COOKIES_FILE"),
 		JSRuntimes:     jsRuntimes(),
@@ -86,6 +91,23 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// envInt reads a whole number, keeping the fallback for anything that is not a positive one.
+func envInt(key string, fallback int64) int64 {
+	if n, err := strconv.ParseInt(os.Getenv(key), 10, 64); err == nil && n > 0 {
+		return n
+	}
+	return fallback
+}
+
+// sibling is the path of another program next to bin: ffprobe beside the ffmpeg chosen. A bare name stays a bare
+// name, found on the PATH.
+func sibling(bin, name string) string {
+	if !strings.ContainsRune(bin, filepath.Separator) {
+		return name
+	}
+	return filepath.Join(filepath.Dir(bin), name)
 }
 
 func mustGetwd() string {

@@ -191,6 +191,12 @@ func (s *Server) mediaList(w http.ResponseWriter, r *http.Request, _ subsonic.Cr
 	respond(w, http.StatusOK, map[string]any{"items": items})
 }
 
+// mediaTypes are the files an item may hold: what YouTube gives, and what media.Probe accepts from a device.
+var mediaTypes = map[string]string{
+	".m4a": "audio/mp4", ".m4b": "audio/mp4", ".mp3": "audio/mpeg", ".aac": "audio/aac", ".ogg": "audio/ogg", ".opus": "audio/ogg",
+	".flac": "audio/flac", ".wav": "audio/wav", ".jpg": "image/jpeg",
+}
+
 // mediaFile serves an item's media or thumbnail. ServeContent handles Range requests, which seeking needs.
 func (s *Server) mediaFile(thumb bool) func(http.ResponseWriter, *http.Request, subsonic.Cred) {
 	return func(w http.ResponseWriter, r *http.Request, _ subsonic.Cred) {
@@ -210,7 +216,7 @@ func (s *Server) mediaFile(thumb bool) func(http.ResponseWriter, *http.Request, 
 		}
 		defer f.Close()
 		st, _ := f.Stat()
-		w.Header().Set("Content-Type", map[string]string{".m4a": "audio/mp4", ".jpg": "image/jpeg"}[strings.ToLower(filepath.Ext(name))])
+		w.Header().Set("Content-Type", mediaTypes[strings.ToLower(filepath.Ext(name))])
 		if thumb {
 			w.Header().Set("Cache-Control", "private, max-age=86400")
 		}

@@ -365,6 +365,15 @@ export const uploadCollectionCover = (kind: Collection["kind"], id: string, pict
 export const removeCollectionCover = (kind: Collection["kind"], id: string) => eco<Collection>(`${shelf(kind)}/${part(id)}/cover`, undefined, "DELETE");
 /** A show's or book's picture: its own (the address changes with it), or its first item's. */
 export const collectionCoverUrl = (c: Pick<Collection, "id" | "kind" | "cover">) => `/api/${shelf(c.kind)}/${part(c.id)}/cover?${params({ v: c.cover ?? 0 })}`;
+// ---- Files sent from this device, in pieces (a request through Cloudflare stops at 100 MB) ----
+export interface UploadState { id: string; received: number; size: number }
+export const startUpload = (body: { kind: MediaKind; collection: string; name: string; size: number }) =>
+  send<{ upload: UploadState; chunk: number }>("uploads", JSON.stringify(body));
+export const uploadStatus = (id: string) => eco<UploadState>(`uploads/${part(id)}`);
+export const uploadPiece = (id: string, offset: number, piece: Blob, signal?: AbortSignal) =>
+  request<UploadState>(`/api/uploads/${part(id)}?${params({ offset })}`, { method: "PUT", body: piece, headers: { "Content-Type": "application/octet-stream" }, signal });
+export const finishUpload = (id: string) => eco<MediaItem>(`uploads/${part(id)}/finish`, undefined, "POST");
+export const cancelUpload = (id: string) => eco<{ cancelled: boolean }>(`uploads/${part(id)}`, undefined, "DELETE");
 export const editMedia = (id: string, edit: { title?: string; description?: string; parent?: string; part?: number }) => send<MediaItem>(`media/${part(id)}`, JSON.stringify(edit), "PATCH");
 
 // ---- Chapters (everyone's) ----
