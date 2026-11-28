@@ -12,6 +12,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
@@ -279,6 +280,10 @@ func (s *Server) authed(h apiHandler) http.HandlerFunc {
 		s.mu.Unlock()
 		if time.Now().After(until) {
 			if err := s.nd.Ping(r.Context(), cred); err != nil {
+				if !refused(err) { // a 401 signs the person out of the app, and the TV asks to be paired again
+					fail(w, http.StatusBadGateway, "Navidrome is not answering; try again in a moment")
+					return
+				}
 				fail(w, http.StatusUnauthorized, "wrong username or password")
 				return
 			}
@@ -291,6 +296,13 @@ func (s *Server) authed(h apiHandler) http.HandlerFunc {
 		}
 		h(w, r, cred)
 	}
+}
+
+// refused tells Navidrome turning the credentials down (codes 40 and 41, read the same way by the web app and the TV)
+// from Navidrome not answering, which must never sign anyone out.
+func refused(err error) bool {
+	var answer *subsonic.APIError
+	return errors.Is(err, subsonic.ErrAuth) || (errors.As(err, &answer) && (answer.Code == 40 || answer.Code == 41))
 }
 
 func respond(w http.ResponseWriter, code int, v any) {
